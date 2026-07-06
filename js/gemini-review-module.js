@@ -1,0 +1,145 @@
+/**
+ * gemini-review-module.js (0.0.7 신규)
+ * Gemini 품질검수 요청 모듈
+ *
+ * 원칙:
+ * - Gemini는 글을 생성하지 않으며 ZIP을 수정하지 않는다. 검수 결과와 수정 제안만 받는다.
+ * - 기존 WorkerApiModule.callWorker() 공통 호출 경로를 그대로 재사용한다(신규 Worker 미작성).
+ * - Gemini에 보내는 데이터는 최소화한다(원본 이미지/Blogger 토큰/Worker 토큰/API Key 전송 금지).
+ * - 실패는 ZIP 등록 실패로 취급하지 않으며, 자료실 데이터를 손상시키지 않는다(읽기 전용 조회만 수행).
+ */
+
+const GeminiReviewModule = (() => {
+  // 작업지시서 6번: 본문 길이 기준(단순 글자수)으로 빠른 검수/정밀 검수를 자동 선택한다.
+  const LONG_CONTENT_THRESHOLD = 1500;
+
+  function extractPlainText(post) {
+    if (post.textContent && post.textContent.trim()) return post.textContent;
+    if (post.htmlContent) {
+      try {
+        const doc = new DOMParser().parseFromString(post.htmlContent, "text/html");
+        return doc.body.textContent || "";
+      } catch (error) {
+        return "";
+      }
+    }
+    return post.markdownContent || "";
+  }
+
+  // 자동 선택 기준(작업지시서 6):
+  // - 본문이 짧음 → 빠른 검수 / SEO 통과 글 단순 확인 → 빠른 검수
+  // - 본문이 김 또는 SEO 미통과/보완 항목 많음 → 정밀 검수
+  // - 사용자가 정밀 검수를 직접 선택 → 무조건 정밀 검수
+  function decideModelMode(post, forcedMode) {
+    if (forcedMode === "precise") return "precise";
+    if (forcedMode === "fast") return "fast";
+
+    const seoResult = post.seoResult || {};
+    const seoOk = seoResult.result === "통과";
+    const textLength = extractPlainText(post).length;
+
+    if (!seoOk) return "precise";
+    if (textLength >= LONG_CONTENT_THRESHOLD) return "precise";
+    return "fast";
+  }
+
+  // 작업지시서 9: Gemini에 보낼 데이터를 최소화해서 구성한다.
+  function buildRequestPayload(post, mode) {
+    const seoResult = post.seoResult || {};
+    const imageList = Array.isArray(post.imageList) ? post.imageList : [];
+    const thumbnail = imageList.find((img) => img.type === "thumbnail") || null;
+
+    return {
+      mode, // "fast" | "precise" (화면 표기: 빠른 검수 / 정밀 검수)
+      title: post.title || "",
+      description: post.metaDescription || "",
+      bodyText: extractPlainText(post).slice(0, 6000),
+      faqList: Array.isArray(post.faqList) ? post.faqList : [],
+      thumbnailText: thumbnail ? thumbnail.altText || "" : "",
+      imageAltTexts: imageList.map((img) => img.altText || ""),
+      seoScore: typeof seoResult.totalScore === "number" ? seoResult.totalScore : null,
+      seoIssues: Array.isArray(seoResult.issues) ? seoResult.issues : [],
+    };
+  }
+
+  // 작업지시서 10: Gemini 응답은 반드시 JSON이어야 한다. 문자열로 내려오는 경우까지 방어적으로 처리한다.
+  function parseGeminiResult(raw) {
+    let data = raw;
+    if (raw && typeof raw.result === "string") {
+      data = JSON.parse(raw.result);
+    } else if (raw && raw.review && typeof raw.review === "object") {
+      data = raw.review;
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new Error("품질검수 응답 형식이 올바르지 않습니다.");
+    }
+
+    return {
+      status: data.status || "보완필요",
+      score: typeof data.score === "number" ? data.score : 0,
+      summary: data.summary || "",
+      issues: Array.isArray(data.issues) ? data.issues : [],
+      rewriteRequest: data.rewriteRequest || "",
+    };
+  }
+
+  // 작업지시서 7: 구조/SEO 1차 검증(이미 완료)을 마친 글을 대상으로 Gemini 품질검수를 요청한다.
+  // 실패 시 ZIP 등록 실패로 취급하지 않고, 정식 오류(Gemini API 호출 실패/응답 파싱 실패)로만 기록한다.
+  async function requestReview(post, forcedMode) {
+    if (!post) {
+      return { success: false, error: "글 정보가 없습니다." };
+    }
+
+    const mode = decideModelMode(post, forcedMode);
+    const payload = buildRequestPayload(post, mode);
+
+    try {
+      const raw = await WorkerApiModule.requestGeminiReview(payload);
+      const review = parseGeminiResult(raw);
+      return { success: true, mode, review };
+    } catch (error) {
+      const isParseError = error instanceof SyntaxError;
+      ErrorLogModule.logError({
+        module: "gemini-review-module",
+        message: isParseError ? "Gemini 응답 파싱 실패" : "Gemini API 호출 실패",
+        detail: error.message,
+        relatedId: post.id || null,
+      });
+      return { success: false, error: "품질검수 요청에 실패했습니다. 잠시 후 다시 시도해주세요." };
+    }
+  }
+
+  // 작업지시서 12: 공작소 SEO 검증 + Gemini 검수 결과를 합쳐 GPT에게 다시 전달할 수정요청 문구를 만든다.
+  function buildRewriteRequestText(post, review) {
+    const seoResult = post.seoResult || {};
+    const seoIssues =
+      Array.isArray(seoResult.issues) && seoResult.issues.length > 0
+        ? seoResult.issues.map((issue) => `- ${issue}`).join("\n")
+        : "- 없음";
+    const geminiIssues =
+      Array.isArray(review.issues) && review.issues.length > 0
+        ? review.issues.map((issue) => `- ${issue.message || issue.suggestion || ""}`).join("\n")
+        : "- 없음";
+    const rewriteHint = review.rewriteRequest ? `\n${review.rewriteRequest}\n` : "";
+
+    return (
+      `방금 생성한 블로그 ZIP을 검증한 결과 아래 항목 보완이 필요합니다.\n\n` +
+      `공작소 검증:\n` +
+      `- SEO 점수: ${seoResult.totalScore != null ? seoResult.totalScore : "-"}점 / 기준 80점\n` +
+      `${seoIssues}\n\n` +
+      `Gemini 품질검수:\n` +
+      `${geminiIssues}\n` +
+      `${rewriteHint}\n` +
+      `기존 제목과 주제는 유지하고,\n` +
+      `위 항목만 보완해서 다시 통과 가능한 ZIP으로 만들어줘.\n` +
+      `이미지 파일명과 ZIP 구조는 기존 지시서 기준을 유지해줘.`
+    );
+  }
+
+  return {
+    decideModelMode,
+    requestReview,
+    buildRewriteRequestText,
+  };
+})();

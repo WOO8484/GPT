@@ -20,6 +20,12 @@ body {
   font-size: 16px;
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
+  /* repair(0.0.7): 좁은 영역에서 한글이 한 글자씩 세로로 쪼개져 보이는 문제 방지.
+     word-break: keep-all로 단어 중간 줄바꿈을 막고, overflow-wrap: break-word로
+     아주 긴 URL/단어만 예외적으로 줄바꿈되도록 한다. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  writing-mode: horizontal-tb;
 }
 
 button {

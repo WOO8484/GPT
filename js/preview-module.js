@@ -50,6 +50,49 @@ const PreviewModule = (() => {
     }
   }
 
+  // repair(0.0.7): content.html 안의 img src가 ZIP 내부 상대경로 파일명
+  // (thumbnail.png, body-01.png 등)을 그대로 가리키고 있어 미리보기에서
+  // 이미지가 깨지거나 물음표로 표시되는 문제를 보정한다. imageList의 fileName과
+  // 매칭되는 경우 실제 dataUrl로 치환하고, 매칭되는 이미지를 찾지 못한 경우에는
+  // 깨진 이미지 아이콘 대신 src를 비우고 대체 문구만 남긴다.
+  function mapImageSources(safeHtml, imageList) {
+    if (!safeHtml) return safeHtml;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(safeHtml, "text/html");
+      const images = doc.body.querySelectorAll("img");
+
+      images.forEach((img) => {
+        const src = img.getAttribute("src") || "";
+
+        // 이미 dataUrl/Blob/Object URL/절대경로(http)인 경우는 그대로 둔다.
+        if (/^(data:|blob:|https?:)/i.test(src)) return;
+
+        const baseName = src.split("/").pop().split("?")[0].toLowerCase();
+        const matched = (imageList || []).find(
+          (image) => (image.fileName || "").toLowerCase() === baseName
+        );
+
+        if (matched && matched.dataUrl) {
+          img.setAttribute("src", matched.dataUrl);
+        } else {
+          img.removeAttribute("src");
+          img.setAttribute("alt", img.getAttribute("alt") || "이미지를 표시할 수 없습니다");
+        }
+      });
+
+      return doc.body.innerHTML;
+    } catch (error) {
+      ErrorLogModule.logError({
+        module: "preview-module",
+        message: "미리보기 이미지 표시 실패",
+        detail: error.message,
+        relatedId: null,
+      });
+      return safeHtml;
+    }
+  }
+
   // repair2: Blogspot 기준 미리보기를 위한 목차(h2/h3) 자동 추출.
   // safeHtml(필터링이 끝난 안전한 HTML)을 대상으로 하며, 별도 저장하지 않고 표시용으로만 사용한다.
   function extractTableOfContents(safeHtml) {
@@ -87,13 +130,14 @@ const PreviewModule = (() => {
       const imageList = Array.isArray(post.imageList) ? post.imageList : [];
       const thumbnail = imageList.find((img) => img.type === "thumbnail") || null;
       const bodyImages = imageList.filter((img) => img.type === "body");
+      const mappedHtml = mapImageSources(safeHtml, imageList);
 
       return {
         title: post.title || "(제목 없음)",
         keyword: post.keyword || "-",
         metaDescription: post.metaDescription || "-",
         tags: Array.isArray(post.tags) && post.tags.length > 0 ? post.tags.join(", ") : "-",
-        safeHtml,
+        safeHtml: mappedHtml,
         markdownContent: post.markdownContent || "(내용 없음)",
         textContent: post.textContent || "(내용 없음)",
         thumbnail,

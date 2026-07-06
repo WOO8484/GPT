@@ -23,7 +23,7 @@
       <div id="login-error" class="login-error hidden"></div>
       <button id="login-btn" class="btn btn--primary btn--block">입장하기</button>
     </div>
-    <div class="login-version">v0.0.6 repair2</div>
+    <div class="login-version">v0.0.7</div>
   </div>
 
   <!-- 메인 앱: 로그인 성공 전에는 hidden 상태로 유지된다 -->
@@ -98,6 +98,7 @@
             <button id="register-revalidate-btn-2" class="btn">재검증</button>
             <button id="register-save-btn" class="btn btn--primary">저장</button>
           </div>
+          <div class="notice-text">재검증은 현재 선택된 ZIP을 다시 검사합니다. 파일 선택창을 다시 열지 않습니다.</div>
           <div class="btn-row hidden" id="register-btn-row-done">
             <button id="register-goto-archive-btn" class="btn btn--primary btn--block">자료실에서 보기</button>
           </div>
@@ -212,6 +213,7 @@
 
         <div class="btn-row">
           <button id="archive-detail-preview-btn" class="btn btn--primary">미리 보기</button>
+          <button id="archive-detail-quality-btn" class="btn">품질 검수</button>
           <button id="archive-detail-delete-btn" class="btn btn--danger">삭제 하기</button>
         </div>
         <button id="archive-detail-back-btn" class="btn btn--block" type="button">목록으로</button>
@@ -273,6 +275,7 @@
             </div>
 
             <div class="blogspot-ad-box">광고</div>
+            <div class="notice-text">광고칸은 표시용 근사치입니다. 실제 광고 위치와 크기는 블로그스팟 테마와 애드센스 설정에 따라 달라질 수 있습니다.</div>
 
             <div class="section">
               <div class="btn-row">
@@ -295,6 +298,7 @@
             </div>
 
             <div class="blogspot-ad-box">광고</div>
+            <div class="notice-text">광고칸은 표시용 근사치입니다. 실제 광고 위치와 크기는 블로그스팟 테마와 애드센스 설정에 따라 달라질 수 있습니다.</div>
 
             <div id="preview-faq-box" class="blogspot-faq-box hidden">
               <div class="blogspot-faq-box__title">자주 묻는 질문</div>
@@ -309,6 +313,7 @@
             <div id="preview-related-box" class="blogspot-related-box hidden">
               <div class="blogspot-related-box__title">관련 글</div>
               <div id="preview-related-list"></div>
+              <div class="notice-text">관련글은 표시용 근사치입니다. 실제 내부링크는 발행 전 교체가 필요할 수 있습니다.</div>
             </div>
           </div>
         </div>
@@ -338,7 +343,7 @@
 
           <div class="section">
             <div class="detail-row">
-              <span class="detail-row__label">Blogger 연결 상태</span>
+              <span class="detail-row__label">블로그스팟 연결 상태</span>
               <span id="blogger-connection-status">확인 중</span>
             </div>
             <div id="blogger-image-warning" class="notice-text notice-text--warning hidden">
@@ -366,6 +371,41 @@
     </div>
   </div>
 
+  <!-- 팝업: 품질 검수 결과 (Gemini, 0.0.7 신규) - 기존 중앙 팝업 톤 재사용, 스크롤 없음 -->
+  <div id="popup-quality-review" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>품질 검수</h2>
+        <button id="quality-review-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__fixed">
+        <div id="quality-review-status" class="card">
+          <div class="card__label">상태</div>
+          <div class="card__value" id="quality-review-status-value">품질검수 진행 중</div>
+        </div>
+
+        <div id="quality-review-result" class="hidden">
+          <div class="card">
+            <div class="card__label">점수</div>
+            <div class="card__value" id="quality-review-score">-</div>
+          </div>
+          <div class="notice-text" id="quality-review-summary"></div>
+          <div class="section">
+            <div class="section-title">보완 항목</div>
+            <ul id="quality-review-issue-list" class="check-list check-list--capped"></ul>
+          </div>
+          <div class="btn-row">
+            <button id="quality-review-copy-btn" class="btn btn--primary btn--block">수정요청 복사</button>
+          </div>
+        </div>
+
+        <div id="quality-review-fail" class="hidden">
+          <div class="notice-text notice-text--warning">품질검수 요청에 실패했습니다.<br />잠시 후 다시 시도해주세요.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 팝업: 설정 기본 화면 (repair2: 스크롤 없이 메뉴 버튼만) -->
   <div id="popup-settings" class="popup-overlay">
     <div class="popup-panel">
@@ -383,7 +423,7 @@
           <button id="open-settings-version-btn" class="btn btn--block" type="button">버전 정보</button>
         </div>
 
-        <div class="settings-inline-status">Blogger 연결 상태: <span id="settings-blogger-status">확인 중</span></div>
+        <div class="settings-inline-status">블로그스팟 연결 상태: <span id="settings-blogger-status">확인 중</span></div>
 
         <div class="settings-danger-group">
           <button id="settings-reset-btn" class="btn btn--danger btn--block">데이터 초기화</button>
@@ -498,6 +538,7 @@
   <script src="js/error-log-module.js"></script>
   <script src="js/auth-module.js"></script>
   <script src="js/worker-api-module.js"></script>
+  <script src="js/gemini-review-module.js"></script>
   <script src="js/storage-module.js"></script>
   <script src="js/archive-module.js"></script>
   <script src="js/backup-module.js"></script>

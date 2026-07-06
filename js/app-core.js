@@ -467,6 +467,92 @@ const AppCore = (() => {
   }
 
   /* ============================================================
+     팝업: 품질 검수 (Gemini, 0.0.7 신규)
+     Gemini는 글을 생성/수정하지 않으며 검수 결과와 수정 제안만 표시한다.
+     실패해도 자료실 데이터는 그대로 유지되며, 실패 안내만 표시한다.
+     ============================================================ */
+
+  let lastQualityReviewRewriteText = "";
+
+  function showQualityReviewState(state) {
+    document.getElementById("quality-review-status").classList.toggle("hidden", state !== "loading");
+    document.getElementById("quality-review-result").classList.toggle("hidden", state !== "done");
+    document.getElementById("quality-review-fail").classList.toggle("hidden", state !== "fail");
+  }
+
+  function renderQualityReviewIssues(issues) {
+    const listEl = document.getElementById("quality-review-issue-list");
+    listEl.innerHTML = "";
+
+    if (!issues || issues.length === 0) {
+      const li = document.createElement("li");
+      li.className = "check-item";
+      li.textContent = "보완이 필요한 항목이 없습니다.";
+      listEl.appendChild(li);
+      return;
+    }
+
+    issues.forEach((issue) => {
+      const li = document.createElement("li");
+      li.className = "check-item";
+
+      const labelEl = document.createElement("span");
+      labelEl.textContent = `[${issue.type || "기타"}] ${issue.message || ""}`;
+
+      const statusEl = document.createElement("span");
+      statusEl.className = "check-item__status";
+      statusEl.textContent = issue.severity || "-";
+
+      li.appendChild(labelEl);
+      li.appendChild(statusEl);
+      listEl.appendChild(li);
+    });
+  }
+
+  async function runQualityReview(postId) {
+    const post = ArchiveModule.getPostById(postId);
+    if (!post) return;
+
+    showQualityReviewState("loading");
+    document.getElementById("quality-review-status-value").textContent = "품질검수 진행 중";
+    openPopup("popup-quality-review");
+
+    const result = await GeminiReviewModule.requestReview(post);
+
+    if (!result.success) {
+      showQualityReviewState("fail");
+      return;
+    }
+
+    const review = result.review;
+    document.getElementById("quality-review-score").textContent = `${review.score}점 (${review.status})`;
+    document.getElementById("quality-review-summary").textContent = review.summary || "요약이 없습니다.";
+    renderQualityReviewIssues(review.issues);
+    lastQualityReviewRewriteText = GeminiReviewModule.buildRewriteRequestText(post, review);
+    showQualityReviewState("done");
+  }
+
+  function bindQualityReviewEvents() {
+    document.getElementById("archive-detail-quality-btn").addEventListener("click", () => {
+      if (!selectedArchivePostId) return;
+      runQualityReview(selectedArchivePostId);
+    });
+
+    document.getElementById("quality-review-close-btn").addEventListener("click", () => {
+      closePopup("popup-quality-review");
+    });
+
+    document.getElementById("quality-review-copy-btn").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(lastQualityReviewRewriteText);
+        alert("수정요청 문구를 클립보드에 복사했습니다.");
+      } catch (error) {
+        alert("복사에 실패했습니다.");
+      }
+    });
+  }
+
+  /* ============================================================
      팝업: 등록하기 (ZIP 자동 업로드 + 검증 게이트 + 수동 업로드 보조)
      repair2: ZIP 선택 즉시 자동 인식+검증을 실행하고, 결과는 가로 요약카드로만
      표시한다(파일별 긴 목록은 노출하지 않음). 스크롤 금지 대상이므로 내용은
@@ -1089,6 +1175,7 @@ const AppCore = (() => {
     bindRegisterEvents();
     bindArchiveEvents();
     bindPreviewEvents();
+    bindQualityReviewEvents();
     bindBloggerEvents();
     bindSettingsEvents();
     bindBackupEvents();
@@ -1110,7 +1197,7 @@ const AppCore = (() => {
 })();
 
 const AppState = {
-  version: "0.0.6 repair2",
+  version: "0.0.7",
 };
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## [0.0.7] - 2026-07-07 - 실기 화면 보정 + 미리보기 이미지/가독성 보정 + Gemini 품질검수 반영
+
+### 목적
+새 화면 구조를 만드는 작업이 아니라, 실기 확인 중 발견된 GUI 문제(글자 세로 깨짐, 미리보기 이미지 깨짐, 가독성)를 좁게 보정하고, Gemini 품질검수(검수만, 생성/ZIP 수정 없음) 기능을 기존 흐름 위에 추가한다. 로그인/Worker 인증/Blogger 연결 방식/SEO 판정 로직/저장소 핵심 구조는 이번에도 변경하지 않는다.
+
+### 보정
+- **글자 세로 깨짐 방지(css/base.css, css/components.css)**: `body`에 `word-break: keep-all; overflow-wrap: break-word;`를 적용해 좁은 영역에서 한글이 한 글자씩 줄바꿈되어 세로로 보이던 문제를 해소. 전체점검/체크리스트 항목(`.check-item`)의 라벨 span에 `flex: 1; min-width: 0; white-space: nowrap; text-overflow: ellipsis;`를 적용해 라벨이 좁아질 때 줄바꿈 대신 말줄임표로 처리되도록 보정
+- **미리보기 이미지 깨짐 보정(js/preview-module.js)**: `content.html` 안의 `<img src="body-01.png">` 같은 ZIP 내부 상대경로가 미리보기에서 그대로 물음표/깨진 이미지로 표시되던 문제를 `mapImageSources()` 함수로 해결. `imageList`의 `fileName`과 매칭되는 경우 실제 `dataUrl`로 치환하고, 매칭되지 않으면 깨진 아이콘 대신 대체 문구만 남긴다
+- **미리보기 가독성 보정(css/layout.css)**: `#preview-html-content`(본문 주입 영역) 대상으로 문단 줄간격/문단간격/제목간격/이미지 여백/표 가로 스크롤 처리를 추가
+- **미리보기 텍스트/URL 넘침 방지**: `.detail-content`(원문/텍스트 보기)에 `overflow-wrap: break-word; word-break: break-all;` 추가
+- **미리보기 광고칸/관련 글 안내 문구 추가(index.html)**: 광고칸 2곳과 관련 글 박스에 "표시용 근사치" 안내 문구를 추가해 실제 블로그스팟 화면과 다를 수 있음을 명시
+- **재검증 동작 안내 문구 추가(index.html)**: 등록하기 팝업에 "재검증은 현재 선택된 ZIP을 다시 검사합니다. 파일 선택창을 다시 열지 않습니다." 안내를 추가(동작 자체는 기존과 동일)
+- **문구 한글화**: "Blogger 연결 상태" → "블로그스팟 연결 상태" (블로그 등록 상세화면, 설정 화면 2곳)
+
+### 추가
+- **Gemini 품질검수(js/gemini-review-module.js 신규, js/worker-api-module.js 부분 수정)**: 자료실 상세보기에 [품질 검수] 버튼과 결과 팝업(진행 중/완료/실패)을 추가. Gemini는 글을 생성하지 않고 ZIP도 수정하지 않으며, 검수 결과(점수/요약/보완 항목)와 GPT에게 다시 전달할 수정요청 문구만 제공한다. `worker-api-module.js`에는 기존 `callWorker()` 공통 호출 함수를 재사용하는 `requestGeminiReview()` 한 함수만 추가했다(신규 Worker 미작성). 본문 길이/SEO 통과 여부로 빠른 검수(gemini-2.5-flash)/정밀 검수(gemini-2.5-pro)를 자동 선택하며, 화면에는 "빠른 검수/정밀 검수/자동 선택"만 노출하고 복잡한 모델명은 노출하지 않는다. Gemini에 보내는 데이터는 제목/메타설명/본문 텍스트/FAQ/썸네일 문구/이미지 alt/SEO 점수·부족 항목으로 최소화했으며, 원본 이미지(base64)·Blogger 토큰·Worker 토큰·API Key는 전송하지 않는다. 검수 실패(API 호출 실패/응답 JSON 파싱 실패) 시 "품질검수 요청에 실패했습니다. 잠시 후 다시 시도해주세요." 안내만 표시하고, 저장된 글/자료실 데이터는 전혀 변경하지 않는다(읽기 전용 조회)
+
+### 범위 제외 (이번 0.0.7에서 다루지 않음)
+- 로그인 인증 구조, Worker API 인증 구조, Blogger Worker 연결 방식, SEO 점수 계산 로직, 저장소 핵심 구조 변경
+- Gemini를 통한 글 자동 생성, ZIP 자동 수정, 자동 재업로드, 블로그 자동 발행, 네이버 미리보기 추가
+- 기존 Worker(신규 Worker 구현) 추가 — Gemini 호출은 기존 `callWorker()` 경로만 재사용
+
 ## [0.0.6 repair2] - 2026-07-07 - 중앙 팝업 통일 + 등록 검증 흐름 정리 + 설정/미리보기 보정
 
 ### 목적

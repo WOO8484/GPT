@@ -91,9 +91,21 @@ const WorkerApiModule = (() => {
     }
   }
 
+  /* ----------------------------------------------------------
+     Gemini 품질검수 요청 — /gemini/review (0.0.7 신규)
+     기존 callWorker() 공통 호출 함수를 그대로 재사용한다. Gemini API Key/모델 호출은
+     기존 Worker 쪽 경로(AI_MODEL=gemini-2.5-flash, AI_PRO_MODEL=gemini-2.5-pro)가
+     그대로 처리하며, 이 프로젝트는 신규 Worker를 만들지 않고 호출만 담당한다.
+     실제 Worker 엔드포인트 경로가 다르면 이 경로 문자열만 맞춰 조정하면 된다.
+     ---------------------------------------------------------- */
+  async function requestGeminiReview(payload) {
+    return callWorker("/gemini/review", { payload });
+  }
+
   return {
     callWorker,
     checkBloggerStatus,
     saveBloggerDraft,
+    requestGeminiReview,
   };
 })();

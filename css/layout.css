@@ -441,6 +441,72 @@
   max-width: 100%;
 }
 
+/* repair(0.0.7): 미리보기 본문(content.html 주입 영역) 가독성 보정.
+   본문 폭 안정화, 줄간격/문단간격/제목간격, 이미지 여백, 표/링크 넘침 방지. */
+#preview-html-content {
+  font-size: 14px;
+  line-height: 1.8;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+#preview-html-content h2 {
+  font-size: 17px;
+  line-height: 1.4;
+  margin: 22px 0 10px;
+}
+
+#preview-html-content h3 {
+  font-size: 15px;
+  line-height: 1.4;
+  margin: 18px 0 8px;
+}
+
+#preview-html-content p {
+  margin: 0 0 14px;
+}
+
+#preview-html-content ul,
+#preview-html-content ol {
+  margin: 0 0 14px 18px;
+  line-height: 1.7;
+}
+
+#preview-html-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 14px auto;
+  border-radius: 6px;
+}
+
+#preview-html-content table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+  font-size: 13px;
+  display: block;
+  overflow-x: auto;
+}
+
+#preview-html-content th,
+#preview-html-content td {
+  border: 1px solid #eeeeee;
+  padding: 8px;
+  word-break: keep-all;
+}
+
+#preview-html-content a {
+  overflow-wrap: break-word;
+}
+
+/* repair(0.0.7): 광고칸/관련글 안내 문구는 기존 notice-text 스타일을 그대로 재사용한다. */
+.blogspot-ad-box + .notice-text {
+  margin-top: -8px;
+  margin-bottom: 16px;
+}
+
 /* repair2: 블로그 지시서 관리 */
 .guideline-textarea {
   width: 100%;

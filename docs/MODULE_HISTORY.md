@@ -2,6 +2,26 @@
 
 GPT 공작소 프로젝트의 모듈별 생성 이력을 기록합니다.
 
+## 0.0.7 - 실기 화면 보정 + 미리보기 이미지/가독성 보정 + Gemini 품질검수 반영 - 2026-07-07
+
+새 모듈 1개 추가(gemini-review-module.js). worker-api-module.js는 함수 1개 추가(기존 함수 변경 없음). preview-module.js는 이미지 src 매핑 함수 1개 추가. app-core.js는 품질검수 팝업 관련 함수/이벤트 바인딩만 추가. css 3개 파일은 세로 텍스트 깨짐 방지/미리보기 가독성/오버플로 방지 규칙만 추가. index.html은 품질검수 버튼/팝업, 안내 문구, 스크립트 태그만 추가. 로그인/Worker 인증/Blogger 연결/SEO 로직/저장소 핵심 구조는 변경하지 않았다.
+
+| 모듈 | 파일 | 역할 | 상태 |
+|---|---|---|---|
+| Gemini Review Module | js/gemini-review-module.js | Gemini 품질검수 요청 데이터 구성(최소 항목), 본문 길이/SEO 통과 여부 기준 빠른 검수·정밀 검수 자동 선택, 응답 JSON 파싱, 수정요청 문구 생성. 글 생성/ZIP 수정은 하지 않음 | 생성 완료 |
+| Worker API Module | js/worker-api-module.js | (부분 수정) 기존 `callWorker()` 공통 호출 함수를 재사용하는 `requestGeminiReview()` 추가. 기존 `checkBloggerStatus()`/`saveBloggerDraft()`는 변경 없음 | 부분 수정 |
+| Preview Module | js/preview-module.js | (부분 수정) `mapImageSources()` 추가 — content.html의 img src(ZIP 내부 상대경로)를 imageList의 dataUrl로 치환해 미리보기 이미지 깨짐을 보정. 기존 sanitizeHtml()/renderPreview() 반환 필드 구조는 변경 없음 | 부분 수정 |
+| App Core | js/app-core.js | (부분 수정) 품질검수 팝업 렌더링(`runQualityReview`, `renderQualityReviewIssues`, `showQualityReviewState`)과 이벤트 바인딩(`bindQualityReviewEvents`) 추가. 기존 등록/자료실/미리보기/블로거/설정 로직은 변경 없음 | 부분 수정 |
+
+### 이번 0.0.7에서 다루지 않은 기존 모듈
+- js/storage-module.js, js/archive-module.js, js/backup-module.js, js/seo-module.js, js/error-log-module.js, js/gpt-upload-module.js, js/zip-upload-module.js, js/blogger-module.js, js/schedule-module.js, js/statistics-module.js, js/auth-module.js, js/guideline-module.js, js/vendor/zip-reader.js, js/image-module.js: 코드 수정 없음(삭제 금지 목록 그대로 유지).
+
+### Gemini 품질검수 설계 메모
+- Gemini 호출은 기존 `WorkerApiModule.callWorker()` 공통 함수를 그대로 통과하므로, 세션 토큰 첨부·401 자동 로그아웃 처리가 기존과 동일하게 적용된다.
+- 실제 Worker 엔드포인트 경로는 `/gemini/review`로 가정했다. 실제 Worker 구현의 경로가 다르면 `worker-api-module.js`의 `requestGeminiReview()` 안의 경로 문자열만 맞춰 조정하면 된다(신규 Worker 코드 자체를 작성하지 않았으므로 이 프로젝트 파일만으로는 실제 응답을 확인할 수 없다).
+- Gemini 요청 payload는 `title/description/bodyText/faqList/thumbnailText/imageAltTexts/seoScore/seoIssues`로 최소화했으며, 원본 이미지 base64·Blogger 토큰·Worker 토큰·API Key는 포함하지 않는다.
+- 품질검수 결과는 자료실(글 데이터)에 저장하지 않는 읽기 전용 표시로 구현했다(저장소 핵심 구조 변경 없음, 실패해도 자료실 데이터에 영향 없음).
+
 ## 0.0.6 repair2 - 중앙 팝업 통일 + 등록 검증 흐름 정리 + 설정/미리보기 보정 - 2026-07-07
 
 새 모듈 1개 추가(guideline-module.js). preview-module.js는 부분 수정(목차/FAQ 반환값 추가). app-core.js는 등록하기/미리보기/설정 팝업 로직을 중심으로 부분 재구성. index.html/css는 팝업 방식 통일 및 스크롤 영역 재정리. 로그인/Worker/Blogger 연결/SEO 로직/저장소 핵심 구조는 변경하지 않았다.

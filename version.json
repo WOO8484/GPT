@@ -1,9 +1,9 @@
 {
   "project": "GPT 공작소",
-  "version": "0.0.6 repair2",
-  "phase": "중앙 팝업 통일 + 등록 검증 흐름 정리 + 블로그 지시서 관리",
+  "version": "0.0.7",
+  "phase": "실기 화면 보정 + 미리보기 이미지/가독성 보정 + Gemini 품질검수 반영",
   "releaseDate": "2026-07-07",
-  "description": "모든 주요 팝업(등록하기/자료실/미리보기/블로그 등록하기/설정/오류백과/전체점검/블로그 지시서 관리)을 중앙 고정 팝업 방식으로 통일하고, X 버튼/하단 닫기 버튼 혼용을 정리(우측 상단 X로 통일). 등록하기 팝업은 ZIP 선택 즉시 자동 인식+검증을 실행하도록 바꾸고, 결과를 가로 요약카드(전체/정상/실패)로만 표시해 스크롤 없이 화면에 들어오도록 정리. 검증 통과 후 저장 전 상태에서 X를 누르면 확인 팝업을 띄운다. 자료실은 목록 내부만 스크롤되도록 상세보기와 분리. 미리보기는 Blogspot 기준 렌더링(요약박스/목차/광고 자리/FAQ/관련 글 박스, 모바일·PC 보기 전환)으로 보강. 설정은 스크롤 없는 메뉴 목록 화면과 항목별 하위 팝업으로 재구성. 블로그 지시서 관리(업로드/보기/기본 복구/복사) 신규 추가. 로그인/Worker 인증/Blogger 연결 방식/SEO 판정 기준/저장소 핵심 구조는 변경하지 않았다.",
+  "description": "전체점검/체크리스트 등 좁은 영역에서 글자가 세로로 깨지던 문제와 미리보기 이미지(썸네일/본문) 깨짐 문제를 CSS/이미지 매핑으로 보정하고, 미리보기 본문 가독성(줄간격/문단간격/이미지 여백/표)을 개선했다. 미리보기 광고칸/관련 글에는 표시용 근사치 안내 문구를 추가했다. 자료실 상세보기에 [품질 검수] 버튼과 Gemini 품질검수 결과 팝업(점수/요약/보완 항목/수정요청 복사)을 신규 추가했다. Gemini 호출은 기존 worker-api-module.js의 callWorker() 공통 함수를 재사용하며 신규 Worker는 만들지 않았다. 본문 길이/SEO 통과 여부를 기준으로 빠른 검수(gemini-2.5-flash)/정밀 검수(gemini-2.5-pro)를 자동 선택하며, 화면에는 복잡한 모델명을 노출하지 않는다. Gemini 검수 실패는 ZIP 등록 실패로 취급하지 않으며 자료실 데이터에 영향을 주지 않는다. 로그인/Worker 인증/Blogger 연결 방식/SEO 판정 기준/저장소 핵심 구조는 변경하지 않았다.",
   "storagePriority": ["indexedDB", "localStorage"],
   "modules": [
     "app-core.js",
@@ -20,9 +20,11 @@
     "blogger-module.js",
     "schedule-module.js",
     "statistics-module.js",
-    "guideline-module.js"
+    "guideline-module.js",
+    "gemini-review-module.js"
   ],
   "unwiredModules": [
     "image-module.js"
   ]
 }
+
