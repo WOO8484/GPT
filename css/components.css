@@ -244,42 +244,11 @@
   min-width: 0;
 }
 
-.image-item__info {
-  flex: 1;
-  min-width: 0;
-}
-
 .image-item__filename {
   font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.image-item__alt-input {
-  width: 100%;
-  margin-top: 4px;
-  padding: 6px 8px;
-  border: 1px solid #dddddd;
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-.image-item__delete-btn {
-  font-size: 13px;
-  color: #c53030;
-  padding: 6px 10px;
-  white-space: nowrap;
-}
-
-.seo-issue-item {
-  padding: 10px 12px;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 13px;
-}
-
-.seo-issue-item:last-child {
-  border-bottom: none;
 }
 
 .notice-text {

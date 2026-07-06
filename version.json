@@ -1,9 +1,9 @@
 {
   "project": "GPT 공작소",
-  "version": "0.0.6 repair1",
-  "phase": "암호 로그인 + 단일 대시보드 GUI 정리 + Blogger Worker 연동",
+  "version": "0.0.6 repair2",
+  "phase": "중앙 팝업 통일 + 등록 검증 흐름 정리 + 블로그 지시서 관리",
   "releaseDate": "2026-07-07",
-  "description": "암호 로그인 화면 추가, 하단 네비게이션/개별 설정 화면을 제거하고 단일 대시보드(최근 글 전광판 + 공작소 작업대) + 팝업(등록하기/자료실/블로그 등록하기/설정) 구조로 정리. 기존 Blogger 연동(수동 Blog ID/Access Token 직접 입력 후 Google API 직접 호출)을 제거하고 WP 0.0.10의 Worker 기반 로그인/Blogger 임시저장 연동 핵심 로직만 이식. ZIP 등록 시 검증하기(구조 검증 + SEO 검수) 통과 후에만 저장 가능하도록 저장 게이트 추가.",
+  "description": "모든 주요 팝업(등록하기/자료실/미리보기/블로그 등록하기/설정/오류백과/전체점검/블로그 지시서 관리)을 중앙 고정 팝업 방식으로 통일하고, X 버튼/하단 닫기 버튼 혼용을 정리(우측 상단 X로 통일). 등록하기 팝업은 ZIP 선택 즉시 자동 인식+검증을 실행하도록 바꾸고, 결과를 가로 요약카드(전체/정상/실패)로만 표시해 스크롤 없이 화면에 들어오도록 정리. 검증 통과 후 저장 전 상태에서 X를 누르면 확인 팝업을 띄운다. 자료실은 목록 내부만 스크롤되도록 상세보기와 분리. 미리보기는 Blogspot 기준 렌더링(요약박스/목차/광고 자리/FAQ/관련 글 박스, 모바일·PC 보기 전환)으로 보강. 설정은 스크롤 없는 메뉴 목록 화면과 항목별 하위 팝업으로 재구성. 블로그 지시서 관리(업로드/보기/기본 복구/복사) 신규 추가. 로그인/Worker 인증/Blogger 연결 방식/SEO 판정 기준/저장소 핵심 구조는 변경하지 않았다.",
   "storagePriority": ["indexedDB", "localStorage"],
   "modules": [
     "app-core.js",
@@ -19,7 +19,8 @@
     "seo-module.js",
     "blogger-module.js",
     "schedule-module.js",
-    "statistics-module.js"
+    "statistics-module.js",
+    "guideline-module.js"
   ],
   "unwiredModules": [
     "image-module.js"

@@ -50,6 +50,27 @@ const PreviewModule = (() => {
     }
   }
 
+  // repair2: Blogspot 기준 미리보기를 위한 목차(h2/h3) 자동 추출.
+  // safeHtml(필터링이 끝난 안전한 HTML)을 대상으로 하며, 별도 저장하지 않고 표시용으로만 사용한다.
+  function extractTableOfContents(safeHtml) {
+    if (!safeHtml) return [];
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(safeHtml, "text/html");
+      const headings = doc.body.querySelectorAll("h2, h3");
+      const toc = [];
+      headings.forEach((heading) => {
+        const text = heading.textContent.trim();
+        if (text) {
+          toc.push({ level: heading.tagName.toLowerCase(), text });
+        }
+      });
+      return toc;
+    } catch (error) {
+      return [];
+    }
+  }
+
   function renderPreview(post) {
     if (!post) {
       ErrorLogModule.logError({
@@ -77,6 +98,8 @@ const PreviewModule = (() => {
         textContent: post.textContent || "(내용 없음)",
         thumbnail,
         bodyImages,
+        tableOfContents: extractTableOfContents(safeHtml),
+        faqList: Array.isArray(post.faqList) ? post.faqList : [],
       };
     } catch (error) {
       ErrorLogModule.logError({

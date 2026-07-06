@@ -323,6 +323,82 @@ const AppCore = (() => {
     });
   }
 
+  function renderPreviewTocBox(tableOfContents) {
+    const boxEl = document.getElementById("preview-toc-box");
+    const listEl = document.getElementById("preview-toc-list");
+    listEl.innerHTML = "";
+
+    if (!tableOfContents || tableOfContents.length === 0) {
+      boxEl.classList.add("hidden");
+      return;
+    }
+
+    boxEl.classList.remove("hidden");
+    tableOfContents.forEach((item) => {
+      const div = document.createElement("div");
+      div.className = "blogspot-toc-box__item" + (item.level === "h3" ? " blogspot-toc-box__item--h3" : "");
+      div.textContent = item.text;
+      listEl.appendChild(div);
+    });
+  }
+
+  function renderPreviewFaqBox(faqList) {
+    const boxEl = document.getElementById("preview-faq-box");
+    const listEl = document.getElementById("preview-faq-list");
+    listEl.innerHTML = "";
+
+    if (!faqList || faqList.length === 0) {
+      boxEl.classList.add("hidden");
+      return;
+    }
+
+    boxEl.classList.remove("hidden");
+    faqList.forEach((faq) => {
+      const item = document.createElement("div");
+      item.className = "blogspot-faq-item";
+
+      const q = document.createElement("div");
+      q.className = "blogspot-faq-item__q";
+      q.textContent = "Q. " + (faq.question || "");
+
+      const a = document.createElement("div");
+      a.className = "blogspot-faq-item__a";
+      a.textContent = "A. " + (faq.answer || "");
+
+      item.appendChild(q);
+      item.appendChild(a);
+      listEl.appendChild(item);
+    });
+  }
+
+  function renderPreviewRelatedBox(currentPostId) {
+    const boxEl = document.getElementById("preview-related-box");
+    const listEl = document.getElementById("preview-related-list");
+    listEl.innerHTML = "";
+
+    const posts = ArchiveModule.getFilteredPosts().filter((p) => p.id !== currentPostId);
+    if (posts.length === 0) {
+      boxEl.classList.add("hidden");
+      return;
+    }
+
+    boxEl.classList.remove("hidden");
+    posts.slice(0, 3).forEach((post) => {
+      const item = document.createElement("div");
+      item.className = "blogspot-related-item";
+      item.textContent = post.title || "(제목 없음)";
+      listEl.appendChild(item);
+    });
+  }
+
+  function setPreviewWidthMode(mode) {
+    const frameEl = document.getElementById("preview-body-frame");
+    frameEl.classList.toggle("blogspot-body-frame--mobile", mode === "mobile");
+    frameEl.classList.toggle("blogspot-body-frame--pc", mode === "pc");
+    document.getElementById("preview-mobile-btn").classList.toggle("nav-btn--active", mode === "mobile");
+    document.getElementById("preview-pc-btn").classList.toggle("nav-btn--active", mode === "pc");
+  }
+
   function renderPreviewPopup() {
     const emptyEl = document.getElementById("preview-empty-message");
     const contentEl = document.getElementById("preview-content-area");
@@ -344,11 +420,18 @@ const AppCore = (() => {
 
     document.getElementById("preview-title").textContent = rendered.title;
     document.getElementById("preview-keyword").textContent = rendered.keyword;
-    document.getElementById("preview-meta").textContent = rendered.metaDescription;
     document.getElementById("preview-tags").textContent = rendered.tags;
     document.getElementById("preview-html-content").innerHTML = rendered.safeHtml;
     document.getElementById("preview-markdown-content").textContent = rendered.markdownContent;
     document.getElementById("preview-text-content").textContent = rendered.textContent;
+
+    const summaryBoxEl = document.getElementById("preview-summary-box");
+    if (rendered.metaDescription && rendered.metaDescription !== "-") {
+      summaryBoxEl.textContent = rendered.metaDescription;
+      summaryBoxEl.classList.remove("hidden");
+    } else {
+      summaryBoxEl.classList.add("hidden");
+    }
 
     const thumbnailArea = document.getElementById("preview-thumbnail-area");
     const thumbnailImg = document.getElementById("preview-thumbnail-img");
@@ -361,6 +444,10 @@ const AppCore = (() => {
     }
 
     renderPreviewBodyImageList(rendered.bodyImages);
+    renderPreviewTocBox(rendered.tableOfContents);
+    renderPreviewFaqBox(rendered.faqList);
+    renderPreviewRelatedBox(currentPreviewPost.id);
+    setPreviewWidthMode("mobile");
     showPreviewTab("html");
   }
 
@@ -375,14 +462,20 @@ const AppCore = (() => {
     document.getElementById("preview-view-markdown-btn").addEventListener("click", () => showPreviewTab("markdown"));
     document.getElementById("preview-view-text-btn").addEventListener("click", () => showPreviewTab("text"));
     document.getElementById("preview-close-btn").addEventListener("click", () => closePopup("popup-preview"));
+    document.getElementById("preview-mobile-btn").addEventListener("click", () => setPreviewWidthMode("mobile"));
+    document.getElementById("preview-pc-btn").addEventListener("click", () => setPreviewWidthMode("pc"));
   }
 
   /* ============================================================
      팝업: 등록하기 (ZIP 자동 업로드 + 검증 게이트 + 수동 업로드 보조)
+     repair2: ZIP 선택 즉시 자동 인식+검증을 실행하고, 결과는 가로 요약카드로만
+     표시한다(파일별 긴 목록은 노출하지 않음). 스크롤 금지 대상이므로 내용은
+     항상 화면 안에 들어오도록 유지한다.
      ============================================================ */
 
+  let registerHasValidated = false;
+
   function showRegisterButtonRow(stage) {
-    document.getElementById("register-btn-row-before").classList.toggle("hidden", stage !== "before");
     document.getElementById("register-btn-row-fail").classList.toggle("hidden", stage !== "fail");
     document.getElementById("register-btn-row-pass").classList.toggle("hidden", stage !== "pass");
     document.getElementById("register-btn-row-done").classList.toggle("hidden", stage !== "done");
@@ -390,55 +483,37 @@ const AppCore = (() => {
     document.getElementById("register-close-x-btn").classList.toggle("hidden", stage === "pass");
   }
 
-  function renderZipRecognitionChecklist() {
-    const status = ZipUploadModule.getCheckStatus();
-    renderCheckListItems("zip-check-list", [
-      { label: "metadata.json", ok: status.metadata },
-      { label: "content.html", ok: status.html },
-      { label: "content.md", ok: status.markdown },
-      { label: "content.txt", ok: status.text },
-      { label: "썸네일 이미지", ok: status.thumbnail },
-      { label: "본문 이미지", ok: status.bodyCount > 0, text: `${status.bodyCount}장 인식` },
-      { label: "image_prompts.md (선택)", ok: status.imagePrompts },
-    ]);
-  }
-
-  function renderValidationChecklist(result) {
-    const listEl = document.getElementById("zip-check-list");
-    listEl.innerHTML = "";
-
-    result.checklist.forEach((item) => {
-      const li = document.createElement("li");
-      li.className = "check-item";
-
-      const labelEl = document.createElement("span");
-      labelEl.textContent = (item.ok ? "✅ " : "⚠️ ") + item.label;
-
-      const statusEl = document.createElement("span");
-      statusEl.className = "check-item__status " + (item.ok ? "check-item__status--ok" : "check-item__status--error");
-      statusEl.textContent = item.ok ? "정상" : "실패";
-
-      li.appendChild(labelEl);
-      li.appendChild(statusEl);
-      listEl.appendChild(li);
-    });
-
+  function renderRegisterSummary(result) {
     const summaryEl = document.getElementById("register-summary");
+    const failDetailEl = document.getElementById("register-fail-detail");
+
     summaryEl.classList.remove("hidden");
-    summaryEl.innerHTML =
-      `📦 전체 ${result.totalCount}개<br/>` +
-      `✅ 정상 ${result.okCount}개<br/>` +
-      `⚠️ 실패 ${result.failCount}개`;
+    document.getElementById("register-summary-total").textContent = result.totalCount;
+    document.getElementById("register-summary-ok").textContent = result.okCount;
+    document.getElementById("register-summary-fail").textContent = result.failCount;
+
+    if (result.failCount > 0) {
+      const firstFail = result.checklist.find((item) => !item.ok);
+      failDetailEl.textContent = `⚠️ 실패 ${result.failCount}개: ${firstFail ? firstFail.label + " 형식 오류" : "필수 항목 누락"}`;
+      failDetailEl.classList.remove("hidden");
+    } else {
+      failDetailEl.classList.add("hidden");
+      failDetailEl.textContent = "";
+    }
   }
 
   function resetRegisterPopupUI() {
     ZipUploadModule.reset();
+    registerHasValidated = false;
     document.getElementById("zip-upload-input").value = "";
     renderUploadFileName("zip-upload-filename", null);
-    document.getElementById("zip-check-list").innerHTML = "";
     document.getElementById("register-summary").classList.add("hidden");
+    document.getElementById("register-fail-detail").classList.add("hidden");
     document.getElementById("register-score-area").classList.add("hidden");
-    showRegisterButtonRow("before");
+    document.getElementById("register-btn-row-fail").classList.add("hidden");
+    document.getElementById("register-btn-row-pass").classList.add("hidden");
+    document.getElementById("register-btn-row-done").classList.add("hidden");
+    document.getElementById("register-close-x-btn").classList.remove("hidden");
 
     GptUploadModule.reset();
     ["metadata", "html", "markdown", "text"].forEach((key) => {
@@ -456,6 +531,11 @@ const AppCore = (() => {
     openPopup("popup-register");
   }
 
+  // 검증 통과 후 저장 전(register-btn-row-pass 표시 중)인지 여부
+  function isRegisterAwaitingSave() {
+    return !document.getElementById("register-btn-row-pass").classList.contains("hidden");
+  }
+
   function runRegisterValidation() {
     const result = ZipUploadModule.runValidation();
     if (!result.success) {
@@ -463,7 +543,8 @@ const AppCore = (() => {
       return;
     }
 
-    renderValidationChecklist(result);
+    registerHasValidated = true;
+    renderRegisterSummary(result);
 
     if (!result.structureOk) {
       // 필수 파일/이미지 누락: 구조 검증 실패
@@ -486,12 +567,15 @@ const AppCore = (() => {
           : "SEO 참고 사항이 없습니다.";
       showRegisterButtonRow("pass");
     } else {
-      // SEO 미통과: 저장 버튼을 표시하지 않고 실패 사유를 표시한다.
+      // SEO 미통과: 저장 버튼을 표시하지 않고 미통과 사유를 표시한다.
       const issuesText =
         result.seoResult && result.seoResult.issues && result.seoResult.issues.length > 0
           ? result.seoResult.issues.join(", ")
           : "SEO 검수 기준을 충족하지 못했습니다.";
-      document.getElementById("register-briefing").textContent = `SEO 미통과로 저장할 수 없습니다. (실패 사유: ${issuesText})`;
+      document.getElementById("register-briefing").textContent =
+        `현재 ${result.seoResult ? result.seoResult.totalScore : 0}점 / 수정 필요\n` +
+        `기준: 80점 이상 통과\n` +
+        `누락 항목: ${issuesText}`;
       showRegisterButtonRow("fail");
     }
   }
@@ -507,32 +591,47 @@ const AppCore = (() => {
   }
 
   function bindRegisterEvents() {
-    [
-      "register-close-x-btn",
-      "register-close-btn-before",
-      "register-close-btn-fail",
-    ].forEach((id) => {
-      document.getElementById(id).addEventListener("click", () => closePopup("popup-register"));
+    document.getElementById("register-close-x-btn").addEventListener("click", () => {
+      if (registerHasValidated && isRegisterAwaitingSave()) {
+        openPopup("popup-confirm-register-close");
+        return;
+      }
+      closePopup("popup-register");
+    });
+
+    document.getElementById("confirm-register-close-btn").addEventListener("click", () => {
+      closePopup("popup-confirm-register-close");
+      closePopup("popup-register");
+    });
+
+    document.getElementById("confirm-register-continue-btn").addEventListener("click", () => {
+      closePopup("popup-confirm-register-close");
     });
 
     document.getElementById("zip-upload-input").addEventListener("change", async (e) => {
       const file = e.target.files[0];
       await ZipUploadModule.setZipFile(file);
       renderUploadFileName("zip-upload-filename", file);
-      renderZipRecognitionChecklist();
+      registerHasValidated = false;
       document.getElementById("register-summary").classList.add("hidden");
+      document.getElementById("register-fail-detail").classList.add("hidden");
       document.getElementById("register-score-area").classList.add("hidden");
-      showRegisterButtonRow("before");
+      showRegisterButtonRow("none");
+      // repair2: 사용자가 별도로 [검증하기]를 누르지 않도록 선택 즉시 자동 검증한다.
+      if (file) {
+        runRegisterValidation();
+      }
     });
 
-    document.getElementById("register-validate-btn").addEventListener("click", runRegisterValidation);
     document.getElementById("register-revalidate-btn").addEventListener("click", runRegisterValidation);
+    document.getElementById("register-revalidate-btn-2").addEventListener("click", runRegisterValidation);
 
     document.getElementById("register-save-btn").addEventListener("click", async () => {
       const result = await ZipUploadModule.saveToArchive();
       if (result.success) {
         await refreshDashboard();
         showRegisterButtonRow("done");
+        alert("저장 완료되었습니다.");
       } else {
         alert("저장에 실패했습니다.");
       }
@@ -799,8 +898,6 @@ const AppCore = (() => {
     statusEl.textContent = "확인 중";
     const status = await BloggerModule.getConnectionStatus();
     statusEl.textContent = status.ok ? (status.connected ? "연결됨" : "연결 안 됨") : "확인 실패";
-
-    document.getElementById("fullcheck-list").innerHTML = "";
   }
 
   function openSettingsPopup() {
@@ -808,19 +905,63 @@ const AppCore = (() => {
     openPopup("popup-settings");
   }
 
+  function renderGuidelinePanel() {
+    document.getElementById("guideline-current-text").value = GuidelineModule.getGuidelineText();
+    document.getElementById("guideline-upload-input").value = "";
+    renderUploadFileName("guideline-upload-filename", null);
+  }
+
   function bindSettingsEvents() {
     document.getElementById("settings-close-btn").addEventListener("click", () => closePopup("popup-settings"));
 
-    document.getElementById("settings-error-view-btn").addEventListener("click", () => {
+    // 설정 기본 화면 → 각 하위 항목 팝업 열기
+    document.getElementById("open-settings-error-btn").addEventListener("click", () => {
       renderErrorList();
       document.getElementById("error-panel").classList.add("error-panel--open");
+    });
+
+    document.getElementById("open-settings-fullcheck-btn").addEventListener("click", () => {
+      document.getElementById("fullcheck-list").innerHTML = "";
+      openPopup("popup-settings-fullcheck");
+    });
+    document.getElementById("settings-fullcheck-close-btn").addEventListener("click", () => {
+      closePopup("popup-settings-fullcheck");
+    });
+    document.getElementById("fullcheck-run-btn").addEventListener("click", renderFullCheckList);
+
+    document.getElementById("open-settings-backup-btn").addEventListener("click", () => {
+      openPopup("popup-settings-backup");
+    });
+    document.getElementById("settings-backup-close-btn").addEventListener("click", () => {
+      closePopup("popup-settings-backup");
+    });
+
+    document.getElementById("open-settings-limitations-btn").addEventListener("click", () => {
+      openPopup("popup-settings-limitations");
+    });
+    document.getElementById("settings-limitations-close-btn").addEventListener("click", () => {
+      closePopup("popup-settings-limitations");
+    });
+
+    document.getElementById("open-settings-version-btn").addEventListener("click", () => {
+      document.getElementById("settings-version-value").textContent = `v${AppState.version}`;
+      openPopup("popup-settings-version");
+    });
+    document.getElementById("settings-version-close-btn").addEventListener("click", () => {
+      closePopup("popup-settings-version");
+    });
+
+    document.getElementById("open-settings-guideline-btn").addEventListener("click", () => {
+      renderGuidelinePanel();
+      openPopup("popup-settings-guideline");
+    });
+    document.getElementById("settings-guideline-close-btn").addEventListener("click", () => {
+      closePopup("popup-settings-guideline");
     });
 
     document.getElementById("error-panel-close-btn").addEventListener("click", () => {
       document.getElementById("error-panel").classList.remove("error-panel--open");
     });
-
-    document.getElementById("fullcheck-run-btn").addEventListener("click", renderFullCheckList);
 
     document.getElementById("settings-reset-btn").addEventListener("click", () => {
       openPopup("popup-confirm-reset");
@@ -844,6 +985,47 @@ const AppCore = (() => {
     document.getElementById("settings-logout-btn").addEventListener("click", () => {
       closePopup("popup-settings");
       AuthModule.logout();
+    });
+  }
+
+  /* ============================================================
+     블로그 지시서 관리 (repair2 신규)
+     ============================================================ */
+
+  function bindGuidelineEvents() {
+    document.getElementById("guideline-upload-input").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      renderUploadFileName("guideline-upload-filename", file);
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = String(event.target.result || "");
+        if (GuidelineModule.saveGuidelineText(text)) {
+          document.getElementById("guideline-current-text").value = text;
+          alert("지시서를 업로드했습니다.");
+        } else {
+          alert("지시서 저장에 실패했습니다.");
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById("guideline-reset-btn").addEventListener("click", () => {
+      const ok = confirm("기본 지시서로 복구하시겠습니까?");
+      if (!ok) return;
+      GuidelineModule.resetToDefault();
+      document.getElementById("guideline-current-text").value = GuidelineModule.getGuidelineText();
+    });
+
+    document.getElementById("guideline-copy-btn").addEventListener("click", async () => {
+      const result = await GuidelineModule.copyToClipboard();
+      alert(result.success ? "지시서를 클립보드에 복사했습니다." : "복사에 실패했습니다.");
+    });
+
+    document.getElementById("copy-guideline-btn").addEventListener("click", async () => {
+      const result = await GuidelineModule.copyToClipboard();
+      alert(result.success ? "GPT 지시서를 클립보드에 복사했습니다." : "복사에 실패했습니다.");
     });
   }
 
@@ -910,6 +1092,7 @@ const AppCore = (() => {
     bindBloggerEvents();
     bindSettingsEvents();
     bindBackupEvents();
+    bindGuidelineEvents();
 
     if (AuthModule.isLoggedIn()) {
       AuthModule.showAppScreen();
@@ -927,7 +1110,7 @@ const AppCore = (() => {
 })();
 
 const AppState = {
-  version: "0.0.6 repair1",
+  version: "0.0.6 repair2",
 };
 
 document.addEventListener("DOMContentLoaded", () => {

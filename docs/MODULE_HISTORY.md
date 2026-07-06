@@ -2,6 +2,23 @@
 
 GPT 공작소 프로젝트의 모듈별 생성 이력을 기록합니다.
 
+## 0.0.6 repair2 - 중앙 팝업 통일 + 등록 검증 흐름 정리 + 설정/미리보기 보정 - 2026-07-07
+
+새 모듈 1개 추가(guideline-module.js). preview-module.js는 부분 수정(목차/FAQ 반환값 추가). app-core.js는 등록하기/미리보기/설정 팝업 로직을 중심으로 부분 재구성. index.html/css는 팝업 방식 통일 및 스크롤 영역 재정리. 로그인/Worker/Blogger 연결/SEO 로직/저장소 핵심 구조는 변경하지 않았다.
+
+| 모듈 | 파일 | 역할 | 상태 |
+|---|---|---|---|
+| Guideline Module | js/guideline-module.js | 블로그 지시서(GPT 요청 문구) localStorage 저장/조회/기본값 복구/클립보드 복사. OpenAI API를 호출하지 않는 단순 텍스트 보조 기능 | 생성 완료 |
+| Preview Module | js/preview-module.js | (부분 수정) renderPreview() 반환값에 목차(tableOfContents, H2/H3 자동 추출)와 faqList를 추가. 기존 sanitizeHtml()/기본 반환 필드는 변경 없음 | 부분 수정 |
+| App Core | js/app-core.js | (부분 재구성) 등록하기(자동 검증 + 요약카드 + X 클릭 확인), 미리보기(Blogspot 스타일 렌더링 + 모바일/PC 전환), 설정(기본화면 + 하위 팝업), 블로그 지시서 관리 이벤트 추가 | 부분 재구성 |
+
+### 이번 repair2에서 다루지 않은 기존 모듈
+- js/storage-module.js, js/archive-module.js, js/backup-module.js, js/seo-module.js, js/error-log-module.js, js/gpt-upload-module.js, js/zip-upload-module.js, js/blogger-module.js, js/schedule-module.js, js/statistics-module.js, js/auth-module.js, js/worker-api-module.js, js/vendor/zip-reader.js, js/image-module.js: 코드 수정 없음(삭제 금지 목록 그대로 유지).
+
+### 정리한 잔재
+- css/layout.css: 어떤 화면에서도 더 이상 쓰이지 않는 구 자료실 오버레이 셀렉터(`detail-overlay`, `archive-detail--open`, `detail-panel`, `detail-panel__scroll`) 제거
+- css/components.css: 이미지 관리 화면(현재 미연결) 전용 잔재 클래스(`image-item__info`, `image-item__alt-input`, `image-item__delete-btn`) 및 구 SEO 상세화면 전용 잔재 클래스(`seo-issue-item`) 제거
+
 ## 0.0.6 repair1 - 암호 로그인 + 단일 대시보드 GUI 정리 + Blogger Worker 연동 - 2026-07-07
 
 새 모듈 2개 추가(auth-module.js, worker-api-module.js). blogger-module.js는 전면 교체. schedule-module.js/statistics-module.js는 신규 상태값 반영을 위한 부분 수정. index.html/app-core.js는 단일 대시보드+팝업 구조로 재구성.
