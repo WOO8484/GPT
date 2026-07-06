@@ -101,6 +101,18 @@
 - 내부 스크롤 영역 초과: 지정된 목록/본문 영역(자료실 목록·이미지 목록·SEO 문제 목록·예약 목록·통계 목록·오류 목록·상세 패널 등)이 내부 스크롤 대신 화면을 밀어내거나 잘리는 경우. 화면 확인으로 발견합니다.
 - 제한사항 확인 필요: 전체 점검 화면의 "현재 제한사항 안내" 항목 자체를 가리키는 안내성 문구이며, 매 점검마다 자동으로 오류 이력에 기록되지는 않습니다. 상세 내용은 docs/KNOWN_LIMITATIONS.md를 참고합니다.
 
+## Final Repair 1 오류 항목 (업로드 파일 선택)
+
+| 오류 메시지 | 발생 상황 | 관련 모듈 |
+|---|---|---|
+| 업로드 파일 accept 설정 오류 | 파일 선택 input의 accept 속성이 실제 허용해야 할 확장자/MIME 목록과 일치하지 않아 특정 파일이 선택되지 않는 경우 | gpt-upload-module |
+| HTML 파일 선택 불가 | content.html 선택 영역에서 accept 속성 오류로 인해 .html(.htm 포함) 파일을 선택할 수 없는 경우 | gpt-upload-module |
+| Markdown 파일 선택 불가 | content.md 선택 영역에서 accept 속성 오류로 인해 .md(.markdown 포함) 파일을 선택할 수 없는 경우 | gpt-upload-module |
+| TXT 파일 선택 불가 | content.txt 선택 영역에서 accept 속성 오류로 인해 .txt 파일을 선택할 수 없는 경우 | gpt-upload-module |
+| 업로드 파일 인식 결과 불일치 | 파일을 선택했음에도 인식 결과 목록(인식됨/없음)이 실제 선택 상태와 다르게 표시되는 경우 | gpt-upload-module |
+
+참고(코드 예외가 아닌 입력 속성/화면 확인 대상): 위 항목은 JS 런타임 오류가 아니라 index.html의 input accept 속성 설정 문제로 발생하며, error-log-module에 자동 기록되지 않고 화면 확인(파일 선택 다이얼로그 테스트)으로 발견합니다. Final Repair 1에서 metadata/HTML/Markdown/TXT 4개 입력의 accept 속성을 각각 `.json,application/json` / `.html,.htm,text/html` / `.md,.markdown,text/markdown,text/plain` / `.txt,text/plain`으로 수정하고, 각 선택 영역에 선택된 파일명 표시를 추가하여 해결했습니다.
+
 ## 향후 확장 예정 (Phase E 이후)
 - ZIP 파일 업로드/파싱 관련 오류 (여전히 보류 상태)
 - 서버/Worker 기반 자동 예약발행 관련 오류 (여전히 보류 상태)

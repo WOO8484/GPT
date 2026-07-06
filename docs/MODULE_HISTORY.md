@@ -2,6 +2,25 @@
 
 GPT 공작소 프로젝트의 모듈별 생성 이력을 기록합니다.
 
+## Final Repair 1 (0.0.5 final repair1) - 2026-07-06
+
+새 모듈 생성 없음. 새 기능 추가가 아니라 "업로드 화면 파일 선택 입력 오류 수정" 목적의 좁은 범위 repair.
+
+| 모듈/영역 | 파일 | 보정 내용 | 상태 |
+|---|---|---|---|
+| 업로드 화면(HTML) | index.html | metadata/HTML/Markdown/TXT 4개 파일 선택 input의 accept 속성을 `.json,application/json` / `.html,.htm,text/html` / `.md,.markdown,text/markdown,text/plain` / `.txt,text/plain`으로 수정. 각 선택 영역에 선택된 파일명 표시용 요소(`upload-*-filename`) 추가 | 보정 완료 |
+| App Core | js/app-core.js | 업로드 4개 input의 change 이벤트에서 선택된 파일명을 화면에 표시하는 `renderUploadFileName()` 추가 및 각 change 핸들러/저장 후 초기화 로직에 연결 | 보정 완료 |
+| 스타일(CSS) | css/components.css | 선택된 파일명 표시 요소(`.upload-filename`)에 대한 최소 스타일 추가 | 보정 완료 |
+| GPT Upload Module | js/gpt-upload-module.js | 수정 없음(파일 인식/저장 로직은 기존 그대로 정상 동작 확인) | 변경 없음 |
+
+### 보정이 필요했던 이유
+- 기존 index.html은 4개 파일 선택 input이 각각 분리되어 있었으나, accept 속성이 실제 허용해야 할 확장자 조합(.json/.html·.htm/.md·.markdown/.txt)과 일치하지 않아 실기 확인 중 content.html/content.md/content.txt 선택이 막히는 문제가 있었다. 4개 input의 accept 값을 작업지시서 기준에 맞춰 수정했다.
+- 선택된 파일명이 화면에 표시되지 않아 사용자가 어떤 파일이 실제로 선택되었는지 확인하기 어려웠다. 각 선택 영역에 파일명 표시 요소를 추가해 확인 가능하도록 했다.
+
+### 범위 제외
+- js/storage-module.js, js/archive-module.js, js/backup-module.js, js/error-log-module.js, js/preview-module.js, js/image-module.js, js/seo-module.js, js/blogger-module.js, js/schedule-module.js, js/statistics-module.js는 수정하지 않음
+- ZIP/JSZip/vendor 재도입, 붙여넣기 UI 재도입, AI 글/이미지 생성, Blogger/예약발행/통계 기능 수정 없음
+
 ## Phase E (0.0.5) - 2026-07-06
 
 | 모듈 | 파일 | 역할 | 상태 |

@@ -153,6 +153,13 @@
   display: none;
 }
 
+.upload-filename {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #888888;
+  text-align: center;
+}
+
 .check-list {
   border: 1px solid #eeeeee;
   border-radius: 8px;

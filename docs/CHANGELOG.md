@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## [0.0.5 final repair1] - 2026-07-06 - Final Repair 1
+
+### 목적
+새 기능 추가가 아니라 "업로드 화면 파일 선택 입력 오류 수정". 실기 확인 중 발견된, metadata.json 외 content.html/content.md/content.txt 파일을 선택할 수 없던 문제에 대한 좁은 범위의 repair.
+
+### 보정
+- **업로드 파일 선택 input accept 속성 수정**: index.html의 metadata/HTML/Markdown/TXT 4개 파일 선택 input의 accept 값을 각각 `.json,application/json` / `.html,.htm,text/html` / `.md,.markdown,text/markdown,text/plain` / `.txt,text/plain`으로 수정하여 4개 파일을 각각 개별적으로 선택할 수 있도록 함
+- **선택된 파일명 화면 표시 추가**: 업로드 화면의 4개 파일 선택 영역 각각에 선택된 파일명(또는 "선택된 파일 없음")을 표시하는 영역을 추가(js/app-core.js, css/components.css)
+
+### 범위 제외 (Final Repair 1에서 다루지 않음)
+- ZIP 업로드/JSZip/vendor 재도입, 붙여넣기 UI 재도입, AI 글/이미지 생성
+- Blogger 업로드, 예약발행, 통계 기능 수정
+- 전체 UI 재설계, 화면명/버튼명 변경(파일 선택 관련 제외)
+- 기존 자료실/미리보기/이미지/SEO 기능 손상 없음 확인
+
 ## [0.0.5] - 2026-07-06 - Phase E
 
 ### 목적

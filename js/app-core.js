@@ -810,24 +810,34 @@ const AppCore = (() => {
     });
   }
 
+  function renderUploadFileName(displayId, file) {
+    const el = document.getElementById(displayId);
+    if (!el) return;
+    el.textContent = file ? file.name : "선택된 파일 없음";
+  }
+
   function bindUploadEvents() {
     document.getElementById("upload-metadata-input").addEventListener("change", async (e) => {
       await GptUploadModule.setMetadataFile(e.target.files[0]);
+      renderUploadFileName("upload-metadata-filename", e.target.files[0]);
       renderUploadCheckList();
     });
 
     document.getElementById("upload-html-input").addEventListener("change", async (e) => {
       await GptUploadModule.setHtmlFile(e.target.files[0]);
+      renderUploadFileName("upload-html-filename", e.target.files[0]);
       renderUploadCheckList();
     });
 
     document.getElementById("upload-markdown-input").addEventListener("change", async (e) => {
       await GptUploadModule.setMarkdownFile(e.target.files[0]);
+      renderUploadFileName("upload-markdown-filename", e.target.files[0]);
       renderUploadCheckList();
     });
 
     document.getElementById("upload-text-input").addEventListener("change", async (e) => {
       await GptUploadModule.setTextFile(e.target.files[0]);
+      renderUploadFileName("upload-text-filename", e.target.files[0]);
       renderUploadCheckList();
     });
 
@@ -843,6 +853,10 @@ const AppCore = (() => {
         document.getElementById("upload-html-input").value = "";
         document.getElementById("upload-markdown-input").value = "";
         document.getElementById("upload-text-input").value = "";
+        renderUploadFileName("upload-metadata-filename", null);
+        renderUploadFileName("upload-html-filename", null);
+        renderUploadFileName("upload-markdown-filename", null);
+        renderUploadFileName("upload-text-filename", null);
         renderUploadCheckList();
 
         alert("자료실에 저장되었습니다.");

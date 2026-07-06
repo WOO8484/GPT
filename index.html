@@ -50,25 +50,29 @@
         <div class="section">
           <div class="section-title">metadata.json</div>
           <label for="upload-metadata-input" class="upload-drop-zone">파일 선택</label>
-          <input id="upload-metadata-input" class="upload-file-hidden" type="file" accept="application/json" />
+          <input id="upload-metadata-input" class="upload-file-hidden" type="file" accept=".json,application/json" />
+          <div id="upload-metadata-filename" class="upload-filename">선택된 파일 없음</div>
         </div>
 
         <div class="section">
           <div class="section-title">content.html</div>
           <label for="upload-html-input" class="upload-drop-zone">파일 선택</label>
-          <input id="upload-html-input" class="upload-file-hidden" type="file" accept=".html,text/html" />
+          <input id="upload-html-input" class="upload-file-hidden" type="file" accept=".html,.htm,text/html" />
+          <div id="upload-html-filename" class="upload-filename">선택된 파일 없음</div>
         </div>
 
         <div class="section">
           <div class="section-title">content.md</div>
           <label for="upload-markdown-input" class="upload-drop-zone">파일 선택</label>
-          <input id="upload-markdown-input" class="upload-file-hidden" type="file" accept=".md,text/markdown" />
+          <input id="upload-markdown-input" class="upload-file-hidden" type="file" accept=".md,.markdown,text/markdown,text/plain" />
+          <div id="upload-markdown-filename" class="upload-filename">선택된 파일 없음</div>
         </div>
 
         <div class="section">
           <div class="section-title">content.txt</div>
           <label for="upload-text-input" class="upload-drop-zone">파일 선택</label>
           <input id="upload-text-input" class="upload-file-hidden" type="file" accept=".txt,text/plain" />
+          <div id="upload-text-filename" class="upload-filename">선택된 파일 없음</div>
         </div>
 
         <div class="section">
