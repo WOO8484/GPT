@@ -386,6 +386,8 @@ const AppCore = (() => {
     document.getElementById("register-btn-row-fail").classList.toggle("hidden", stage !== "fail");
     document.getElementById("register-btn-row-pass").classList.toggle("hidden", stage !== "pass");
     document.getElementById("register-btn-row-done").classList.toggle("hidden", stage !== "done");
+    // 검증 통과 후 저장 대기 상태에서는 실수로 팝업을 닫아버리는 것을 막기 위해 X 닫기 버튼을 숨긴다.
+    document.getElementById("register-close-x-btn").classList.toggle("hidden", stage === "pass");
   }
 
   function renderZipRecognitionChecklist() {
@@ -463,19 +465,33 @@ const AppCore = (() => {
 
     renderValidationChecklist(result);
 
-    if (result.structureOk) {
-      const scoreArea = document.getElementById("register-score-area");
-      scoreArea.classList.remove("hidden");
-      document.getElementById("register-score-value").textContent = result.seoResult
-        ? `${result.seoResult.totalScore}점 (${result.seoResult.result})`
-        : "-";
+    if (!result.structureOk) {
+      // 필수 파일/이미지 누락: 구조 검증 실패
+      document.getElementById("register-score-area").classList.add("hidden");
+      showRegisterButtonRow("fail");
+      return;
+    }
+
+    // 구조 검증은 통과했으므로 SEO 점수/판정은 항상 표시한다.
+    const scoreArea = document.getElementById("register-score-area");
+    scoreArea.classList.remove("hidden");
+    document.getElementById("register-score-value").textContent = result.seoResult
+      ? `${result.seoResult.totalScore}점 (${result.seoResult.result})`
+      : "-";
+
+    if (result.seoOk) {
       document.getElementById("register-briefing").textContent =
         result.seoResult && result.seoResult.issues && result.seoResult.issues.length > 0
           ? `SEO 참고 사항: ${result.seoResult.issues.join(", ")}`
           : "SEO 참고 사항이 없습니다.";
       showRegisterButtonRow("pass");
     } else {
-      document.getElementById("register-score-area").classList.add("hidden");
+      // SEO 미통과: 저장 버튼을 표시하지 않고 실패 사유를 표시한다.
+      const issuesText =
+        result.seoResult && result.seoResult.issues && result.seoResult.issues.length > 0
+          ? result.seoResult.issues.join(", ")
+          : "SEO 검수 기준을 충족하지 못했습니다.";
+      document.getElementById("register-briefing").textContent = `SEO 미통과로 저장할 수 없습니다. (실패 사유: ${issuesText})`;
       showRegisterButtonRow("fail");
     }
   }

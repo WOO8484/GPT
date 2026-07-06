@@ -222,7 +222,11 @@ const ZipUploadModule = (() => {
         SeoModule.loadPost(tempPost);
         seoResult = SeoModule.runCheck();
         tempPost.seoResult = seoResult || {};
-        validatedPost = tempPost;
+        // SEO 판정이 "통과"일 때만 저장 대상으로 확정한다. 구조 검증만 통과하고
+        // SEO가 미통과인 경우 validatedPost를 세팅하지 않아 saveToArchive()가 저장을 거부한다.
+        if (seoResult && seoResult.result === "통과") {
+          validatedPost = tempPost;
+        }
       }
     } else {
       ErrorLogModule.logError({
@@ -233,9 +237,13 @@ const ZipUploadModule = (() => {
       });
     }
 
+    const seoOk = !!(seoResult && seoResult.result === "통과");
+
     return {
       success: true,
       structureOk,
+      seoOk,
+      passed: structureOk && seoOk,
       checklist,
       totalCount: checklist.length,
       okCount,
