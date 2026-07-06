@@ -111,6 +111,14 @@
   overflow-y: auto;
 }
 
+.preview-empty-text {
+  text-align: center;
+  color: #888888;
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 40px 16px;
+}
+
 .error-item {
   padding: 10px 0;
   border-bottom: 1px solid #f0f0f0;
@@ -158,6 +166,16 @@
   font-size: 13px;
   color: #888888;
   text-align: center;
+}
+
+.upload-desc {
+  font-size: 13px;
+  color: #666666;
+  margin-bottom: 10px;
+}
+
+.manual-upload-panel--collapsed {
+  display: none;
 }
 
 .check-list {

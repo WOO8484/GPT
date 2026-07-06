@@ -1,5 +1,53 @@
 # CHANGELOG
 
+## [0.0.6 repair1] - 2026-07-07 - 암호 로그인 + 단일 대시보드 GUI 정리 + Blogger Worker 연동
+
+### 목적
+1) 앱 진입 시 암호 로그인 화면을 거치도록 한다. 2) 하단 네비게이션과 화면별 개별 화면을 없애고 단일 고정 대시보드(최근 글 전광판 + 공작소 작업대) + 팝업(등록하기/자료실/블로그 등록하기/설정) 구조로 정리한다. 3) 기존 Blogger 연동(브라우저에서 Blog ID/Access Token을 직접 입력받아 Google Blogger API를 직접 호출하던 방식)을 제거하고, WP 0.0.10의 Worker 기반 로그인/Blogger 임시저장 연동 핵심 로직만 GPT 공작소 구조에 맞게 이식한다. WP의 UI, 글쓰기, 검색, AI 생성, 프리셋, 테스트 페이지 기능은 가져오지 않는다.
+
+### 추가
+- **암호 로그인 화면**: js/auth-module.js 신규 생성. WP 0.0.10 auth-session.js의 로그인 핵심 로직(암호 입력 → Worker `/auth/login` 호출 → 세션 토큰 저장 → 실패/만료 처리)만 이식. 세션 토큰은 sessionStorage에만 저장(`gongjakso_session_token`), 새로고침 시 세션 유지, 로그인 성공 전에는 대시보드/자료/설정/블로그 기능을 노출하지 않음
+- **Worker 공통 호출 모듈**: js/worker-api-module.js 신규 생성. WP 0.0.10 api-adapter.js 중 Worker 공통 호출 함수와 `/blogger/status`, `/blogger/draft` 호출 부분만 이식. 세션 토큰을 Authorization 헤더로 첨부하고, 401 응답 시 자동으로 로그인 화면으로 전환
+- **단일 대시보드 GUI**: index.html/js/app-core.js를 로그인 화면 + 고정 대시보드(헤더, 최근 글 전광판 3~5초 자동 순환, 공작소 작업대 버튼 3개) + 팝업(등록하기/자료실/블로그 등록하기/설정) 구조로 재구성. 기존 하단 네비게이션과 별도 설정 화면은 제거
+- **등록하기 팝업 검증 게이트**: js/zip-upload-module.js에 runValidation() 신규 추가. ZIP 인식 후 [검증하기]를 눌러야 하며, 필수 파일(metadata.json/content.html/content.md/content.txt) 및 이미지(thumbnail, body-01~03) 8종 구조 검증과 SEO 검수를 함께 실행. 검증 실패(파일/이미지 누락) 시 저장 불가, 검증 통과 후에만 [저장] 가능. 저장 시 기본 상태값은 "등록완료"
+- **자료실 팝업**: 목록에 제목/상태/수정일/SEO 결과/이미지 수량 표시. 글 선택 시 [미리 보기]/[삭제 하기]만 제공하며, 삭제 시 "정말 삭제하시겠습니까? 삭제한 글은 되돌릴 수 없습니다." 확인 팝업 필수
+- **블로그 등록하기 팝업**: 제목/본문/SEO 통과 조건을 만족하는 글만 후보로 노출. [블로그 임시 저장](Worker `/blogger/draft` 호출) / [예약 저장](기존 schedule-module.js 로컬 예약) 제공. 즉시 발행/실제 공개 기능은 Worker에 실제 경로가 없으므로 추가하지 않음
+- **설정 팝업**: Blogger 연결 상태, 백업/복구, 오류 확인, 전체 점검, 제한사항 안내, 버전 정보, 데이터 초기화(확인 팝업 필수), 로그아웃 제공
+
+### 변경
+- **js/blogger-module.js 전면 교체**: 브라우저에서 Blog ID/Access Token을 직접 입력받아 Google Blogger API를 직접 호출하던 기존 방식을 제거. WorkerApiModule을 통한 `/blogger/status`(연결 상태 확인), `/blogger/draft`(임시저장)만 사용. Blog ID/Client Secret/Refresh Token은 Worker가 서버 측에서 관리하며 브라우저 코드에는 두지 않음. 임시저장 성공 시 상태값을 "임시저장완료"로 설정
+- **js/schedule-module.js**: 예약 가능 상태값(ALLOWED_SCHEDULE_STATUS)에 "등록완료"/"임시저장완료" 추가(기존 "발행대기"/"검수중"은 레거시 데이터 호환을 위해 유지). 예약 저장 성공 시 상태값을 "예약저장됨"으로 변경(기존 "예약됨"에서 명칭 정리)
+- **js/statistics-module.js**: STATUS_LIST 및 전체 점검 집계 로직에 신규 상태값(등록완료/임시저장완료/예약저장됨) 반영
+
+### 범위 제외 (이번 repair1에서 다루지 않음)
+- WP의 UI, 글쓰기, 검색, AI 생성, 이미지 생성, 프리셋, 테스트 페이지 기능 이식
+- Blogger 실제 발행(즉시 공개) 기능 신규 구현 (Worker에 실제 경로가 없어 추가하지 않음)
+- 이미지 관리 화면(js/image-module.js)의 팝업 내 재노출 — 파일은 그대로 두되 이번 대시보드 구조에서는 연결하지 않음 (자세한 내용은 남은 주의사항 참고)
+- 오류 백과사전의 오류번호/버전/해결방법/재발방지 등 구조화된 신규 포맷 전환 — 기존 오류 이력 화면 구조를 그대로 유지
+
+## [0.0.6] - 2026-07-06 - ZIP 자료 패키지 자동 업로드
+
+### 목적
+GPT 공작소 자료 패키지 ZIP 파일 1개로 글/이미지 파일을 자동 인식해 자료실에 저장. 기존 개별 파일(metadata.json/content.html/content.md/content.txt) 수동 업로드는 삭제하지 않고 보조 기능으로 유지.
+
+### 추가
+- **ZIP 자동 업로드**: js/zip-upload-module.js 신규 생성. ZIP 안에서 metadata.json/content.html/content.md/content.txt를 파일명 기준(하위 폴더 포함)으로 자동 인식해 자료실에 저장. metadata.json이 없어도 HTML/Markdown/TXT 중 1개 이상만 있으면 저장 가능
+- **ZIP 내부 이미지 자동 인식/저장**: thumbnail.png/jpg/jpeg/webp(1장, 확장자 우선순위 png→jpg→jpeg→webp), body-01~03.png/jpg/jpeg/webp(최대 3장)을 기존 imageList 구조에 맞춰 자동 저장. ALT 기본값 자동 생성("{제목} 썸네일 이미지" / "{제목} 본문 이미지 N"), 저장 후 이미지 관리 화면에서 ALT 수정 가능
+- **ZIP 업로드 UI**: 업로드 화면 상단에 [압축파일 자동 업로드] 영역 추가(ZIP 파일 선택, 선택 파일명 표시, ZIP 인식 결과 7항목, ZIP 자료실에 저장하기 버튼)
+- **기존 수동 업로드는 보조 기능으로 유지**: 기존 4개 파일 개별 업로드 영역은 삭제하지 않고 [수동 업로드 열기/닫기] 버튼으로 접고 펼 수 있는 보조 영역으로 전환(기본 접힘)
+- **ZIP 읽기 전용 최소 구현**: js/vendor/zip-reader.js 신규 생성. 표준 ZIP 중앙 디렉터리 구조와 DEFLATE(RFC 1951) 압축 해제를 직접 구현(저장/Deflate만 지원). 외부 CDN을 사용하지 않음
+
+### 보정
+- **SEO 통과 시 상태 자동 전환**: js/seo-module.js의 saveSeoResult()에서 SEO 결과가 "통과"이고 현재 상태가 "작성중"이면 "검수중"으로 자동 전환(그 외 상태는 임의 변경하지 않음). Blogger 발행대기 전환이 막히던 문제 해소
+- **미리보기 선택 글 없음 안내**: 선택된 글 없이 미리보기 화면에 진입하면 "선택된 글이 없습니다. 자료실에서 글을 선택한 뒤 미리보기를 열어주세요." 안내를 표시(오류 이력에는 기록하지 않음)
+- **백업 버전 표기 보정**: js/backup-module.js의 전체 백업 payload 버전을 "0.0.1"에서 "0.0.6"으로 보정
+- **전체 점검 오류 로그 반복 누적 방지**: js/statistics-module.js의 전체 점검에서 레거시 상태값/ dataUrl 이미지 존재/Blogger 이력/예약 불일치 같은 설계상 상태 확인 항목은 점검 결과 화면에는 계속 표시하되, 반복 실행 시 오류 이력에 중복 기록되지 않도록 수정(실제 저장/파싱/API 실패만 오류 이력에 기록)
+
+### 범위 제외 (0.0.6에서 다루지 않음)
+- Blogger OAuth 전체 로그인 플로우, Worker 신규 구현, 네이버 API/검색 API/글쓰기 프리셋 추가
+- ZIP 이미지의 Blogger 서버 자동 업로드/변환(다음 Worker/Blogger 고도화 대상)
+- 기존 글 덮어쓰기(ZIP 업로드는 항상 새 글로 저장), 전체 UI 재설계, 기존 화면/버튼명 임의 변경
+
 ## [0.0.5 final repair1] - 2026-07-06 - Final Repair 1
 
 ### 목적

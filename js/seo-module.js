@@ -191,6 +191,14 @@ const SeoModule = (() => {
     }
 
     try {
+      if (
+        currentPost.seoResult &&
+        currentPost.seoResult.result === "통과" &&
+        currentPost.status === "작성중"
+      ) {
+        currentPost.status = "검수중";
+      }
+
       currentPost.updatedAt = new Date().toISOString();
       await StorageModule.savePost(currentPost);
       await ArchiveModule.loadPosts();

@@ -16,8 +16,8 @@ const ScheduleModule = (() => {
     error: "오류",
   };
 
-  // 예약 가능한 상태값: 발행대기, 또는 검수중(별도로 SEO 통과 조건과 함께 확인됨)
-  const ALLOWED_SCHEDULE_STATUS = ["발행대기", "검수중"];
+  // 예약 가능한 상태값: 발행대기/검수중(레거시) + 등록완료/임시저장완료(repair1 신규 상태값)
+  const ALLOWED_SCHEDULE_STATUS = ["발행대기", "검수중", "등록완료", "임시저장완료"];
 
   let currentPost = null;
 
@@ -124,7 +124,7 @@ const ScheduleModule = (() => {
       canceledAt: null,
       previousStatus: normalizeStatus(currentPost.status),
     };
-    currentPost.status = "예약됨";
+    currentPost.status = "예약저장됨";
     currentPost.updatedAt = new Date().toISOString();
 
     try {

@@ -2,6 +2,72 @@
 
 GPT 공작소 프로젝트의 모듈별 생성 이력을 기록합니다.
 
+## 0.0.6 repair1 - 암호 로그인 + 단일 대시보드 GUI 정리 + Blogger Worker 연동 - 2026-07-07
+
+새 모듈 2개 추가(auth-module.js, worker-api-module.js). blogger-module.js는 전면 교체. schedule-module.js/statistics-module.js는 신규 상태값 반영을 위한 부분 수정. index.html/app-core.js는 단일 대시보드+팝업 구조로 재구성.
+
+| 모듈 | 파일 | 역할 | 상태 |
+|---|---|---|---|
+| Auth Module | js/auth-module.js | 암호 로그인 화면 제어, Worker `/auth/login` 호출, 세션 토큰(sessionStorage) 저장/삭제, 401 발생 시 강제 로그아웃 | 생성 완료 |
+| Worker API Module | js/worker-api-module.js | Worker 공통 호출(세션 토큰 Authorization 헤더 첨부, 401 처리), `/blogger/status`, `/blogger/draft` 호출 | 생성 완료 |
+| Blogger Module | js/blogger-module.js | (전면 교체) Blog ID/Access Token 수동 입력 후 Google Blogger API 직접 호출하던 기존 방식 제거. WorkerApiModule을 통한 연결 상태 확인/임시저장만 제공 | 교체 완료 |
+| Schedule Module | js/schedule-module.js | (부분 수정) 예약 가능 상태값에 "등록완료"/"임시저장완료" 추가, 예약 성공 시 상태값을 "예약저장됨"으로 변경 | 부분 수정 |
+| Statistics Module | js/statistics-module.js | (부분 수정) STATUS_LIST 및 예약 글 수 집계에 신규 상태값 반영 | 부분 수정 |
+| Zip Upload Module | js/zip-upload-module.js | (부분 수정) runValidation() 추가 — 구조 검증(8종 필수 파일/이미지) + SEO 검수를 통과해야만 저장 가능하도록 게이트 추가. 저장 시 기본 상태값 "등록완료" | 부분 수정 |
+| App Core | js/app-core.js | (전면 교체) 로그인 연동, 단일 대시보드(최근 글 전광판+공작소 작업대) 렌더링, 팝업(등록하기/자료실/블로그 등록하기/설정) 이벤트 바인딩으로 재구성 | 교체 완료 |
+
+### WP 0.0.10 이식 관련 참고사항(출처/제약)
+- js/auth-module.js, js/worker-api-module.js는 WP 0.0.10의 `assets/js/wp/auth/auth-session.js`, `assets/js/wp/common/api-adapter.js`, `assets/js/wp/common/constants.js`, `assets/js/wp/publish/blogger-adapter.js` 중 로그인/세션/Worker 공통 호출/Blogger 상태 확인·임시저장 부분만 GPT 공작소 구조와 명명 규칙에 맞게 새로 작성했다. WP의 화면 마크업, 문구, 글쓰기/검색/AI 생성/프리셋/테스트 페이지 관련 코드는 가져오지 않았다.
+- Worker 주소(`WORKER_BASE_URL`)는 WP 0.0.10과 동일한 값을 그대로 사용했다. API Key, Client Secret, Refresh Token, 관리자 비밀번호 등 민감정보는 이번 작업의 어떤 파일에도 포함하지 않았으며, 전부 Worker(서버) 측이 관리하는 것을 전제로 한다.
+- Worker에 실제 발행(즉시 공개) 경로가 없어, 이번 repair1의 Blogger 기능은 "블로그 임시 저장"과 "예약 저장"(로컬 예약 정보)만 제공한다. mock으로 발행 성공을 흉내 내지 않았다.
+
+### 이번 repair1에서 다루지 않은 기존 모듈
+- js/image-module.js, js/gpt-upload-module.js, js/seo-module.js, js/storage-module.js, js/backup-module.js, js/preview-module.js, js/error-log-module.js, js/vendor/zip-reader.js: 코드 수정 없음.
+- 다만 index.html에서 js/image-module.js의 이미지 관리 화면은 이번 대시보드/팝업 구조에 새 진입점을 만들지 않아 더 이상 로드되지 않는다(파일 자체는 삭제하지 않고 그대로 둠). 자세한 내용은 docs/KNOWN_LIMITATIONS.md 참고.
+
+## 0.0.6 - ZIP 자료 패키지 자동 업로드 - 2026-07-06
+
+새 모듈 2개 추가. 기존 gpt-upload-module.js는 삭제하지 않고 수동 업로드 보조 모듈로 그대로 유지한다.
+
+| 모듈 | 파일 | 역할 | 상태 |
+|---|---|---|---|
+| Zip Reader(벤더) | js/vendor/zip-reader.js | 표준 ZIP 중앙 디렉터리/로컬 헤더 파싱과 DEFLATE(RFC 1951) 압축 해제를 순수 JS로 구현한 최소 ZIP 리더. 저장(Stored)/Deflate 압축만 지원 | 생성 완료 |
+| Zip Upload Module | js/zip-upload-module.js | ZIP 안에서 metadata.json/content.html/content.md/content.txt와 thumbnail/body-01~03 이미지를 파일명 기준(하위 폴더 포함)으로 인식, 글 데이터·imageList 구성 후 `StorageModule.savePost()`로 저장 | 생성 완료 |
+
+### gpt-upload-module.js(기존 수동 업로드)
+- 코드 수정 없음. UI에서 [수동 업로드 열기/닫기] 버튼으로 접고 펼 수 있는 보조 영역으로 재배치되었을 뿐, 개별 파일 인식/저장 로직과 공개 함수는 이전과 동일하다.
+
+### ZIP 읽기 구현 관련 참고사항(출처/제약)
+- 이번 작업 환경에서는 JSZip 등 외부 라이브러리를 네트워크로 내려받을 수 없어(sandbox 네트워크 제약), `js/vendor/zip-reader.js`를 공개된 ZIP 포맷 규격과 DEFLATE(RFC 1951) 알고리즘 명세를 바탕으로 이번 작업에서 직접 작성했다. 외부 라이브러리 코드를 가져오거나 재배포한 것이 아니다.
+- Node.js 환경에서 Python `zipfile`로 생성한 실제 ZIP(저장/Deflate 혼합, 하위 폴더, 한글 경로, `__MACOSX`/`.DS_Store`/디렉터리 항목 포함, 20KB~ 바이너리 이미지 포함)로 원본과 바이트 단위 일치를 검증했다.
+- 암호화된 ZIP, ZIP64(초대형 ZIP), BZIP2/LZMA 등 그 외 압축 방식은 지원 범위 밖이며 해당 항목은 건너뛴다.
+
+### Zip Upload Module 설계 메모
+- 공개 함수: `setZipFile(file)`, `getCheckStatus()`, `saveToArchive()`, `reset()` (작업지시서 9.1 권장 함수와 동일)
+- 이미지 후보가 여러 확장자로 겹치는 경우 png→jpg→jpeg→webp 우선순위로 1개만 선택(썸네일 1장, 본문 이미지는 01~03 번호별로 각 1장)
+- metadata.json이 없어도 저장 가능하며, 이 경우 제목은 ZIP 파일명에서 확장자를 제거한 값을 사용
+- 상태값은 항상 `작성중`으로 저장(기존 gpt-upload-module.js와 달리 metadata의 status 값을 신뢰하지 않음 — 작업지시서 7.4 "상태값은 기본 작성중으로 저장" 기준)
+- ZIP 업로드는 항상 새 글로 저장하며, 같은 제목 글이 있어도 덮어쓰지 않는다(이번 작업 범위에서 덮어쓰기 기능은 만들지 않음)
+
+### index.html / App Core / CSS
+| 영역 | 파일 | 변경 내용 | 상태 |
+|---|---|---|---|
+| 업로드 화면(HTML) | index.html | 상단에 ZIP 자동 업로드 영역(ZIP 파일 선택/선택 파일명/ZIP 인식 결과/ZIP 자료실에 저장하기) 추가. 기존 4개 파일 수동 업로드 영역은 `#manual-upload-panel`로 감싸 `manual-upload-panel--collapsed` 클래스로 기본 접힘 처리하고 `[수동 업로드 열기/닫기]` 토글 버튼 추가. `js/vendor/zip-reader.js`, `js/zip-upload-module.js` script 태그를 `gpt-upload-module.js` 다음, `image-module.js` 이전에 추가(작업지시서 9.3 로딩 순서 기준). 미리보기 화면에 `#preview-empty-message` 안내 영역 추가 | 보정 완료 |
+| App Core | js/app-core.js | ZIP 파일 선택/저장 이벤트 바인딩, `renderZipCheckList()`(ZIP 인식 결과 7항목: metadata/html/md/txt/썸네일/본문 이미지 장수/image_prompts) 추가. `[수동 업로드 열기/닫기]` 토글 바인딩 추가. `renderPreviewView()`가 선택된 글이 없을 때 안내 메시지를 보여주고 나머지 영역을 숨기도록 보정(기존에는 아무 것도 렌더링하지 않고 그대로 반환해 빈 화면처럼 보였음) | 보정 완료 |
+| 스타일(CSS) | css/components.css | ZIP 안내 텍스트(`.upload-desc`), 수동 업로드 접힘 상태(`.manual-upload-panel--collapsed`), 미리보기 안내 텍스트(`.preview-empty-text`) 최소 스타일 추가 | 보정 완료 |
+
+### SEO / Backup / Statistics 보정
+| 모듈 | 파일 | 보정 내용 | 상태 |
+|---|---|---|---|
+| SEO Module | js/seo-module.js | `saveSeoResult()`에서 SEO 결과가 "통과"이고 현재 상태가 "작성중"이면 "검수중"으로 자동 전환하는 조건 추가(그 외 상태는 변경하지 않음) | 보정 완료 |
+| Backup Module | js/backup-module.js | 전체 백업 payload의 하드코딩된 `version` 값을 `"0.0.1"`에서 `"0.0.6"`으로 보정 | 보정 완료 |
+| Statistics Module | js/statistics-module.js | 전체 점검(`runFullCheck`)에서 레거시 상태값/dataUrl 이미지/Blogger 이력/예약 불일치 발견 시 매번 `ErrorLogModule.logError()`를 호출하던 부분을 제거. 점검 결과 항목(items) 표시는 그대로 유지하고, 실제 실패(저장/파싱/API 등)만 오류 이력에 남도록 보정 | 보정 완료 |
+
+### 범위 제외 (0.0.6에서 다루지 않음)
+- Blogger OAuth 전체 로그인, Worker 신규 구현, 네이버 API/검색 API/글쓰기 프리셋
+- ZIP 이미지의 Blogger 서버 자동 업로드/변환
+- 기존 글 덮어쓰기, 전체 UI 재설계, js/storage-module.js·js/archive-module.js·js/image-module.js·js/preview-module.js·js/blogger-module.js·js/schedule-module.js 로직 변경(연결에 필요한 최소 변경 없음)
+
 ## Final Repair 1 (0.0.5 final repair1) - 2026-07-06
 
 새 모듈 생성 없음. 새 기능 추가가 아니라 "업로드 화면 파일 선택 입력 오류 수정" 목적의 좁은 범위 repair.

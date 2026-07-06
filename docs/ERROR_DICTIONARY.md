@@ -69,6 +69,8 @@
 
 참고: Blogger 업로드/예약 저장 실패 시에도 글의 상태값과 이전 데이터는 되돌려지며, 실패 자체는 오류 이력에 기록됩니다.
 
+> **repair1 안내**: 위 Phase D 항목 중 "Blogger 설정값 누락", "Access Token 누락", "Blog ID 누락"은 브라우저에서 Blog ID/Access Token을 직접 입력받아 Google Blogger API를 호출하던 방식(0.0.6 repair1 이전)에서 발생하던 오류입니다. 0.0.6 repair1부터는 Worker 기반 로그인/세션 방식으로 대체되어 더 이상 발생하지 않으며, 과거 이력 확인용으로만 남겨둡니다.
+
 ## Repair 1 오류 항목 (Phase D Repair 1)
 
 | 오류 메시지 | 발생 상황 | 관련 모듈 |
@@ -80,6 +82,8 @@
 | 예약 조건 미충족 | 예약 저장 시도 시 제목/HTML 본문/SEO 통과/상태값(발행대기 또는 검수중) 중 하나 이상을 만족하지 못한 경우 | schedule-module |
 | 예약 전 사용자 확인 취소 | 예약 저장 실행 전 확인 팝업에서 사용자가 취소를 선택한 경우 | schedule-module |
 | 기존 영어 상태값 마이그레이션 실패 | 자료실 로딩 시 레거시 영어 상태값(draft/published/scheduled/error)을 한국어로 보정하여 저장하는 중 오류가 발생한 경우(글 단위로 개별 처리되며, 한 건 실패가 나머지 항목 처리를 막지 않음) | archive-module |
+
+> **repair1 안내**: 위 항목 중 "실제 발행 실패", "발행 전 사용자 확인 취소"는 즉시 공개(실제 발행) 기능이 있던 시절의 오류입니다. 0.0.6 repair1의 Worker에는 실제 발행 경로가 없어 해당 기능 자체를 제공하지 않으며(블로그 임시 저장/예약 저장만 제공), 과거 이력 확인용으로만 남겨둡니다. "예약 조건 미충족"의 허용 상태값은 repair1부터 "등록완료", "임시저장완료"가 추가되었습니다(자세한 내용은 docs/CHANGELOG.md 0.0.6 repair1 항목 참고).
 
 참고(코드로 자동 기록되지 않는 항목 - QA/시각적 확인 대상):
 - 기본 화면 고정 레이아웃 깨짐: 헤더/하단 네비가 고정되지 않거나 전체 페이지가 스크롤되는 경우. 레이아웃 문제이므로 error-log-module에 자동 기록되지 않으며, 화면 확인으로 발견합니다.
@@ -113,6 +117,31 @@
 
 참고(코드 예외가 아닌 입력 속성/화면 확인 대상): 위 항목은 JS 런타임 오류가 아니라 index.html의 input accept 속성 설정 문제로 발생하며, error-log-module에 자동 기록되지 않고 화면 확인(파일 선택 다이얼로그 테스트)으로 발견합니다. Final Repair 1에서 metadata/HTML/Markdown/TXT 4개 입력의 accept 속성을 각각 `.json,application/json` / `.html,.htm,text/html` / `.md,.markdown,text/markdown,text/plain` / `.txt,text/plain`으로 수정하고, 각 선택 영역에 선택된 파일명 표시를 추가하여 해결했습니다.
 
+## 0.0.6 오류 항목 (ZIP 자동 업로드)
+
+| 오류 메시지 | 발생 상황 | 관련 모듈 |
+|---|---|---|
+| ZIP 파일 인식 실패 | 선택한 ZIP 파일이 올바른 ZIP 구조가 아니거나 읽는 중 오류가 발생한 경우 | zip-upload-module |
+| ZIP 내 metadata.json 파싱 실패 | ZIP 안의 metadata.json 파일 내용이 올바른 JSON 형식이 아닌 경우(metadata.json 없이도 저장은 계속 진행됨) | zip-upload-module |
+| ZIP 글 파일 누락 | ZIP 안에서 content.html/content.md/content.txt 중 인식된 파일이 하나도 없어 저장할 내용이 없는 경우 | zip-upload-module |
+| ZIP 자료실 저장 실패 | 인식된 ZIP 내용을 자료실(저장소)에 저장하는 중 오류가 발생한 경우 | zip-upload-module |
+
+참고: ZIP 안의 `__MACOSX/`, `.DS_Store`, 숨김 파일, 폴더, 지원하지 않는 확장자는 오류로 기록하지 않고 조용히 건너뜁니다. 썸네일/본문 이미지 후보가 여러 개인 경우 우선순위(png→jpg→jpeg→webp)로 1개만 선택하며, 이 또한 오류가 아닙니다.
+
+## 0.0.6 repair1 오류 항목 (암호 로그인 + Blogger Worker 연동)
+
+| 오류 메시지 | 발생 상황 | 관련 모듈 |
+|---|---|---|
+| 로그인 실패 | 입력한 비밀번호로 Worker `/auth/login` 호출 결과가 실패(정상 응답이 아니거나 토큰 없음)로 온 경우 | auth-module |
+| 로그인 연결 오류 | 로그인 시도 중 네트워크 오류로 Worker에 연결하지 못한 경우 | auth-module |
+| 세션 저장 실패 | 로그인 성공 후 세션 토큰을 sessionStorage에 저장하는 중 오류가 발생한 경우 | auth-module |
+| Blogger 상태 확인 실패 | Worker `/blogger/status` 호출이 네트워크 오류 또는 비정상 응답으로 실패한 경우 | blogger-module |
+| 블로그 임시저장 조건 미충족 | 임시저장 시도 시 제목/HTML 본문/SEO 통과/상태값 중 하나 이상을 만족하지 못한 경우 | blogger-module |
+| 임시저장 업로드 실패 | Worker `/blogger/draft` 호출이 네트워크 오류 또는 비정상 응답으로 실패한 경우 | blogger-module |
+| ZIP 검증 실패 | 등록하기 팝업의 [검증하기] 실행 시 필수 파일/이미지 8종 중 하나 이상이 인식되지 않은 경우(구조 검증 실패, 저장 불가) | zip-upload-module |
+| 검증 전 저장 시도 | 등록하기 팝업에서 검증하기를 통과하지 않은 상태로 저장이 호출된 경우(정상 사용 흐름에서는 발생하지 않으며, 방어 로직으로만 기록됨) | zip-upload-module |
+
+참고: 401(세션 만료/미인증) 응답은 오류 이력에 별도로 기록하지 않고, 즉시 로그인 화면으로 전환하는 것으로 처리합니다. Worker 연결 자체가 안 되는 경우(네트워크 오류)는 위 표의 각 실패 항목으로 기록됩니다.
+
 ## 향후 확장 예정 (Phase E 이후)
-- ZIP 파일 업로드/파싱 관련 오류 (여전히 보류 상태)
 - 서버/Worker 기반 자동 예약발행 관련 오류 (여전히 보류 상태)

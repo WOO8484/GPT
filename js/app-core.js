@@ -1,21 +1,14 @@
 /**
  * app-core.js
- * 앱 초기화, 화면 전환, 공통 렌더링 담당
+ * 앱 초기화, 로그인 연동, 단일 대시보드/팝업 렌더링 및 이벤트 바인딩 담당
+ *
+ * repair1 변경사항:
+ * - 첫 진입 시 로그인 화면(AuthModule)을 거친 뒤에만 대시보드를 보여준다.
+ * - 하단 네비게이션과 화면별 개별 뷰 전환을 제거하고, 단일 고정 대시보드 +
+ *   팝업(등록하기/자료실/블로그 등록하기/설정) 구조로 정리했다.
  */
 
 const AppCore = (() => {
-  const VIEW_HOME = "view-home";
-  const VIEW_UPLOAD = "view-upload";
-  const VIEW_ARCHIVE = "view-archive";
-  const VIEW_PREVIEW = "view-preview";
-  const VIEW_IMAGE = "view-image";
-  const VIEW_SEO = "view-seo";
-  const VIEW_BLOGGER = "view-blogger";
-  const VIEW_SCHEDULE = "view-schedule";
-  const VIEW_STATISTICS = "view-statistics";
-  const VIEW_FULLCHECK = "view-fullcheck";
-  const VIEW_SETTINGS = "view-settings";
-
   // 레거시(영어) 상태값 표시 방어용 매핑. 실제 데이터 보정은 ArchiveModule.loadPosts()에서 수행된다.
   const LEGACY_STATUS_MAP = {
     draft: "작성중",
@@ -24,12 +17,13 @@ const AppCore = (() => {
     error: "오류",
   };
 
+  const BLOGGER_FORBIDDEN_STATUS = ["작성중", "보류", "오류", "발행완료"];
+  const TICKER_INTERVAL_MS = 4000;
+  const TICKER_MAX_ITEMS = 5;
+
   function displayStatus(status) {
     return LEGACY_STATUS_MAP[status] || status || "-";
   }
-
-  let selectedPostId = null;
-  let previewPost = null;
 
   function generateId() {
     return "post_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
@@ -44,62 +38,125 @@ const AppCore = (() => {
     )}:${pad(d.getMinutes())}`;
   }
 
-  function buildPublishStatusText(post) {
-    if (!post) return "-";
-    const parts = [displayStatus(post.status)];
-    if (post.bloggerInfo && post.bloggerInfo.publishedUrl) {
-      parts.push(`Blogger: ${post.bloggerInfo.publishStatus || "-"}`);
-    }
-    if (post.scheduleInfo && post.scheduleInfo.scheduledAt) {
-      parts.push(`예약: ${formatDate(post.scheduleInfo.scheduledAt)}`);
-    }
-    return parts.join(" · ");
+  function openPopup(id) {
+    document.getElementById(id).classList.add("popup-overlay--open");
   }
 
-  function showView(viewId) {
-    document.querySelectorAll(".view").forEach((el) => {
-      el.classList.remove("view--active");
-    });
-    document.getElementById(viewId).classList.add("view--active");
+  function closePopup(id) {
+    document.getElementById(id).classList.remove("popup-overlay--open");
+  }
 
-    document.querySelectorAll(".nav-btn").forEach((btn) => {
-      btn.classList.toggle("nav-btn--active", btn.dataset.view === viewId);
-    });
+  function renderCheckListItems(containerId, items) {
+    const listEl = document.getElementById(containerId);
+    listEl.innerHTML = "";
+    items.forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "check-item";
 
-    if (viewId === VIEW_ARCHIVE) {
-      renderArchiveList();
-    } else if (viewId === VIEW_HOME) {
-      renderHome();
-    } else if (viewId === VIEW_SETTINGS) {
-      renderSettings();
-    } else if (viewId === VIEW_UPLOAD) {
-      renderUploadCheckList();
-    } else if (viewId === VIEW_PREVIEW) {
-      renderPreviewView();
-    } else if (viewId === VIEW_IMAGE) {
-      renderImageView();
-    } else if (viewId === VIEW_SEO) {
-      renderSeoView();
-    } else if (viewId === VIEW_BLOGGER) {
-      renderBloggerView();
-    } else if (viewId === VIEW_SCHEDULE) {
-      renderScheduleView();
-    } else if (viewId === VIEW_STATISTICS) {
-      renderStatisticsView();
-    } else if (viewId === VIEW_FULLCHECK) {
-      renderFullCheckView();
+      const labelEl = document.createElement("span");
+      labelEl.textContent = item.label;
+
+      const statusEl = document.createElement("span");
+      statusEl.className =
+        "check-item__status " + (item.ok ? "check-item__status--ok" : "check-item__status--missing");
+      statusEl.textContent = item.text ? item.text : item.ok ? "인식됨" : "없음";
+
+      li.appendChild(labelEl);
+      li.appendChild(statusEl);
+      listEl.appendChild(li);
+    });
+  }
+
+  function renderUploadFileName(displayId, file) {
+    const el = document.getElementById(displayId);
+    if (!el) return;
+    el.textContent = file ? file.name : "선택된 파일 없음";
+  }
+
+  /* ============================================================
+     대시보드 (최근 글 전광판 + 공작소 작업대)
+     ============================================================ */
+
+  let tickerPosts = [];
+  let tickerIndex = 0;
+  let tickerTimer = null;
+
+  function stopTicker() {
+    if (tickerTimer) {
+      clearInterval(tickerTimer);
+      tickerTimer = null;
     }
   }
 
-  function renderHome() {
-    document.getElementById("home-version").textContent = `버전 ${AppState.version}`;
-    document.getElementById("home-post-count").textContent = `${ArchiveModule.getFilteredPosts().length}개`;
+  function renderTickerFrame() {
+    const titleEl = document.getElementById("ticker-title");
+    const metaEl = document.getElementById("ticker-meta");
+    if (tickerPosts.length === 0) {
+      titleEl.textContent = "저장된 글이 없습니다.";
+      metaEl.textContent = "자료실에서 첫 글을 등록해보세요.";
+      return;
+    }
+    const post = tickerPosts[tickerIndex % tickerPosts.length];
+    titleEl.textContent = post.title || "(제목 없음)";
+    metaEl.textContent = `${displayStatus(post.status)} · ${formatDate(post.updatedAt)}`;
+  }
+
+  function startTicker() {
+    stopTicker();
+    if (tickerPosts.length <= 1) return;
+    tickerTimer = setInterval(() => {
+      tickerIndex = (tickerIndex + 1) % tickerPosts.length;
+      renderTickerFrame();
+    }, TICKER_INTERVAL_MS);
+  }
+
+  async function refreshDashboard() {
+    const posts = await ArchiveModule.loadPosts();
+    const sorted = [...posts].sort(
+      (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+    );
+    tickerPosts = sorted.slice(0, TICKER_MAX_ITEMS);
+    tickerIndex = 0;
+    renderTickerFrame();
+    startTicker();
+  }
+
+  function bindDashboardEvents() {
+    document.getElementById("open-register-btn").addEventListener("click", openRegisterPopup);
+    document.getElementById("open-archive-btn").addEventListener("click", () => openArchivePopup());
+    document.getElementById("open-archive-from-ticker-btn").addEventListener("click", () => openArchivePopup());
+    document.getElementById("open-blogger-btn").addEventListener("click", openBloggerPopup);
+    document.getElementById("open-settings-btn").addEventListener("click", openSettingsPopup);
+
+    document.getElementById("ticker-content").addEventListener("click", () => {
+      if (tickerPosts.length === 0) {
+        openArchivePopup();
+        return;
+      }
+      const post = tickerPosts[tickerIndex % tickerPosts.length];
+      openArchivePopup(post.id);
+    });
+  }
+
+  /* ============================================================
+     팝업: 자료실
+     ============================================================ */
+
+  let selectedArchivePostId = null;
+
+  function showArchiveListView() {
+    document.getElementById("archive-list-view").classList.remove("hidden");
+    document.getElementById("archive-detail-view").classList.add("hidden");
+  }
+
+  function showArchiveDetailView() {
+    document.getElementById("archive-list-view").classList.add("hidden");
+    document.getElementById("archive-detail-view").classList.remove("hidden");
   }
 
   function renderArchiveList() {
     const listEl = document.getElementById("archive-list");
     const posts = ArchiveModule.getFilteredPosts();
-
     listEl.innerHTML = "";
 
     if (posts.length === 0) {
@@ -113,482 +170,122 @@ const AppCore = (() => {
     posts.forEach((post) => {
       const itemEl = document.createElement("li");
       itemEl.className = "archive-item";
-      itemEl.dataset.id = post.id;
 
       const titleEl = document.createElement("div");
       titleEl.className = "archive-item__title";
       titleEl.textContent = post.title || "(제목 없음)";
 
+      const imgCount = Array.isArray(post.imageList) ? post.imageList.length : 0;
+      const seoText = post.seoResult && post.seoResult.result ? `SEO ${post.seoResult.result}` : "SEO 미검수";
+
       const metaEl = document.createElement("div");
       metaEl.className = "archive-item__meta";
-      metaEl.textContent = `상태: ${displayStatus(post.status)} · 수정일: ${formatDate(post.updatedAt)}`;
+      metaEl.textContent = `${displayStatus(post.status)} · ${formatDate(post.updatedAt)} · ${seoText} · 이미지 ${imgCount}장`;
 
       itemEl.appendChild(titleEl);
       itemEl.appendChild(metaEl);
-      itemEl.addEventListener("click", () => openPostDetail(post.id));
+      itemEl.addEventListener("click", () => openArchiveDetail(post.id));
 
       listEl.appendChild(itemEl);
     });
   }
 
-  function openPostDetail(id) {
+  function openArchiveDetail(id) {
     const post = ArchiveModule.getPostById(id);
     if (!post) return;
-    selectedPostId = id;
+    selectedArchivePostId = id;
 
-    document.getElementById("detail-title").textContent = post.title || "(제목 없음)";
-    document.getElementById("detail-keyword").textContent = post.keyword || "-";
-    document.getElementById("detail-status").textContent = displayStatus(post.status);
-    document.getElementById("detail-created").textContent = formatDate(post.createdAt);
-    document.getElementById("detail-updated").textContent = formatDate(post.updatedAt);
-    document.getElementById("detail-publish-status").textContent = buildPublishStatusText(post);
-    document.getElementById("detail-text").textContent = post.textContent || "(내용 없음)";
+    document.getElementById("archive-detail-title").textContent = post.title || "(제목 없음)";
+    document.getElementById("archive-detail-status").textContent = displayStatus(post.status);
+    document.getElementById("archive-detail-updated").textContent = formatDate(post.updatedAt);
+    document.getElementById("archive-detail-seo").textContent =
+      post.seoResult && post.seoResult.result
+        ? `${post.seoResult.result} (${post.seoResult.totalScore}점)`
+        : "미검수";
+    const imgCount = Array.isArray(post.imageList) ? post.imageList.length : 0;
+    document.getElementById("archive-detail-images").textContent = `${imgCount}장`;
 
-    document.getElementById("archive-detail").classList.add("archive-detail--open");
+    showArchiveDetailView();
   }
 
-  function closePostDetail() {
-    selectedPostId = null;
-    document.getElementById("archive-detail").classList.remove("archive-detail--open");
-  }
-
-  async function renderSettings() {
-    const modeText = StorageModule.getMode() === "indexedDB" ? "IndexedDB 사용 중" : "localStorage 사용 중 (fallback)";
-    document.getElementById("settings-storage-status").textContent = modeText;
-  }
-
-  function renderErrorList() {
-    const listEl = document.getElementById("error-list");
-    const errors = ErrorLogModule.getAllErrors();
-    listEl.innerHTML = "";
-
-    if (errors.length === 0) {
-      const emptyEl = document.createElement("li");
-      emptyEl.className = "error-item error-item--empty";
-      emptyEl.textContent = "기록된 오류가 없습니다.";
-      listEl.appendChild(emptyEl);
-      return;
-    }
-
-    errors
-      .slice()
-      .reverse()
-      .forEach((err) => {
-        const itemEl = document.createElement("li");
-        itemEl.className = "error-item";
-        itemEl.textContent = `[${formatDate(err.createdAt)}] ${ErrorLogModule.getUserMessage(err)}`;
-        listEl.appendChild(itemEl);
-      });
-  }
-
-  function renderUploadCheckList() {
-    const status = GptUploadModule.getCheckStatus();
-    const listEl = document.getElementById("upload-check-list");
-    listEl.innerHTML = "";
-
-    const items = [
-      { label: "metadata.json", ok: status.metadata },
-      { label: "content.html", ok: status.html },
-      { label: "content.md", ok: status.markdown },
-      { label: "content.txt", ok: status.text },
-    ];
-
-    items.forEach((item) => {
-      const li = document.createElement("li");
-      li.className = "check-item";
-
-      const labelEl = document.createElement("span");
-      labelEl.textContent = item.label;
-
-      const statusEl = document.createElement("span");
-      statusEl.className = "check-item__status " + (item.ok ? "check-item__status--ok" : "check-item__status--missing");
-      statusEl.textContent = item.ok ? "인식됨" : "없음";
-
-      li.appendChild(labelEl);
-      li.appendChild(statusEl);
-      listEl.appendChild(li);
-    });
-  }
-
-  function renderImageView() {
-    const post = ImageModule.getCurrentPost();
-    document.getElementById("image-post-title").textContent = post ? (post.title || "(제목 없음)") : "선택된 글이 없습니다.";
-    renderImageList();
-  }
-
-  function renderImageList() {
-    const listEl = document.getElementById("image-list");
-    const imageList = ImageModule.getImageList();
-    listEl.innerHTML = "";
-
-    if (imageList.length === 0) {
-      const emptyEl = document.createElement("li");
-      emptyEl.className = "check-item";
-      emptyEl.textContent = "등록된 이미지가 없습니다.";
-      listEl.appendChild(emptyEl);
-      return;
-    }
-
-    imageList.forEach((img) => {
-      const li = document.createElement("li");
-      li.className = "check-item";
-
-      const row = document.createElement("div");
-      row.className = "image-item__row";
-
-      const thumb = document.createElement("img");
-      thumb.className = "image-item__thumb";
-      thumb.src = img.dataUrl;
-      thumb.alt = img.altText || "";
-
-      const info = document.createElement("div");
-      info.className = "image-item__info";
-
-      const nameEl = document.createElement("div");
-      nameEl.className = "image-item__filename";
-      nameEl.textContent = `${img.fileName} (${img.type === "thumbnail" ? "썸네일" : "본문"})`;
-
-      const altInput = document.createElement("input");
-      altInput.className = "image-item__alt-input";
-      altInput.type = "text";
-      altInput.placeholder = "ALT 태그 입력";
-      altInput.value = img.altText || "";
-      altInput.addEventListener("change", (e) => {
-        ImageModule.updateAltText(img.id, e.target.value);
-      });
-
-      info.appendChild(nameEl);
-      info.appendChild(altInput);
-
-      row.appendChild(thumb);
-      row.appendChild(info);
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "image-item__delete-btn";
-      deleteBtn.textContent = "삭제하기";
-      deleteBtn.addEventListener("click", () => {
-        ImageModule.removeImage(img.id);
-        renderImageList();
-      });
-
-      li.appendChild(row);
-      li.appendChild(deleteBtn);
-      listEl.appendChild(li);
-    });
-  }
-
-  function renderSeoView() {
-    const post = SeoModule.getCurrentPost();
-    document.getElementById("seo-post-title").textContent = post ? (post.title || "(제목 없음)") : "선택된 글이 없습니다.";
-
-    if (post && post.seoResult && post.seoResult.checkedAt) {
-      renderSeoResult(post.seoResult);
+  function openArchivePopup(focusPostId) {
+    renderArchiveList();
+    if (focusPostId) {
+      openArchiveDetail(focusPostId);
     } else {
-      document.getElementById("seo-total-score").textContent = "-";
-      document.getElementById("seo-result-badge").textContent = "-";
-      document.getElementById("seo-issue-list").innerHTML = "";
+      showArchiveListView();
     }
+    openPopup("popup-archive");
   }
 
-  function renderSeoResult(seoResult) {
-    document.getElementById("seo-total-score").textContent = `${seoResult.totalScore}점`;
-    document.getElementById("seo-result-badge").textContent = seoResult.result;
+  function bindArchiveEvents() {
+    document.getElementById("archive-close-btn").addEventListener("click", () => closePopup("popup-archive"));
 
-    const listEl = document.getElementById("seo-issue-list");
-    listEl.innerHTML = "";
+    document.getElementById("archive-search").addEventListener("input", (e) => {
+      ArchiveModule.setSearchText(e.target.value);
+      renderArchiveList();
+    });
 
-    if (!seoResult.issues || seoResult.issues.length === 0) {
-      const emptyEl = document.createElement("li");
-      emptyEl.className = "seo-issue-item";
-      emptyEl.textContent = "발견된 문제가 없습니다.";
-      listEl.appendChild(emptyEl);
-      return;
-    }
+    document.getElementById("archive-status-filter").addEventListener("change", (e) => {
+      ArchiveModule.setStatusFilter(e.target.value);
+      renderArchiveList();
+    });
 
-    seoResult.issues.forEach((issue) => {
-      const li = document.createElement("li");
-      li.className = "seo-issue-item";
-      li.textContent = issue;
-      listEl.appendChild(li);
+    document.getElementById("archive-detail-back-btn").addEventListener("click", () => {
+      showArchiveListView();
+      renderArchiveList();
+    });
+
+    document.getElementById("archive-detail-preview-btn").addEventListener("click", () => {
+      const post = ArchiveModule.getPostById(selectedArchivePostId);
+      if (!post) {
+        alert("미리보기를 열 수 없습니다.");
+        return;
+      }
+      openPreviewPopup(post);
+    });
+
+    document.getElementById("archive-detail-delete-btn").addEventListener("click", () => {
+      if (!selectedArchivePostId) return;
+      openPopup("popup-confirm-delete");
+    });
+
+    document.getElementById("confirm-delete-cancel-btn").addEventListener("click", () => {
+      closePopup("popup-confirm-delete");
+    });
+
+    document.getElementById("confirm-delete-btn").addEventListener("click", async () => {
+      if (!selectedArchivePostId) return;
+      await ArchiveModule.deletePost(selectedArchivePostId);
+      closePopup("popup-confirm-delete");
+      showArchiveListView();
+      renderArchiveList();
+      await refreshDashboard();
     });
   }
 
-  function renderBloggerView() {
-    const post = BloggerModule.getCurrentPost();
-    document.getElementById("blogger-post-title").textContent = post
-      ? post.title || "(제목 없음)"
-      : "선택된 글이 없습니다.";
+  /* ============================================================
+     팝업: 미리보기
+     ============================================================ */
 
-    if (!post) {
-      document.getElementById("blogger-seo-status").textContent = "-";
-      document.getElementById("blogger-ready-status").textContent = "-";
-      document.getElementById("blogger-reason-list").innerHTML = "";
-      document.getElementById("blogger-reason-list").classList.add("hidden");
-      document.getElementById("blogger-check-title").textContent = "-";
-      document.getElementById("blogger-check-tags").textContent = "-";
-      document.getElementById("blogger-html-check").textContent = "-";
-      document.getElementById("blogger-image-warning").classList.add("hidden");
-      document.getElementById("blogger-image-list").innerHTML = "";
-      return;
-    }
+  let currentPreviewPost = null;
 
-    document.getElementById("blogger-seo-status").textContent =
-      post.seoResult && post.seoResult.result ? post.seoResult.result : "미검수";
-
-    const readiness = BloggerModule.checkPublishReadiness();
-    document.getElementById("blogger-ready-status").textContent = readiness.canPublish
-      ? "발행 가능"
-      : "발행 불가";
-
-    const reasonListEl = document.getElementById("blogger-reason-list");
-    reasonListEl.innerHTML = "";
-    if (readiness.reasons && readiness.reasons.length > 0) {
-      readiness.reasons.forEach((reason) => {
-        const li = document.createElement("li");
-        li.className = "check-item";
-        li.textContent = reason;
-        reasonListEl.appendChild(li);
-      });
-      reasonListEl.classList.remove("hidden");
-    } else {
-      reasonListEl.classList.add("hidden");
-    }
-
-    document.getElementById("blogger-check-title").textContent = post.title || "(제목 없음)";
-    document.getElementById("blogger-check-tags").textContent =
-      Array.isArray(post.tags) && post.tags.length > 0 ? post.tags.join(", ") : "-";
-    document.getElementById("blogger-html-check").textContent = post.htmlContent || "(내용 없음)";
-
-    document
-      .getElementById("blogger-image-warning")
-      .classList.toggle("hidden", !BloggerModule.hasDataUrlImages());
-
-    renderBloggerImageList(Array.isArray(post.imageList) ? post.imageList : []);
-  }
-
-  function renderBloggerImageList(imageList) {
-    const listEl = document.getElementById("blogger-image-list");
-    listEl.innerHTML = "";
-
-    if (imageList.length === 0) {
-      const emptyEl = document.createElement("li");
-      emptyEl.className = "check-item";
-      emptyEl.textContent = "등록된 이미지가 없습니다.";
-      listEl.appendChild(emptyEl);
-      return;
-    }
-
-    imageList.forEach((img) => {
-      const li = document.createElement("li");
-      li.className = "check-item";
-
-      const isDataUrl = typeof img.dataUrl === "string" && img.dataUrl.indexOf("data:") === 0;
-
-      const labelEl = document.createElement("span");
-      labelEl.textContent = `${img.fileName} (${img.type === "thumbnail" ? "썸네일" : "본문"})`;
-
-      const statusEl = document.createElement("span");
-      statusEl.className =
-        "check-item__status " + (isDataUrl ? "check-item__status--missing" : "check-item__status--ok");
-      statusEl.textContent = isDataUrl ? "변환 필요" : "확인됨";
-
-      li.appendChild(labelEl);
-      li.appendChild(statusEl);
-      listEl.appendChild(li);
-    });
-  }
-
-  async function renderScheduleView() {
-    const post = ScheduleModule.getCurrentPost();
-    document.getElementById("schedule-post-title").textContent = post
-      ? post.title || "(제목 없음)"
-      : "선택된 글이 없습니다.";
-    document.getElementById("schedule-current-status").textContent = ScheduleModule.getScheduleStatusText();
-
-    const entries = await ScheduleModule.getAllScheduleEntries();
-    renderScheduleList(entries);
-  }
-
-  function renderScheduleList(entries) {
-    const listEl = document.getElementById("schedule-list");
-    listEl.innerHTML = "";
-
-    if (!entries || entries.length === 0) {
-      const emptyEl = document.createElement("li");
-      emptyEl.className = "check-item";
-      emptyEl.textContent = "예약된 글이 없습니다.";
-      listEl.appendChild(emptyEl);
-      return;
-    }
-
-    entries.forEach((entry) => {
-      const li = document.createElement("li");
-      li.className = "check-item";
-
-      const labelEl = document.createElement("span");
-      labelEl.textContent = `${entry.title} · ${formatDate(entry.scheduledAt)}`;
-
-      const statusEl = document.createElement("span");
-      statusEl.className =
-        "check-item__status " + (entry.isPast ? "check-item__status--missing" : "check-item__status--ok");
-      statusEl.textContent = entry.isPast ? "지남" : "예정";
-
-      li.appendChild(labelEl);
-      li.appendChild(statusEl);
-      listEl.appendChild(li);
-    });
-  }
-
-  async function renderStatisticsView() {
-    const stats = await StatisticsModule.computeStatistics();
-
-    if (!stats.success) {
-      document.getElementById("stats-total-count").textContent = "-";
-      document.getElementById("stats-seo-pass-count").textContent = "-";
-      document.getElementById("stats-status-list").innerHTML = "";
-      document.getElementById("stats-problem-list").innerHTML = "";
-      document.getElementById("stats-recent-list").innerHTML = "";
-      return;
-    }
-
-    document.getElementById("stats-total-count").textContent = `${stats.totalCount}개`;
-    document.getElementById("stats-seo-pass-count").textContent = `${stats.seoPassCount}개`;
-
-    const statusListEl = document.getElementById("stats-status-list");
-    statusListEl.innerHTML = "";
-    Object.keys(stats.statusCounts).forEach((status) => {
-      const li = document.createElement("li");
-      li.className = "check-item";
-
-      const labelEl = document.createElement("span");
-      labelEl.textContent = status;
-
-      const valueEl = document.createElement("span");
-      valueEl.className = "check-item__status";
-      valueEl.textContent = `${stats.statusCounts[status]}개`;
-
-      li.appendChild(labelEl);
-      li.appendChild(valueEl);
-      statusListEl.appendChild(li);
-    });
-
-    const problemListEl = document.getElementById("stats-problem-list");
-    problemListEl.innerHTML = "";
-    if (stats.problemPosts.length === 0) {
-      const emptyEl = document.createElement("li");
-      emptyEl.className = "check-item";
-      emptyEl.textContent = "문제 있는 글이 없습니다.";
-      problemListEl.appendChild(emptyEl);
-    } else {
-      stats.problemPosts.forEach((p) => {
-        const li = document.createElement("li");
-        li.className = "check-item";
-
-        const labelEl = document.createElement("span");
-        labelEl.textContent = p.title;
-
-        const statusEl = document.createElement("span");
-        statusEl.className = "check-item__status check-item__status--warn";
-        statusEl.textContent = p.reasons.join(", ");
-
-        li.appendChild(labelEl);
-        li.appendChild(statusEl);
-        problemListEl.appendChild(li);
-      });
-    }
-
-    const recentListEl = document.getElementById("stats-recent-list");
-    recentListEl.innerHTML = "";
-    if (stats.recentPosts.length === 0) {
-      const emptyEl = document.createElement("li");
-      emptyEl.className = "check-item";
-      emptyEl.textContent = "저장된 글이 없습니다.";
-      recentListEl.appendChild(emptyEl);
-    } else {
-      stats.recentPosts.forEach((p) => {
-        const li = document.createElement("li");
-        li.className = "check-item";
-
-        const labelEl = document.createElement("span");
-        labelEl.textContent = `${p.title} · ${displayStatus(p.status)}`;
-
-        const dateEl = document.createElement("span");
-        dateEl.className = "check-item__status";
-        dateEl.textContent = formatDate(p.updatedAt);
-
-        li.appendChild(labelEl);
-        li.appendChild(dateEl);
-        recentListEl.appendChild(li);
-      });
-    }
-  }
-
-  async function renderFullCheckView() {
-    const result = await StatisticsModule.runFullCheck();
-    const listEl = document.getElementById("fullcheck-list");
-    listEl.innerHTML = "";
-
-    if (!result.success) {
-      const errorEl = document.createElement("li");
-      errorEl.className = "check-item";
-      errorEl.textContent = "전체 점검을 실행할 수 없습니다.";
-      listEl.appendChild(errorEl);
-      return;
-    }
-
-    const verdictClassMap = {
-      통과: "check-item__status--ok",
-      "확인 필요": "check-item__status--warn",
-      오류: "check-item__status--error",
+  function showPreviewTab(tab) {
+    const frames = {
+      html: document.getElementById("preview-html-frame"),
+      markdown: document.getElementById("preview-markdown-frame"),
+      text: document.getElementById("preview-text-frame"),
+    };
+    const buttons = {
+      html: document.getElementById("preview-view-html-btn"),
+      markdown: document.getElementById("preview-view-markdown-btn"),
+      text: document.getElementById("preview-view-text-btn"),
     };
 
-    result.items.forEach((item) => {
-      const li = document.createElement("li");
-      li.className = "check-item";
-
-      const labelEl = document.createElement("span");
-      labelEl.textContent = `${item.label} · ${item.detail}`;
-
-      const verdictEl = document.createElement("span");
-      verdictEl.className = "check-item__status " + (verdictClassMap[item.verdict] || "");
-      verdictEl.textContent = item.verdict;
-
-      li.appendChild(labelEl);
-      li.appendChild(verdictEl);
-      listEl.appendChild(li);
+    Object.keys(frames).forEach((key) => {
+      frames[key].classList.toggle("hidden", key !== tab);
+      buttons[key].classList.toggle("nav-btn--active", key === tab);
     });
-  }
-
-  function renderPreviewView() {
-    if (!previewPost) return;
-
-    const rendered = PreviewModule.renderPreview(previewPost);
-    if (!rendered) {
-      alert("미리보기를 표시할 수 없습니다.");
-      return;
-    }
-
-    document.getElementById("preview-title").textContent = rendered.title;
-    document.getElementById("preview-keyword").textContent = rendered.keyword;
-    document.getElementById("preview-meta").textContent = rendered.metaDescription;
-    document.getElementById("preview-tags").textContent = rendered.tags;
-    document.getElementById("preview-html-content").innerHTML = rendered.safeHtml;
-    document.getElementById("preview-markdown-content").textContent = rendered.markdownContent;
-    document.getElementById("preview-text-content").textContent = rendered.textContent;
-
-    const thumbnailArea = document.getElementById("preview-thumbnail-area");
-    const thumbnailImg = document.getElementById("preview-thumbnail-img");
-    if (rendered.thumbnail) {
-      thumbnailImg.src = rendered.thumbnail.dataUrl;
-      thumbnailImg.alt = rendered.thumbnail.altText || "";
-      thumbnailArea.classList.remove("hidden");
-    } else {
-      thumbnailArea.classList.add("hidden");
-    }
-
-    renderPreviewBodyImageList(rendered.bodyImages);
-
-    showPreviewTab("html");
   }
 
   function renderPreviewBodyImageList(bodyImages) {
@@ -626,130 +323,511 @@ const AppCore = (() => {
     });
   }
 
-  function showPreviewTab(tab) {
-    const frames = {
-      html: document.getElementById("preview-html-frame"),
-      markdown: document.getElementById("preview-markdown-frame"),
-      text: document.getElementById("preview-text-frame"),
-    };
-    const buttons = {
-      html: document.getElementById("preview-view-html-btn"),
-      markdown: document.getElementById("preview-view-markdown-btn"),
-      text: document.getElementById("preview-view-text-btn"),
-    };
+  function renderPreviewPopup() {
+    const emptyEl = document.getElementById("preview-empty-message");
+    const contentEl = document.getElementById("preview-content-area");
 
-    Object.keys(frames).forEach((key) => {
-      frames[key].classList.toggle("hidden", key !== tab);
-      buttons[key].classList.toggle("nav-btn--active", key === tab);
-    });
+    if (!currentPreviewPost) {
+      emptyEl.classList.remove("hidden");
+      contentEl.classList.add("hidden");
+      return;
+    }
+
+    emptyEl.classList.add("hidden");
+    contentEl.classList.remove("hidden");
+
+    const rendered = PreviewModule.renderPreview(currentPreviewPost);
+    if (!rendered) {
+      alert("미리보기를 표시할 수 없습니다.");
+      return;
+    }
+
+    document.getElementById("preview-title").textContent = rendered.title;
+    document.getElementById("preview-keyword").textContent = rendered.keyword;
+    document.getElementById("preview-meta").textContent = rendered.metaDescription;
+    document.getElementById("preview-tags").textContent = rendered.tags;
+    document.getElementById("preview-html-content").innerHTML = rendered.safeHtml;
+    document.getElementById("preview-markdown-content").textContent = rendered.markdownContent;
+    document.getElementById("preview-text-content").textContent = rendered.textContent;
+
+    const thumbnailArea = document.getElementById("preview-thumbnail-area");
+    const thumbnailImg = document.getElementById("preview-thumbnail-img");
+    if (rendered.thumbnail) {
+      thumbnailImg.src = rendered.thumbnail.dataUrl;
+      thumbnailImg.alt = rendered.thumbnail.altText || "";
+      thumbnailArea.classList.remove("hidden");
+    } else {
+      thumbnailArea.classList.add("hidden");
+    }
+
+    renderPreviewBodyImageList(rendered.bodyImages);
+    showPreviewTab("html");
   }
 
-  function bindNav() {
-    document.querySelectorAll(".nav-btn").forEach((btn) => {
-      btn.addEventListener("click", () => showView(btn.dataset.view));
-    });
-
-    document.getElementById("home-goto-upload").addEventListener("click", () => showView(VIEW_UPLOAD));
-    document.getElementById("home-goto-archive").addEventListener("click", () => showView(VIEW_ARCHIVE));
-    document.getElementById("home-goto-preview").addEventListener("click", () => showView(VIEW_PREVIEW));
-    document.getElementById("home-goto-settings").addEventListener("click", () => showView(VIEW_SETTINGS));
+  function openPreviewPopup(post) {
+    currentPreviewPost = post || null;
+    renderPreviewPopup();
+    openPopup("popup-preview");
   }
 
-  function bindArchiveEvents() {
-    document.getElementById("archive-search").addEventListener("input", (e) => {
-      ArchiveModule.setSearchText(e.target.value);
-      renderArchiveList();
+  function bindPreviewEvents() {
+    document.getElementById("preview-view-html-btn").addEventListener("click", () => showPreviewTab("html"));
+    document.getElementById("preview-view-markdown-btn").addEventListener("click", () => showPreviewTab("markdown"));
+    document.getElementById("preview-view-text-btn").addEventListener("click", () => showPreviewTab("text"));
+    document.getElementById("preview-close-btn").addEventListener("click", () => closePopup("popup-preview"));
+  }
+
+  /* ============================================================
+     팝업: 등록하기 (ZIP 자동 업로드 + 검증 게이트 + 수동 업로드 보조)
+     ============================================================ */
+
+  function showRegisterButtonRow(stage) {
+    document.getElementById("register-btn-row-before").classList.toggle("hidden", stage !== "before");
+    document.getElementById("register-btn-row-fail").classList.toggle("hidden", stage !== "fail");
+    document.getElementById("register-btn-row-pass").classList.toggle("hidden", stage !== "pass");
+    document.getElementById("register-btn-row-done").classList.toggle("hidden", stage !== "done");
+  }
+
+  function renderZipRecognitionChecklist() {
+    const status = ZipUploadModule.getCheckStatus();
+    renderCheckListItems("zip-check-list", [
+      { label: "metadata.json", ok: status.metadata },
+      { label: "content.html", ok: status.html },
+      { label: "content.md", ok: status.markdown },
+      { label: "content.txt", ok: status.text },
+      { label: "썸네일 이미지", ok: status.thumbnail },
+      { label: "본문 이미지", ok: status.bodyCount > 0, text: `${status.bodyCount}장 인식` },
+      { label: "image_prompts.md (선택)", ok: status.imagePrompts },
+    ]);
+  }
+
+  function renderValidationChecklist(result) {
+    const listEl = document.getElementById("zip-check-list");
+    listEl.innerHTML = "";
+
+    result.checklist.forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "check-item";
+
+      const labelEl = document.createElement("span");
+      labelEl.textContent = (item.ok ? "✅ " : "⚠️ ") + item.label;
+
+      const statusEl = document.createElement("span");
+      statusEl.className = "check-item__status " + (item.ok ? "check-item__status--ok" : "check-item__status--error");
+      statusEl.textContent = item.ok ? "정상" : "실패";
+
+      li.appendChild(labelEl);
+      li.appendChild(statusEl);
+      listEl.appendChild(li);
     });
 
-    document.getElementById("archive-status-filter").addEventListener("change", (e) => {
-      ArchiveModule.setStatusFilter(e.target.value);
-      renderArchiveList();
+    const summaryEl = document.getElementById("register-summary");
+    summaryEl.classList.remove("hidden");
+    summaryEl.innerHTML =
+      `📦 전체 ${result.totalCount}개<br/>` +
+      `✅ 정상 ${result.okCount}개<br/>` +
+      `⚠️ 실패 ${result.failCount}개`;
+  }
+
+  function resetRegisterPopupUI() {
+    ZipUploadModule.reset();
+    document.getElementById("zip-upload-input").value = "";
+    renderUploadFileName("zip-upload-filename", null);
+    document.getElementById("zip-check-list").innerHTML = "";
+    document.getElementById("register-summary").classList.add("hidden");
+    document.getElementById("register-score-area").classList.add("hidden");
+    showRegisterButtonRow("before");
+
+    GptUploadModule.reset();
+    ["metadata", "html", "markdown", "text"].forEach((key) => {
+      const input = document.getElementById(`upload-${key}-input`);
+      if (input) input.value = "";
+      renderUploadFileName(`upload-${key}-filename`, null);
+    });
+    renderUploadCheckList();
+    document.getElementById("manual-upload-panel").classList.add("manual-upload-panel--collapsed");
+    document.getElementById("manual-upload-toggle-btn").textContent = "수동 업로드 열기";
+  }
+
+  function openRegisterPopup() {
+    resetRegisterPopupUI();
+    openPopup("popup-register");
+  }
+
+  function runRegisterValidation() {
+    const result = ZipUploadModule.runValidation();
+    if (!result.success) {
+      alert("ZIP 파일을 먼저 선택해주세요.");
+      return;
+    }
+
+    renderValidationChecklist(result);
+
+    if (result.structureOk) {
+      const scoreArea = document.getElementById("register-score-area");
+      scoreArea.classList.remove("hidden");
+      document.getElementById("register-score-value").textContent = result.seoResult
+        ? `${result.seoResult.totalScore}점 (${result.seoResult.result})`
+        : "-";
+      document.getElementById("register-briefing").textContent =
+        result.seoResult && result.seoResult.issues && result.seoResult.issues.length > 0
+          ? `SEO 참고 사항: ${result.seoResult.issues.join(", ")}`
+          : "SEO 참고 사항이 없습니다.";
+      showRegisterButtonRow("pass");
+    } else {
+      document.getElementById("register-score-area").classList.add("hidden");
+      showRegisterButtonRow("fail");
+    }
+  }
+
+  function renderUploadCheckList() {
+    const status = GptUploadModule.getCheckStatus();
+    renderCheckListItems("upload-check-list", [
+      { label: "metadata.json", ok: status.metadata },
+      { label: "content.html", ok: status.html },
+      { label: "content.md", ok: status.markdown },
+      { label: "content.txt", ok: status.text },
+    ]);
+  }
+
+  function bindRegisterEvents() {
+    [
+      "register-close-x-btn",
+      "register-close-btn-before",
+      "register-close-btn-fail",
+    ].forEach((id) => {
+      document.getElementById(id).addEventListener("click", () => closePopup("popup-register"));
     });
 
-    document.getElementById("detail-close-btn").addEventListener("click", closePostDetail);
-
-    document.getElementById("detail-delete-btn").addEventListener("click", async () => {
-      if (!selectedPostId) return;
-      const ok = confirm("이 글을 삭제하시겠습니까?");
-      if (!ok) return;
-      await ArchiveModule.deletePost(selectedPostId);
-      closePostDetail();
-      renderArchiveList();
-      renderHome();
+    document.getElementById("zip-upload-input").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      await ZipUploadModule.setZipFile(file);
+      renderUploadFileName("zip-upload-filename", file);
+      renderZipRecognitionChecklist();
+      document.getElementById("register-summary").classList.add("hidden");
+      document.getElementById("register-score-area").classList.add("hidden");
+      showRegisterButtonRow("before");
     });
 
-    document.getElementById("detail-export-btn").addEventListener("click", () => {
-      if (!selectedPostId) return;
-      const result = ArchiveModule.exportPostAsJson(selectedPostId);
-      if (result) {
-        BackupModule.triggerDownload(result.filename, result.json);
+    document.getElementById("register-validate-btn").addEventListener("click", runRegisterValidation);
+    document.getElementById("register-revalidate-btn").addEventListener("click", runRegisterValidation);
+
+    document.getElementById("register-save-btn").addEventListener("click", async () => {
+      const result = await ZipUploadModule.saveToArchive();
+      if (result.success) {
+        await refreshDashboard();
+        showRegisterButtonRow("done");
+      } else {
+        alert("저장에 실패했습니다.");
       }
     });
 
-    document.getElementById("detail-open-preview-btn").addEventListener("click", () => {
-      if (!selectedPostId) return;
-      const post = ArchiveModule.getPostById(selectedPostId);
-      if (!post) {
-        ErrorLogModule.logError({
-          module: "archive-module",
-          message: "미리보기 렌더링 실패",
-          detail: "선택한 글을 찾을 수 없음",
-          relatedId: selectedPostId,
+    document.getElementById("register-goto-archive-btn").addEventListener("click", () => {
+      closePopup("popup-register");
+      openArchivePopup();
+    });
+
+    document.getElementById("manual-upload-toggle-btn").addEventListener("click", (e) => {
+      const panel = document.getElementById("manual-upload-panel");
+      const nowCollapsed = panel.classList.toggle("manual-upload-panel--collapsed");
+      e.target.textContent = nowCollapsed ? "수동 업로드 열기" : "수동 업로드 닫기";
+    });
+
+    document.getElementById("upload-metadata-input").addEventListener("change", async (e) => {
+      await GptUploadModule.setMetadataFile(e.target.files[0]);
+      renderUploadFileName("upload-metadata-filename", e.target.files[0]);
+      renderUploadCheckList();
+    });
+
+    document.getElementById("upload-html-input").addEventListener("change", async (e) => {
+      await GptUploadModule.setHtmlFile(e.target.files[0]);
+      renderUploadFileName("upload-html-filename", e.target.files[0]);
+      renderUploadCheckList();
+    });
+
+    document.getElementById("upload-markdown-input").addEventListener("change", async (e) => {
+      await GptUploadModule.setMarkdownFile(e.target.files[0]);
+      renderUploadFileName("upload-markdown-filename", e.target.files[0]);
+      renderUploadCheckList();
+    });
+
+    document.getElementById("upload-text-input").addEventListener("change", async (e) => {
+      await GptUploadModule.setTextFile(e.target.files[0]);
+      renderUploadFileName("upload-text-filename", e.target.files[0]);
+      renderUploadCheckList();
+    });
+
+    document.getElementById("upload-save-btn").addEventListener("click", async () => {
+      const result = await GptUploadModule.saveToArchive();
+      if (result.success) {
+        await refreshDashboard();
+
+        GptUploadModule.reset();
+        ["metadata", "html", "markdown", "text"].forEach((key) => {
+          document.getElementById(`upload-${key}-input`).value = "";
+          renderUploadFileName(`upload-${key}-filename`, null);
         });
-        alert("미리보기를 열 수 없습니다.");
-        return;
+        renderUploadCheckList();
+
+        alert("자료실에 저장되었습니다.");
+      } else {
+        alert("저장에 실패했습니다. HTML/Markdown/TXT 중 하나 이상의 파일이 필요합니다.");
       }
-      previewPost = post;
-      closePostDetail();
-      showView(VIEW_PREVIEW);
+    });
+  }
+
+  /* ============================================================
+     팝업: 블로그 등록하기
+     ============================================================ */
+
+  let selectedBloggerPostId = null;
+
+  function isBloggerEligible(post) {
+    const titleOk = !!(post.title && post.title.trim());
+    const htmlOk = !!(post.htmlContent && post.htmlContent.trim());
+    const seoOk = !!(post.seoResult && post.seoResult.result === "통과");
+    const statusOk = !BLOGGER_FORBIDDEN_STATUS.includes(displayStatus(post.status));
+    return titleOk && htmlOk && seoOk && statusOk;
+  }
+
+  function showBloggerListView() {
+    document.getElementById("blogger-list-view").classList.remove("hidden");
+    document.getElementById("blogger-detail-view").classList.add("hidden");
+  }
+
+  function showBloggerDetailView() {
+    document.getElementById("blogger-list-view").classList.add("hidden");
+    document.getElementById("blogger-detail-view").classList.remove("hidden");
+  }
+
+  async function renderBloggerCandidateList() {
+    const posts = await ArchiveModule.loadPosts();
+    const eligible = posts.filter(isBloggerEligible);
+    const listEl = document.getElementById("blogger-candidate-list");
+    listEl.innerHTML = "";
+
+    if (eligible.length === 0) {
+      const li = document.createElement("li");
+      li.className = "check-item";
+      li.textContent = "블로그 등록 가능한 글이 없습니다. (제목/본문/SEO 통과 필요)";
+      listEl.appendChild(li);
+      return;
+    }
+
+    eligible.forEach((post) => {
+      const itemEl = document.createElement("li");
+      itemEl.className = "archive-item";
+
+      const titleEl = document.createElement("div");
+      titleEl.className = "archive-item__title";
+      titleEl.textContent = post.title || "(제목 없음)";
+
+      const metaEl = document.createElement("div");
+      metaEl.className = "archive-item__meta";
+      metaEl.textContent = `${displayStatus(post.status)} · 수정일 ${formatDate(post.updatedAt)}`;
+
+      itemEl.appendChild(titleEl);
+      itemEl.appendChild(metaEl);
+      itemEl.addEventListener("click", () => openBloggerDetail(post.id));
+
+      listEl.appendChild(itemEl);
+    });
+  }
+
+  async function openBloggerDetail(id) {
+    const post = ArchiveModule.getPostById(id);
+    if (!post) return;
+    selectedBloggerPostId = id;
+
+    BloggerModule.loadPost(post);
+    ScheduleModule.loadPost(post);
+
+    document.getElementById("blogger-detail-title").textContent = post.title || "(제목 없음)";
+    document
+      .getElementById("blogger-image-warning")
+      .classList.toggle("hidden", !BloggerModule.hasDataUrlImages());
+    document.getElementById("blogger-schedule-datetime").value = "";
+
+    showBloggerDetailView();
+
+    const statusEl = document.getElementById("blogger-connection-status");
+    statusEl.textContent = "확인 중";
+    const status = await BloggerModule.getConnectionStatus();
+    statusEl.textContent = status.ok ? (status.connected ? "연결됨" : "연결 안 됨") : "확인 실패";
+  }
+
+  function openBloggerPopup() {
+    showBloggerListView();
+    renderBloggerCandidateList();
+    openPopup("popup-blogger");
+  }
+
+  function bindBloggerEvents() {
+    document.getElementById("blogger-close-btn").addEventListener("click", () => closePopup("popup-blogger"));
+
+    document.getElementById("blogger-detail-back-btn").addEventListener("click", () => {
+      showBloggerListView();
+      renderBloggerCandidateList();
     });
 
-    document.getElementById("detail-open-image-btn").addEventListener("click", () => {
-      if (!selectedPostId) return;
-      const post = ArchiveModule.getPostById(selectedPostId);
-      if (!post) {
-        alert("이미지 관리를 열 수 없습니다.");
-        return;
+    document.getElementById("blogger-draft-btn").addEventListener("click", async (e) => {
+      const ok = confirm("블로그에 임시 저장하시겠습니까?");
+      if (!ok) return;
+
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        const result = await BloggerModule.saveDraftToBlogger();
+        if (result.success) {
+          alert("블로그 임시 저장이 완료되었습니다.");
+          await refreshDashboard();
+          showBloggerListView();
+          renderBloggerCandidateList();
+        } else {
+          alert("블로그 임시 저장에 실패했습니다.\n" + (result.reasons ? result.reasons.join("\n") : ""));
+        }
+      } finally {
+        btn.disabled = false;
       }
-      ImageModule.loadPost(post);
-      closePostDetail();
-      showView(VIEW_IMAGE);
     });
 
-    document.getElementById("detail-open-seo-btn").addEventListener("click", () => {
-      if (!selectedPostId) return;
-      const post = ArchiveModule.getPostById(selectedPostId);
-      if (!post) {
-        alert("SEO 검수를 열 수 없습니다.");
+    document.getElementById("blogger-schedule-btn").addEventListener("click", async () => {
+      const value = document.getElementById("blogger-schedule-datetime").value;
+      if (!value) {
+        alert("예약 일시를 입력해주세요.");
         return;
       }
-      SeoModule.loadPost(post);
-      closePostDetail();
-      showView(VIEW_SEO);
+      const ok = confirm("입력한 일시로 예약 저장하시겠습니까?");
+      if (!ok) return;
+
+      const result = await ScheduleModule.saveSchedule(value);
+      if (result.success) {
+        alert("예약 저장되었습니다. (브라우저에 저장되는 로컬 예약 정보)");
+        await refreshDashboard();
+        showBloggerListView();
+        renderBloggerCandidateList();
+      } else {
+        alert("예약 저장에 실패했습니다.\n" + result.reasons.join("\n"));
+      }
+    });
+  }
+
+  /* ============================================================
+     팝업: 설정
+     ============================================================ */
+
+  function renderErrorList() {
+    const listEl = document.getElementById("error-list");
+    const errors = ErrorLogModule.getAllErrors();
+    listEl.innerHTML = "";
+
+    if (errors.length === 0) {
+      const emptyEl = document.createElement("li");
+      emptyEl.className = "error-item error-item--empty";
+      emptyEl.textContent = "기록된 오류가 없습니다.";
+      listEl.appendChild(emptyEl);
+      return;
+    }
+
+    errors
+      .slice()
+      .reverse()
+      .forEach((err) => {
+        const itemEl = document.createElement("li");
+        itemEl.className = "error-item";
+        itemEl.textContent = `[${formatDate(err.createdAt)}] ${ErrorLogModule.getUserMessage(err)}`;
+        listEl.appendChild(itemEl);
+      });
+  }
+
+  async function renderFullCheckList() {
+    const result = await StatisticsModule.runFullCheck();
+    const listEl = document.getElementById("fullcheck-list");
+    listEl.innerHTML = "";
+
+    if (!result.success) {
+      const errorEl = document.createElement("li");
+      errorEl.className = "check-item";
+      errorEl.textContent = "전체 점검을 실행할 수 없습니다.";
+      listEl.appendChild(errorEl);
+      return;
+    }
+
+    const verdictClassMap = {
+      통과: "check-item__status--ok",
+      "확인 필요": "check-item__status--warn",
+      오류: "check-item__status--error",
+    };
+
+    result.items.forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "check-item";
+
+      const labelEl = document.createElement("span");
+      labelEl.textContent = `${item.label} · ${item.detail}`;
+
+      const verdictEl = document.createElement("span");
+      verdictEl.className = "check-item__status " + (verdictClassMap[item.verdict] || "");
+      verdictEl.textContent = item.verdict;
+
+      li.appendChild(labelEl);
+      li.appendChild(verdictEl);
+      listEl.appendChild(li);
+    });
+  }
+
+  async function renderSettingsPanel() {
+    document.getElementById("settings-version-value").textContent = `v${AppState.version}`;
+
+    const statusEl = document.getElementById("settings-blogger-status");
+    statusEl.textContent = "확인 중";
+    const status = await BloggerModule.getConnectionStatus();
+    statusEl.textContent = status.ok ? (status.connected ? "연결됨" : "연결 안 됨") : "확인 실패";
+
+    document.getElementById("fullcheck-list").innerHTML = "";
+  }
+
+  function openSettingsPopup() {
+    renderSettingsPanel();
+    openPopup("popup-settings");
+  }
+
+  function bindSettingsEvents() {
+    document.getElementById("settings-close-btn").addEventListener("click", () => closePopup("popup-settings"));
+
+    document.getElementById("settings-error-view-btn").addEventListener("click", () => {
+      renderErrorList();
+      document.getElementById("error-panel").classList.add("error-panel--open");
     });
 
-    document.getElementById("detail-open-blogger-btn").addEventListener("click", () => {
-      if (!selectedPostId) return;
-      const post = ArchiveModule.getPostById(selectedPostId);
-      if (!post) {
-        alert("Blogger 업로드 화면을 열 수 없습니다.");
-        return;
-      }
-      BloggerModule.loadPost(post);
-      closePostDetail();
-      showView(VIEW_BLOGGER);
+    document.getElementById("error-panel-close-btn").addEventListener("click", () => {
+      document.getElementById("error-panel").classList.remove("error-panel--open");
     });
 
-    document.getElementById("detail-open-schedule-btn").addEventListener("click", () => {
-      if (!selectedPostId) return;
-      const post = ArchiveModule.getPostById(selectedPostId);
-      if (!post) {
-        alert("예약발행 화면을 열 수 없습니다.");
-        return;
+    document.getElementById("fullcheck-run-btn").addEventListener("click", renderFullCheckList);
+
+    document.getElementById("settings-reset-btn").addEventListener("click", () => {
+      openPopup("popup-confirm-reset");
+    });
+
+    document.getElementById("confirm-reset-cancel-btn").addEventListener("click", () => {
+      closePopup("popup-confirm-reset");
+    });
+
+    document.getElementById("confirm-reset-btn").addEventListener("click", async () => {
+      try {
+        await StorageModule.replaceAllPosts([]);
+        await refreshDashboard();
+        closePopup("popup-confirm-reset");
+        alert("데이터가 초기화되었습니다.");
+      } catch (error) {
+        alert("초기화에 실패했습니다.");
       }
-      ScheduleModule.loadPost(post);
-      closePostDetail();
-      showView(VIEW_SCHEDULE);
+    });
+
+    document.getElementById("settings-logout-btn").addEventListener("click", () => {
+      closePopup("popup-settings");
+      AuthModule.logout();
     });
   }
 
@@ -779,9 +857,7 @@ const AppCore = (() => {
         const result = await BackupModule.importAllData(event.target.result);
         if (result.success) {
           alert(`${result.count}개의 글을 가져왔습니다.`);
-          await ArchiveModule.loadPosts();
-          renderArchiveList();
-          renderHome();
+          await refreshDashboard();
         } else {
           alert("가져오기에 실패했습니다: " + result.error);
         }
@@ -791,370 +867,40 @@ const AppCore = (() => {
     });
   }
 
-  function bindSettingsEvents() {
-    document.getElementById("settings-error-view-btn").addEventListener("click", () => {
-      renderErrorList();
-      document.getElementById("error-panel").classList.add("error-panel--open");
-    });
+  /* ============================================================
+     로그인 연동 / 초기화
+     ============================================================ */
 
-    document.getElementById("error-panel-close-btn").addEventListener("click", () => {
-      document.getElementById("error-panel").classList.remove("error-panel--open");
-    });
-
-    document.getElementById("settings-goto-statistics-btn").addEventListener("click", () => {
-      showView(VIEW_STATISTICS);
-    });
-
-    document.getElementById("settings-goto-fullcheck-btn").addEventListener("click", () => {
-      showView(VIEW_FULLCHECK);
-    });
+  async function onLoginSuccess() {
+    await StorageModule.init();
+    await refreshDashboard();
   }
 
-  function renderUploadFileName(displayId, file) {
-    const el = document.getElementById(displayId);
-    if (!el) return;
-    el.textContent = file ? file.name : "선택된 파일 없음";
-  }
-
-  function bindUploadEvents() {
-    document.getElementById("upload-metadata-input").addEventListener("change", async (e) => {
-      await GptUploadModule.setMetadataFile(e.target.files[0]);
-      renderUploadFileName("upload-metadata-filename", e.target.files[0]);
-      renderUploadCheckList();
-    });
-
-    document.getElementById("upload-html-input").addEventListener("change", async (e) => {
-      await GptUploadModule.setHtmlFile(e.target.files[0]);
-      renderUploadFileName("upload-html-filename", e.target.files[0]);
-      renderUploadCheckList();
-    });
-
-    document.getElementById("upload-markdown-input").addEventListener("change", async (e) => {
-      await GptUploadModule.setMarkdownFile(e.target.files[0]);
-      renderUploadFileName("upload-markdown-filename", e.target.files[0]);
-      renderUploadCheckList();
-    });
-
-    document.getElementById("upload-text-input").addEventListener("change", async (e) => {
-      await GptUploadModule.setTextFile(e.target.files[0]);
-      renderUploadFileName("upload-text-filename", e.target.files[0]);
-      renderUploadCheckList();
-    });
-
-    document.getElementById("upload-save-btn").addEventListener("click", async () => {
-      const result = await GptUploadModule.saveToArchive();
-      if (result.success) {
-        previewPost = result.post;
-        renderArchiveList();
-        renderHome();
-
-        GptUploadModule.reset();
-        document.getElementById("upload-metadata-input").value = "";
-        document.getElementById("upload-html-input").value = "";
-        document.getElementById("upload-markdown-input").value = "";
-        document.getElementById("upload-text-input").value = "";
-        renderUploadFileName("upload-metadata-filename", null);
-        renderUploadFileName("upload-html-filename", null);
-        renderUploadFileName("upload-markdown-filename", null);
-        renderUploadFileName("upload-text-filename", null);
-        renderUploadCheckList();
-
-        alert("자료실에 저장되었습니다.");
-      } else {
-        alert("저장에 실패했습니다. HTML/Markdown/TXT 중 하나 이상의 파일이 필요합니다.");
-      }
-    });
-
-    document.getElementById("upload-goto-archive-btn").addEventListener("click", () => {
-      showView(VIEW_ARCHIVE);
-    });
-
-    document.getElementById("upload-goto-preview-btn").addEventListener("click", () => {
-      if (!previewPost) {
-        alert("먼저 자료실에 저장한 뒤 자료실에서 미리보기를 열어주세요.");
-        return;
-      }
-      showView(VIEW_PREVIEW);
-    });
-  }
-
-  function bindPreviewEvents() {
-    document.getElementById("preview-view-html-btn").addEventListener("click", () => showPreviewTab("html"));
-    document.getElementById("preview-view-markdown-btn").addEventListener("click", () => showPreviewTab("markdown"));
-    document.getElementById("preview-view-text-btn").addEventListener("click", () => showPreviewTab("text"));
-
-    document.getElementById("preview-goto-archive-btn").addEventListener("click", () => {
-      showView(VIEW_ARCHIVE);
-    });
-
-    document.getElementById("preview-goto-upload-btn").addEventListener("click", () => {
-      showView(VIEW_UPLOAD);
-    });
-  }
-
-  function bindImageEvents() {
-    document.getElementById("image-thumbnail-input").addEventListener("change", async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const result = await ImageModule.addImage(file, "thumbnail");
-      if (result.success) {
-        renderImageList();
-      } else {
-        alert("썸네일 등록에 실패했습니다.");
-      }
-      e.target.value = "";
-    });
-
-    document.getElementById("image-body-input").addEventListener("change", async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const result = await ImageModule.addImage(file, "body");
-      if (result.success) {
-        renderImageList();
-      } else {
-        alert("본문 이미지 등록에 실패했습니다.");
-      }
-      e.target.value = "";
-    });
-
-    document.getElementById("image-save-btn").addEventListener("click", async () => {
-      const result = await ImageModule.saveImageList();
-      if (result.success) {
-        renderArchiveList();
-        alert("저장되었습니다.");
-      } else {
-        alert("저장에 실패했습니다.");
-      }
-    });
-
-    document.getElementById("image-goto-preview-btn").addEventListener("click", () => {
-      const post = ImageModule.getCurrentPost();
-      if (!post) {
-        alert("먼저 자료실에서 글을 선택해주세요.");
-        return;
-      }
-      previewPost = post;
-      showView(VIEW_PREVIEW);
-    });
-
-    document.getElementById("image-goto-archive-btn").addEventListener("click", () => {
-      showView(VIEW_ARCHIVE);
-    });
-  }
-
-  function bindSeoEvents() {
-    document.getElementById("seo-check-btn").addEventListener("click", async () => {
-      const seoResult = SeoModule.runCheck();
-      if (!seoResult) {
-        alert("검수에 실패했습니다. 먼저 자료실에서 글을 선택해주세요.");
-        return;
-      }
-      renderSeoResult(seoResult);
-
-      const saveResult = await SeoModule.saveSeoResult();
-      if (saveResult.success) {
-        renderArchiveList();
-      } else {
-        alert("검수 결과 저장에 실패했습니다.");
-      }
-    });
-
-    document.getElementById("seo-goto-archive-btn").addEventListener("click", () => {
-      showView(VIEW_ARCHIVE);
-    });
-
-    document.getElementById("seo-goto-preview-btn").addEventListener("click", () => {
-      const post = SeoModule.getCurrentPost();
-      if (!post) {
-        alert("먼저 자료실에서 글을 선택해주세요.");
-        return;
-      }
-      previewPost = post;
-      showView(VIEW_PREVIEW);
-    });
-  }
-
-  function bindBloggerEvents() {
-    document.getElementById("blogger-config-save-btn").addEventListener("click", () => {
-      const blogId = document.getElementById("blogger-blogid-input").value;
-      const token = document.getElementById("blogger-token-input").value;
-      const result = BloggerModule.saveBloggerConfig(blogId, token);
-      if (result.success) {
-        alert("Blogger 설정이 저장되었습니다.");
-      } else {
-        alert("설정 저장에 실패했습니다.\n" + result.reasons.join("\n"));
-      }
-      renderBloggerView();
-    });
-
-    document.getElementById("blogger-mark-ready-btn").addEventListener("click", async () => {
-      const ok = confirm("발행대기 상태로 전환하시겠습니까?");
-      if (!ok) return;
-
-      const result = await BloggerModule.markReadyToPublish();
-      if (result.success) {
-        alert(result.alreadyReady ? "이미 발행대기 상태입니다." : "발행대기 상태로 변경되었습니다.");
-        renderArchiveList();
-        renderHome();
-      } else {
-        alert("발행대기로 변경할 수 없습니다.\n" + result.reasons.join("\n"));
-      }
-      renderBloggerView();
-    });
-
-    async function runBloggerUpload(mode, btn) {
-      btn.disabled = true;
-      try {
-        const result = await BloggerModule.uploadToBlogger(mode);
-        if (result.success) {
-          alert(mode === "publish" ? "Blogger에 발행되었습니다." : "임시저장으로 업로드되었습니다.");
-          renderArchiveList();
-          renderHome();
-        } else if (result.uploaded) {
-          alert(
-            "Blogger 업로드는 성공했지만 로컬 저장에 실패했습니다. 자료실 상태가 실제 Blogger 상태와 다를 수 있습니다."
-          );
-          renderArchiveList();
-          renderHome();
-        } else {
-          alert(
-            (mode === "publish" ? "발행에 실패했습니다.\n" : "임시저장 업로드에 실패했습니다.\n") +
-              (result.reasons ? result.reasons.join("\n") : "")
-          );
-        }
-      } finally {
-        btn.disabled = false;
-        renderBloggerView();
-      }
-    }
-
-    document.getElementById("blogger-upload-draft-btn").addEventListener("click", async (e) => {
-      const ok = confirm("임시저장으로 Blogger에 업로드하시겠습니까?");
-      if (!ok) return;
-      await runBloggerUpload("draft", e.currentTarget);
-    });
-
-    document.getElementById("blogger-upload-publish-btn").addEventListener("click", async (e) => {
-      const ok = confirm("실제로 발행하면 Blogger에 공개됩니다. 발행하시겠습니까?");
-      if (!ok) {
-        const post = BloggerModule.getCurrentPost();
-        ErrorLogModule.logError({
-          module: "blogger-module",
-          message: "발행 전 사용자 확인 취소",
-          detail: "사용자가 실제 발행 확인 팝업에서 취소를 선택함",
-          relatedId: post ? post.id : null,
-        });
-        return;
-      }
-      await runBloggerUpload("publish", e.currentTarget);
-    });
-
-    document.getElementById("blogger-goto-archive-btn").addEventListener("click", () => {
-      showView(VIEW_ARCHIVE);
-    });
-
-    document.getElementById("blogger-goto-preview-btn").addEventListener("click", () => {
-      const post = BloggerModule.getCurrentPost();
-      if (!post) {
-        alert("먼저 자료실에서 글을 선택해주세요.");
-        return;
-      }
-      previewPost = post;
-      showView(VIEW_PREVIEW);
-    });
-  }
-
-  function bindScheduleEvents() {
-    document.getElementById("schedule-save-btn").addEventListener("click", async () => {
-      const value = document.getElementById("schedule-datetime-input").value;
-
-      if (value) {
-        const ok = confirm("입력한 일시로 예약하시겠습니까?");
-        if (!ok) {
-          const post = ScheduleModule.getCurrentPost();
-          ErrorLogModule.logError({
-            module: "schedule-module",
-            message: "예약 전 사용자 확인 취소",
-            detail: "사용자가 예약 저장 확인 팝업에서 취소를 선택함",
-            relatedId: post ? post.id : null,
-          });
-          return;
-        }
-      }
-
-      const result = await ScheduleModule.saveSchedule(value);
-      if (result.success) {
-        alert("예약이 저장되었습니다.");
-        renderArchiveList();
-        renderHome();
-      } else {
-        alert("예약 저장에 실패했습니다.\n" + result.reasons.join("\n"));
-      }
-      renderScheduleView();
-    });
-
-    document.getElementById("schedule-cancel-btn").addEventListener("click", async () => {
-      const ok = confirm("예약을 취소하시겠습니까?");
-      if (!ok) return;
-      const result = await ScheduleModule.cancelSchedule();
-      if (result.success) {
-        alert("예약이 취소되었습니다.");
-        document.getElementById("schedule-datetime-input").value = "";
-        renderArchiveList();
-        renderHome();
-      } else {
-        alert("예약 취소에 실패했습니다.\n" + result.reasons.join("\n"));
-      }
-      renderScheduleView();
-    });
-
-    document.getElementById("schedule-goto-archive-btn").addEventListener("click", () => {
-      showView(VIEW_ARCHIVE);
-    });
-  }
-
-  function bindStatisticsEvents() {
-    document.getElementById("stats-goto-archive-btn").addEventListener("click", () => {
-      showView(VIEW_ARCHIVE);
-    });
-
-    document.getElementById("stats-goto-settings-btn").addEventListener("click", () => {
-      showView(VIEW_SETTINGS);
-    });
-  }
-
-  function bindFullCheckEvents() {
-    document.getElementById("fullcheck-run-btn").addEventListener("click", () => {
-      renderFullCheckView();
-    });
-
-    document.getElementById("fullcheck-goto-archive-btn").addEventListener("click", () => {
-      showView(VIEW_ARCHIVE);
-    });
-
-    document.getElementById("fullcheck-goto-settings-btn").addEventListener("click", () => {
-      showView(VIEW_SETTINGS);
-    });
+  function onLogout() {
+    stopTicker();
+    document.querySelectorAll(".popup-overlay").forEach((el) => el.classList.remove("popup-overlay--open"));
+    document.getElementById("error-panel").classList.remove("error-panel--open");
   }
 
   async function init() {
-    await StorageModule.init();
-    await ArchiveModule.loadPosts();
+    AuthModule.setOnLoginSuccess(onLoginSuccess);
+    AuthModule.setOnLogout(onLogout);
+    AuthModule.bindEvents();
 
-    bindNav();
+    bindDashboardEvents();
+    bindRegisterEvents();
     bindArchiveEvents();
-    bindBackupEvents();
-    bindSettingsEvents();
-    bindUploadEvents();
     bindPreviewEvents();
-    bindImageEvents();
-    bindSeoEvents();
     bindBloggerEvents();
-    bindScheduleEvents();
-    bindStatisticsEvents();
-    bindFullCheckEvents();
+    bindSettingsEvents();
+    bindBackupEvents();
 
-    showView(VIEW_HOME);
+    if (AuthModule.isLoggedIn()) {
+      AuthModule.showAppScreen();
+      await onLoginSuccess();
+    } else {
+      AuthModule.showLoginScreen();
+    }
   }
 
   return {
@@ -1165,7 +911,7 @@ const AppCore = (() => {
 })();
 
 const AppState = {
-  version: "0.0.5",
+  version: "0.0.6 repair1",
 };
 
 document.addEventListener("DOMContentLoaded", () => {

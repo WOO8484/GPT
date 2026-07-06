@@ -9,413 +9,353 @@
   <link rel="stylesheet" href="css/components.css" />
 </head>
 <body>
-  <div class="app-container">
-    <header class="app-header">
+  <!-- 로그인 화면 (repair1 신규) -->
+  <div id="screen-login" class="login-screen">
+    <div class="login-box">
+      <div class="login-title">GPT 공작소</div>
+      <input
+        id="login-password"
+        class="input-text login-password-input"
+        type="password"
+        placeholder="암호 입력"
+        autocomplete="current-password"
+      />
+      <div id="login-error" class="login-error hidden"></div>
+      <button id="login-btn" class="btn btn--primary btn--block">입장하기</button>
+    </div>
+    <div class="login-version">v0.0.6 repair1</div>
+  </div>
+
+  <!-- 메인 앱: 로그인 성공 전에는 hidden 상태로 유지된다 -->
+  <div id="app-container" class="app-container hidden">
+    <header class="app-header app-header--dashboard">
       <div class="app-header__title">GPT 공작소</div>
+      <button id="open-settings-btn" class="settings-gear-btn" aria-label="설정" type="button">⚙</button>
     </header>
 
-    <main class="app-main">
-      <!-- 홈 화면 -->
-      <section id="view-home" class="view">
-        <div class="section">
-          <div class="card">
-            <div class="card__label">현재 버전</div>
-            <div class="card__value" id="home-version">버전 0.0.5</div>
-          </div>
+    <main class="dashboard-main">
+      <section class="dashboard-ticker">
+        <div class="dashboard-ticker__head">
+          <span class="dashboard-ticker__label">📰 최근 글</span>
+          <button id="open-archive-from-ticker-btn" class="dashboard-ticker__more" type="button">📚 전체 글 보기</button>
         </div>
-
-        <div class="section">
-          <div class="section-title">오늘 작업 현황</div>
-          <div class="card">
-            <div class="card__label">저장된 글 수</div>
-            <div class="card__value" id="home-post-count">0개</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">바로가기</div>
-          <div class="btn-row">
-            <button id="home-goto-upload" class="btn">업로드</button>
-            <button id="home-goto-archive" class="btn">자료실</button>
-          </div>
-          <div class="btn-row">
-            <button id="home-goto-preview" class="btn">미리보기</button>
-            <button id="home-goto-settings" class="btn">설정</button>
-          </div>
-        </div>
+        <button id="ticker-content" class="dashboard-ticker__body" type="button">
+          <div class="dashboard-ticker__title" id="ticker-title">저장된 글이 없습니다.</div>
+          <div class="dashboard-ticker__meta" id="ticker-meta">자료실에서 첫 글을 등록해보세요.</div>
+        </button>
       </section>
 
-      <!-- GPT 결과물 업로드 화면 -->
-      <section id="view-upload" class="view">
-        <div class="section">
-          <div class="section-title">metadata.json</div>
-          <label for="upload-metadata-input" class="upload-drop-zone">파일 선택</label>
-          <input id="upload-metadata-input" class="upload-file-hidden" type="file" accept=".json,application/json" />
-          <div id="upload-metadata-filename" class="upload-filename">선택된 파일 없음</div>
-        </div>
+      <section class="dashboard-desk">
+        <div class="dashboard-desk__title">🛠️ 공작소 작업대</div>
+        <button id="open-register-btn" class="desk-btn" type="button">📦 등록하기</button>
+        <button id="open-archive-btn" class="desk-btn" type="button">📁 자료실</button>
+        <button id="open-blogger-btn" class="desk-btn" type="button">🚀 블로그 등록하기</button>
+      </section>
+    </main>
+  </div>
 
+  <!-- 팝업: 등록하기 -->
+  <div id="popup-register" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>📦 등록하기</h2>
+        <button id="register-close-x-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
         <div class="section">
-          <div class="section-title">content.html</div>
-          <label for="upload-html-input" class="upload-drop-zone">파일 선택</label>
-          <input id="upload-html-input" class="upload-file-hidden" type="file" accept=".html,.htm,text/html" />
-          <div id="upload-html-filename" class="upload-filename">선택된 파일 없음</div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">content.md</div>
-          <label for="upload-markdown-input" class="upload-drop-zone">파일 선택</label>
-          <input id="upload-markdown-input" class="upload-file-hidden" type="file" accept=".md,.markdown,text/markdown,text/plain" />
-          <div id="upload-markdown-filename" class="upload-filename">선택된 파일 없음</div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">content.txt</div>
-          <label for="upload-text-input" class="upload-drop-zone">파일 선택</label>
-          <input id="upload-text-input" class="upload-file-hidden" type="file" accept=".txt,text/plain" />
-          <div id="upload-text-filename" class="upload-filename">선택된 파일 없음</div>
+          <p class="upload-desc">GPT 공작소 자료 패키지 ZIP 파일 1개를 선택하세요.</p>
+          <label for="zip-upload-input" class="upload-drop-zone">ZIP 파일 선택</label>
+          <input
+            id="zip-upload-input"
+            class="upload-file-hidden"
+            type="file"
+            accept=".zip,application/zip,application/x-zip-compressed"
+          />
+          <div id="zip-upload-filename" class="upload-filename">선택된 파일 없음</div>
         </div>
 
         <div class="section">
           <div class="section-title">인식 결과</div>
-          <ul id="upload-check-list" class="check-list"></ul>
+          <div id="register-summary" class="register-summary hidden"></div>
+          <ul id="zip-check-list" class="check-list"></ul>
+        </div>
+
+        <div id="register-score-area" class="section hidden">
+          <div class="card">
+            <div class="card__label">검증 점수</div>
+            <div class="card__value" id="register-score-value">-</div>
+          </div>
+          <div id="register-briefing" class="notice-text"></div>
         </div>
 
         <div class="section">
-          <div class="btn-row">
-            <button id="upload-save-btn" class="btn btn--primary">자료실에 저장하기</button>
+          <div class="btn-row" id="register-btn-row-before">
+            <button id="register-validate-btn" class="btn btn--primary">검증하기</button>
+            <button id="register-close-btn-before" class="btn">닫기</button>
           </div>
-          <div class="btn-row">
-            <button id="upload-goto-archive-btn" class="btn">자료실</button>
-            <button id="upload-goto-preview-btn" class="btn">미리보기</button>
+          <div class="btn-row hidden" id="register-btn-row-fail">
+            <button id="register-revalidate-btn" class="btn btn--primary">다시 검증하기</button>
+            <button id="register-close-btn-fail" class="btn">닫기</button>
+          </div>
+          <div class="btn-row hidden" id="register-btn-row-pass">
+            <button id="register-save-btn" class="btn btn--primary btn--block">저장</button>
+          </div>
+          <div class="btn-row hidden" id="register-btn-row-done">
+            <button id="register-goto-archive-btn" class="btn btn--primary btn--block">자료실에서 보기</button>
           </div>
         </div>
-      </section>
 
-      <!-- 자료실 화면 -->
-      <section id="view-archive" class="view">
         <div class="section">
-          <input
-            id="archive-search"
-            class="input-text"
-            type="text"
-            placeholder="제목으로 검색"
-          />
-          <select id="archive-status-filter" class="select-box">
-            <option value="all">전체 상태</option>
-            <option value="작성중">작성중</option>
-            <option value="검수중">검수중</option>
-            <option value="발행대기">발행대기</option>
-            <option value="예약됨">예약됨</option>
-            <option value="발행완료">발행완료</option>
-            <option value="보류">보류</option>
-            <option value="오류">오류</option>
-          </select>
+          <button id="manual-upload-toggle-btn" class="btn btn--block" type="button">수동 업로드 열기</button>
         </div>
 
-        <div class="section section--scroll">
+        <div class="section">
+          <div id="manual-upload-panel" class="manual-upload-panel manual-upload-panel--collapsed">
+            <div class="section">
+              <div class="section-title">metadata.json</div>
+              <label for="upload-metadata-input" class="upload-drop-zone">파일 선택</label>
+              <input id="upload-metadata-input" class="upload-file-hidden" type="file" accept=".json,application/json" />
+              <div id="upload-metadata-filename" class="upload-filename">선택된 파일 없음</div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">content.html</div>
+              <label for="upload-html-input" class="upload-drop-zone">파일 선택</label>
+              <input id="upload-html-input" class="upload-file-hidden" type="file" accept=".html,.htm,text/html" />
+              <div id="upload-html-filename" class="upload-filename">선택된 파일 없음</div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">content.md</div>
+              <label for="upload-markdown-input" class="upload-drop-zone">파일 선택</label>
+              <input
+                id="upload-markdown-input"
+                class="upload-file-hidden"
+                type="file"
+                accept=".md,.markdown,text/markdown,text/plain"
+              />
+              <div id="upload-markdown-filename" class="upload-filename">선택된 파일 없음</div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">content.txt</div>
+              <label for="upload-text-input" class="upload-drop-zone">파일 선택</label>
+              <input id="upload-text-input" class="upload-file-hidden" type="file" accept=".txt,text/plain" />
+              <div id="upload-text-filename" class="upload-filename">선택된 파일 없음</div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">인식 결과</div>
+              <ul id="upload-check-list" class="check-list"></ul>
+            </div>
+
+            <div class="section">
+              <div class="btn-row">
+                <button id="upload-save-btn" class="btn btn--primary">자료실에 저장하기</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 자료실 -->
+  <div id="popup-archive" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>📁 자료실</h2>
+        <button id="archive-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
+        <div id="archive-list-view">
+          <div class="section">
+            <input id="archive-search" class="input-text" type="text" placeholder="제목으로 검색" />
+            <select id="archive-status-filter" class="select-box">
+              <option value="all">전체 상태</option>
+              <option value="등록완료">등록완료</option>
+              <option value="임시저장완료">임시저장완료</option>
+              <option value="예약저장됨">예약저장됨</option>
+              <option value="발행완료">발행완료</option>
+              <option value="오류">오류</option>
+              <option value="작성중">작성중</option>
+              <option value="검수중">검수중</option>
+            </select>
+          </div>
           <ul id="archive-list"></ul>
         </div>
-      </section>
 
-      <!-- 미리보기 화면 -->
-      <section id="view-preview" class="view">
-        <div class="section">
-          <h2 id="preview-title">제목</h2>
+        <div id="archive-detail-view" class="hidden">
+          <h3 id="archive-detail-title">제목</h3>
           <div class="detail-row">
-            <span class="detail-row__label">키워드</span>
-            <span id="preview-keyword">-</span>
+            <span class="detail-row__label">상태</span>
+            <span id="archive-detail-status">-</span>
           </div>
           <div class="detail-row">
-            <span class="detail-row__label">메타설명</span>
-            <span id="preview-meta">-</span>
+            <span class="detail-row__label">수정일</span>
+            <span id="archive-detail-updated">-</span>
           </div>
           <div class="detail-row">
-            <span class="detail-row__label">태그</span>
-            <span id="preview-tags">-</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <div id="preview-thumbnail-area" class="preview-frame hidden">
-            <img id="preview-thumbnail-img" class="preview-thumbnail-img" alt="" />
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="btn-row">
-            <button id="preview-view-html-btn" class="btn nav-btn--active">HTML 본문 보기</button>
-            <button id="preview-view-markdown-btn" class="btn">원문 보기</button>
-            <button id="preview-view-text-btn" class="btn">텍스트 보기</button>
-          </div>
-        </div>
-
-        <div class="section section--scroll">
-          <div id="preview-html-frame" class="preview-frame">
-            <div id="preview-html-content"></div>
-          </div>
-          <div id="preview-markdown-frame" class="preview-frame hidden">
-            <pre id="preview-markdown-content" class="detail-content"></pre>
-          </div>
-          <div id="preview-text-frame" class="preview-frame hidden">
-            <pre id="preview-text-content" class="detail-content"></pre>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">본문 이미지 목록</div>
-          <ul id="preview-body-image-list" class="check-list check-list--capped"></ul>
-        </div>
-
-        <div class="section">
-          <div class="btn-row">
-            <button id="preview-goto-archive-btn" class="btn">자료실</button>
-            <button id="preview-goto-upload-btn" class="btn">돌아가기</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- 이미지 관리 화면 -->
-      <section id="view-image" class="view">
-        <div class="section">
-          <div class="section-title">현재 글</div>
-          <div class="card">
-            <div class="card__value" id="image-post-title">-</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">썸네일 이미지</div>
-          <label for="image-thumbnail-input" class="upload-drop-zone">썸네일 지정</label>
-          <input id="image-thumbnail-input" class="upload-file-hidden" type="file" accept="image/*" />
-        </div>
-
-        <div class="section">
-          <div class="section-title">본문 이미지</div>
-          <label for="image-body-input" class="upload-drop-zone">본문 이미지 추가</label>
-          <input id="image-body-input" class="upload-file-hidden" type="file" accept="image/*" />
-        </div>
-
-        <div class="section section--scroll">
-          <div class="section-title">이미지 목록</div>
-          <ul id="image-list" class="check-list"></ul>
-        </div>
-
-        <div class="section">
-          <div class="btn-row">
-            <button id="image-save-btn" class="btn btn--primary">저장하기</button>
-          </div>
-          <div class="btn-row">
-            <button id="image-goto-preview-btn" class="btn">미리보기</button>
-            <button id="image-goto-archive-btn" class="btn">자료실</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- SEO 검수 화면 -->
-      <section id="view-seo" class="view">
-        <div class="section">
-          <div class="section-title">현재 글</div>
-          <div class="card">
-            <div class="card__value" id="seo-post-title">-</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <button id="seo-check-btn" class="btn btn--primary btn--block">검수하기</button>
-        </div>
-
-        <div class="section">
-          <div class="card">
-            <div class="card__label">총점</div>
-            <div class="card__value" id="seo-total-score">-</div>
-          </div>
-          <div class="card">
-            <div class="card__label">판정</div>
-            <div class="card__value" id="seo-result-badge">-</div>
-          </div>
-        </div>
-
-        <div class="section section--scroll">
-          <div class="section-title">문제 목록</div>
-          <ul id="seo-issue-list" class="check-list"></ul>
-        </div>
-
-        <div class="section">
-          <div class="btn-row">
-            <button id="seo-goto-archive-btn" class="btn">자료실</button>
-            <button id="seo-goto-preview-btn" class="btn">미리보기</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Blogger 업로드 화면 -->
-      <section id="view-blogger" class="view">
-        <div class="section">
-          <div class="section-title">현재 글</div>
-          <div class="card">
-            <div class="card__value" id="blogger-post-title">-</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="detail-row">
-            <span class="detail-row__label">SEO 상태</span>
-            <span id="blogger-seo-status">-</span>
+            <span class="detail-row__label">SEO</span>
+            <span id="archive-detail-seo">-</span>
           </div>
           <div class="detail-row">
-            <span class="detail-row__label">발행 가능 여부</span>
-            <span id="blogger-ready-status">-</span>
+            <span class="detail-row__label">이미지</span>
+            <span id="archive-detail-images">-</span>
           </div>
-          <ul id="blogger-reason-list" class="check-list hidden"></ul>
-        </div>
 
-        <div class="section">
-          <div class="section-title">Blogger 설정값</div>
-          <input id="blogger-blogid-input" class="input-text" type="text" placeholder="Blog ID" />
-          <input id="blogger-token-input" class="input-text" type="password" placeholder="Access Token" />
-          <div class="notice-text">Blog ID와 Access Token은 저장되지 않으며, 새로고침하면 다시 입력해야 합니다.</div>
           <div class="btn-row">
-            <button id="blogger-config-save-btn" class="btn">설정 저장</button>
+            <button id="archive-detail-preview-btn" class="btn btn--primary">미리 보기</button>
+            <button id="archive-detail-delete-btn" class="btn btn--danger">삭제 하기</button>
           </div>
+          <button id="archive-detail-back-btn" class="btn btn--block" type="button">목록으로</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 삭제 확인 팝업 -->
+  <div id="popup-confirm-delete" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <p class="confirm-text">정말 삭제하시겠습니까?<br />삭제한 글은 되돌릴 수 없습니다.</p>
+      <div class="btn-row">
+        <button id="confirm-delete-btn" class="btn btn--danger">삭제하기</button>
+        <button id="confirm-delete-cancel-btn" class="btn">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 미리보기 -->
+  <div id="popup-preview" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>미리 보기</h2>
+        <button id="preview-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
+        <div id="preview-empty-message" class="section hidden">
+          <p class="preview-empty-text">선택된 글이 없습니다.<br />자료실에서 글을 선택한 뒤 미리보기를 열어주세요.</p>
         </div>
 
+        <div id="preview-content-area">
+          <div class="section">
+            <h2 id="preview-title">제목</h2>
+            <div class="detail-row">
+              <span class="detail-row__label">키워드</span>
+              <span id="preview-keyword">-</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-row__label">메타설명</span>
+              <span id="preview-meta">-</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-row__label">태그</span>
+              <span id="preview-tags">-</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div id="preview-thumbnail-area" class="preview-frame hidden">
+              <img id="preview-thumbnail-img" class="preview-thumbnail-img" alt="" />
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="btn-row">
+              <button id="preview-view-html-btn" class="btn nav-btn--active">HTML 본문 보기</button>
+              <button id="preview-view-markdown-btn" class="btn">원문 보기</button>
+              <button id="preview-view-text-btn" class="btn">텍스트 보기</button>
+            </div>
+          </div>
+
+          <div class="section">
+            <div id="preview-html-frame" class="preview-frame">
+              <div id="preview-html-content"></div>
+            </div>
+            <div id="preview-markdown-frame" class="preview-frame hidden">
+              <pre id="preview-markdown-content" class="detail-content"></pre>
+            </div>
+            <div id="preview-text-frame" class="preview-frame hidden">
+              <pre id="preview-text-content" class="detail-content"></pre>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">본문 이미지 목록</div>
+            <ul id="preview-body-image-list" class="check-list check-list--capped"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 블로그 등록하기 -->
+  <div id="popup-blogger" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>🚀 블로그 등록하기</h2>
+        <button id="blogger-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
+        <div id="blogger-list-view">
+          <div class="section-title">블로그 등록 가능한 글</div>
+          <ul id="blogger-candidate-list" class="check-list"></ul>
+        </div>
+
+        <div id="blogger-detail-view" class="hidden">
+          <div class="section">
+            <div class="card">
+              <div class="card__value" id="blogger-detail-title">-</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="detail-row">
+              <span class="detail-row__label">Blogger 연결 상태</span>
+              <span id="blogger-connection-status">확인 중</span>
+            </div>
+            <div id="blogger-image-warning" class="notice-text notice-text--warning hidden">
+              이미지가 브라우저 임시 저장(dataUrl) 형식입니다. Blogger에 정상 표시되려면 별도 호스팅 URL 변환이 필요합니다. (임시 저장 자체는 계속 진행됩니다)
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="btn-row">
+              <button id="blogger-draft-btn" class="btn btn--primary btn--block">블로그 임시 저장</button>
+            </div>
+          </div>
+
+          <div class="section">
+            <input id="blogger-schedule-datetime" class="input-text" type="datetime-local" />
+            <div class="btn-row">
+              <button id="blogger-schedule-btn" class="btn btn--block">예약 저장</button>
+            </div>
+            <div class="notice-text">예약 저장은 브라우저에 저장되는 로컬 예약 정보입니다. 자동 발행 기능은 아직 지원하지 않습니다.</div>
+          </div>
+
+          <button id="blogger-detail-back-btn" class="btn btn--block" type="button">목록으로</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 설정 -->
+  <div id="popup-settings" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>⚙ 설정</h2>
+        <button id="settings-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
         <div class="section">
-          <div class="section-title">업로드 내용 확인</div>
-          <div class="detail-row">
-            <span class="detail-row__label">제목</span>
-            <span id="blogger-check-title">-</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-row__label">태그</span>
-            <span id="blogger-check-tags">-</span>
-          </div>
-          <div id="blogger-html-check" class="detail-content">-</div>
-        </div>
-
-        <div class="section section--scroll">
-          <div class="section-title">이미지 확인</div>
-          <div id="blogger-image-warning" class="notice-text notice-text--warning hidden">
-            이미지가 브라우저 임시 저장(dataUrl) 형식입니다. Blogger에 정상 표시되려면 업로드 전 별도 호스팅 URL로 변환이 필요합니다. (업로드 자체는 계속 진행됩니다)
-          </div>
-          <ul id="blogger-image-list" class="check-list"></ul>
-        </div>
-
-        <div class="section">
-          <div class="btn-row">
-            <button id="blogger-mark-ready-btn" class="btn">발행대기 전환</button>
-          </div>
-          <div class="btn-row">
-            <button id="blogger-upload-draft-btn" class="btn btn--primary">임시저장으로 업로드</button>
-            <button id="blogger-upload-publish-btn" class="btn btn--danger">발행하기</button>
-          </div>
-          <div class="btn-row">
-            <button id="blogger-goto-archive-btn" class="btn">자료실</button>
-            <button id="blogger-goto-preview-btn" class="btn">미리보기</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- 예약발행 화면 -->
-      <section id="view-schedule" class="view">
-        <div class="section">
-          <div class="section-title">현재 글</div>
+          <div class="section-title">Blogger 연결 상태</div>
           <div class="card">
-            <div class="card__value" id="schedule-post-title">-</div>
+            <div class="card__value" id="settings-blogger-status">확인 중</div>
           </div>
         </div>
 
         <div class="section">
-          <div class="detail-row">
-            <span class="detail-row__label">예약 상태</span>
-            <span id="schedule-current-status">-</span>
-          </div>
-          <input id="schedule-datetime-input" class="input-text" type="datetime-local" />
-          <div class="btn-row">
-            <button id="schedule-save-btn" class="btn btn--primary">예약하기</button>
-            <button id="schedule-cancel-btn" class="btn">예약 취소</button>
-          </div>
-        </div>
-
-        <div class="section section--scroll">
-          <div class="section-title">예약 목록</div>
-          <ul id="schedule-list" class="check-list"></ul>
-        </div>
-
-        <div class="section">
-          <div class="btn-row">
-            <button id="schedule-goto-archive-btn" class="btn">자료실</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- 통계 화면 -->
-      <section id="view-statistics" class="view">
-        <div class="section">
-          <div class="section-title">전체 요약</div>
-          <div class="card">
-            <div class="card__label">저장된 전체 글 수</div>
-            <div class="card__value" id="stats-total-count">0개</div>
-          </div>
-          <div class="card">
-            <div class="card__label">SEO 통과 글 수</div>
-            <div class="card__value" id="stats-seo-pass-count">0개</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">상태별 글 수</div>
-          <ul id="stats-status-list" class="check-list"></ul>
-        </div>
-
-        <div class="section section--scroll">
-          <div class="section-title">문제 있는 글 목록</div>
-          <ul id="stats-problem-list" class="check-list"></ul>
-        </div>
-
-        <div class="section">
-          <div class="section-title">최근 수정 글 목록</div>
-          <ul id="stats-recent-list" class="check-list check-list--capped"></ul>
-        </div>
-
-        <div class="section">
-          <div class="btn-row">
-            <button id="stats-goto-archive-btn" class="btn">자료실</button>
-            <button id="stats-goto-settings-btn" class="btn">설정</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- 전체 점검 화면 -->
-      <section id="view-fullcheck" class="view">
-        <div class="section">
-          <div class="section-title">전체 점검</div>
-          <div class="notice-text">실제 외부 API를 호출하지 않으며, 현재 저장된 데이터와 모듈 상태만 확인합니다.</div>
-          <button id="fullcheck-run-btn" class="btn btn--primary btn--block">다시 확인</button>
-        </div>
-
-        <div class="section section--scroll">
-          <ul id="fullcheck-list" class="check-list"></ul>
-        </div>
-
-        <div class="section">
-          <div class="btn-row">
-            <button id="fullcheck-goto-archive-btn" class="btn">자료실</button>
-            <button id="fullcheck-goto-settings-btn" class="btn">설정</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- 설정 화면 -->
-      <section id="view-settings" class="view">
-        <div class="section">
-          <div class="section-title">저장소 상태</div>
-          <div class="card">
-            <div class="card__value" id="settings-storage-status">확인 중</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">데이터 백업/복구</div>
+          <div class="section-title">백업 / 복구</div>
           <div class="btn-row">
             <button id="backup-export-btn" class="btn">내보내기</button>
             <label class="file-input-label" for="backup-import-input">가져오기</label>
@@ -424,74 +364,47 @@
         </div>
 
         <div class="section">
-          <div class="section-title">오류 이력</div>
+          <div class="section-title">오류 백과사전</div>
           <button id="settings-error-view-btn" class="btn btn--block">오류 확인</button>
         </div>
 
         <div class="section">
-          <div class="section-title">통계/전체 점검</div>
-          <div class="btn-row">
-            <button id="settings-goto-statistics-btn" class="btn">통계 보기</button>
-            <button id="settings-goto-fullcheck-btn" class="btn">전체 점검</button>
+          <div class="section-title">전체 점검</div>
+          <button id="fullcheck-run-btn" class="btn btn--block">전체 점검 실행</button>
+          <ul id="fullcheck-list" class="check-list"></ul>
+        </div>
+
+        <div class="section">
+          <div class="section-title">제한사항 안내</div>
+          <div class="notice-text">docs/KNOWN_LIMITATIONS.md 문서를 참고해주세요. (버그가 아닌 설계상 의도된 제한사항입니다)</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">버전 정보</div>
+          <div class="card">
+            <div class="card__value" id="settings-version-value">-</div>
           </div>
         </div>
-      </section>
-    </main>
 
-    <nav class="app-nav">
-      <button class="nav-btn nav-btn--active" data-view="view-home">홈</button>
-      <button class="nav-btn" data-view="view-upload">업로드</button>
-      <button class="nav-btn" data-view="view-archive">자료실</button>
-      <button class="nav-btn" data-view="view-preview">미리보기</button>
-      <button class="nav-btn" data-view="view-settings">설정</button>
-    </nav>
+        <div class="section">
+          <div class="section-title">데이터 초기화</div>
+          <button id="settings-reset-btn" class="btn btn--danger btn--block">전체 데이터 초기화</button>
+        </div>
+
+        <div class="section">
+          <button id="settings-logout-btn" class="btn btn--block">로그아웃</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- 글 상세 보기 오버레이 -->
-  <div id="archive-detail" class="detail-overlay">
-    <div class="detail-panel">
-      <h2 id="detail-title">제목</h2>
-
-      <div class="detail-panel__scroll">
-        <div class="detail-row">
-          <span class="detail-row__label">키워드</span>
-          <span id="detail-keyword">-</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-row__label">상태</span>
-          <span id="detail-status">-</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-row__label">작성일</span>
-          <span id="detail-created">-</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-row__label">수정일</span>
-          <span id="detail-updated">-</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-row__label">발행 상태</span>
-          <span id="detail-publish-status">-</span>
-        </div>
-
-        <div id="detail-text" class="detail-content">내용 없음</div>
-      </div>
-
+  <!-- 데이터 초기화 확인 팝업 -->
+  <div id="popup-confirm-reset" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <p class="confirm-text">저장된 모든 글과 오류 이력을 초기화하시겠습니까?<br />초기화한 데이터는 되돌릴 수 없습니다.</p>
       <div class="btn-row">
-        <button id="detail-open-image-btn" class="btn">이미지 관리</button>
-        <button id="detail-open-seo-btn" class="btn">SEO 검수</button>
-      </div>
-      <div class="btn-row">
-        <button id="detail-open-blogger-btn" class="btn">Blogger 업로드</button>
-        <button id="detail-open-schedule-btn" class="btn">예약발행</button>
-      </div>
-      <div class="btn-row">
-        <button id="detail-open-preview-btn" class="btn">미리보기</button>
-        <button id="detail-export-btn" class="btn">내보내기</button>
-      </div>
-      <div class="btn-row">
-        <button id="detail-delete-btn" class="btn btn--danger">삭제하기</button>
-        <button id="detail-close-btn" class="btn btn--primary">닫기</button>
+        <button id="confirm-reset-btn" class="btn btn--danger">초기화하기</button>
+        <button id="confirm-reset-cancel-btn" class="btn">취소</button>
       </div>
     </div>
   </div>
@@ -506,12 +419,15 @@
   </div>
 
   <script src="js/error-log-module.js"></script>
+  <script src="js/auth-module.js"></script>
+  <script src="js/worker-api-module.js"></script>
   <script src="js/storage-module.js"></script>
   <script src="js/archive-module.js"></script>
   <script src="js/backup-module.js"></script>
   <script src="js/gpt-upload-module.js"></script>
-  <script src="js/image-module.js"></script>
+  <script src="js/vendor/zip-reader.js"></script>
   <script src="js/seo-module.js"></script>
+  <script src="js/zip-upload-module.js"></script>
   <script src="js/preview-module.js"></script>
   <script src="js/blogger-module.js"></script>
   <script src="js/schedule-module.js"></script>

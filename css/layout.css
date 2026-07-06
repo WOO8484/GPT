@@ -24,50 +24,6 @@
   font-weight: 700;
 }
 
-.app-main {
-  flex: 1;
-  min-height: 0; /* flex 자식이 내용 높이만큼 무한정 커지는 것을 방지 */
-  padding: 16px;
-  overflow: hidden; /* app-main 자체는 스크롤되지 않음(내부 지정 영역만 스크롤) */
-}
-
-.view {
-  display: none;
-}
-
-.view--active {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
-
-.view--active > .section {
-  flex-shrink: 0;
-}
-
-.view--active > .section--scroll {
-  flex: 1;
-  min-height: 60px;
-  overflow-y: auto;
-}
-
-.app-nav {
-  flex-shrink: 0;
-  display: flex;
-  border-top: 1px solid #eeeeee;
-  background-color: #ffffff;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-.nav-btn {
-  flex: 1;
-  padding: 12px 4px;
-  text-align: center;
-  font-size: 14px;
-  color: #666666;
-}
-
 .nav-btn--active {
   color: #222222;
   font-weight: 700;
@@ -84,7 +40,8 @@
 }
 
 .detail-overlay,
-.error-panel {
+.error-panel,
+.popup-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -98,12 +55,14 @@
 }
 
 .archive-detail--open,
-.error-panel--open {
+.error-panel--open,
+.popup-overlay--open {
   display: flex;
 }
 
 .detail-panel,
-.error-panel-inner {
+.error-panel-inner,
+.popup-panel {
   width: 100%;
   max-width: 480px;
   max-height: 80vh;
@@ -117,8 +76,182 @@
 }
 
 .detail-panel__scroll,
-.error-panel__scroll {
+.error-panel__scroll,
+.popup-panel__scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+}
+
+.popup-panel__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.popup-panel__header h2 {
+  font-size: 17px;
+}
+
+.popup-close-btn {
+  font-size: 18px;
+  color: #888888;
+  padding: 4px 8px;
+}
+
+.popup-panel--small {
+  justify-content: center;
+}
+
+.confirm-text {
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* repair1: 로그인 화면 */
+.login-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: #ffffff;
+}
+
+.login-box {
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+}
+
+.login-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.login-password-input {
+  text-align: center;
+}
+
+.login-error {
+  color: #c53030;
+  font-size: 13px;
+  margin: -2px 0 10px;
+}
+
+.login-version {
+  position: absolute;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  font-size: 12px;
+  color: #999999;
+}
+
+/* repair1: 단일 대시보드 헤더/전광판/작업대 */
+.app-header--dashboard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.settings-gear-btn {
+  font-size: 20px;
+  padding: 4px 8px;
+}
+
+.dashboard-main {
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden;
+}
+
+.dashboard-ticker {
+  flex-shrink: 0;
+  border: 1px solid #eeeeee;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.dashboard-ticker__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.dashboard-ticker__label {
+  font-size: 14px;
+  color: #444444;
+}
+
+.dashboard-ticker__more {
+  font-size: 13px;
+  color: #666666;
+}
+
+.dashboard-ticker__body {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 0 0;
+}
+
+.dashboard-ticker__title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-ticker__meta {
+  font-size: 12px;
+  color: #888888;
+}
+
+.dashboard-desk {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dashboard-desk__title {
+  font-size: 15px;
+  color: #444444;
+  margin-bottom: 2px;
+}
+
+.desk-btn {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  background-color: #f2f2f2;
+  color: #222222;
+  font-size: 16px;
+  text-align: left;
+}
+
+.register-summary {
+  font-size: 14px;
+  margin-bottom: 8px;
+  line-height: 1.6;
 }

@@ -9,7 +9,19 @@
  */
 
 const StatisticsModule = (() => {
-  const STATUS_LIST = ["작성중", "검수중", "발행대기", "예약됨", "발행완료", "보류", "오류"];
+  // repair1: 등록완료/임시저장완료/예약저장됨(신규 상태값) 추가. 기존 값은 호환 표시를 위해 유지한다.
+  const STATUS_LIST = [
+    "등록완료",
+    "임시저장완료",
+    "예약저장됨",
+    "작성중",
+    "검수중",
+    "발행대기",
+    "예약됨",
+    "발행완료",
+    "보류",
+    "오류",
+  ];
   const LEGACY_STATUS_KEYS = ["draft", "published", "scheduled", "error"];
   const RECENT_LIMIT = 10;
 
@@ -93,7 +105,7 @@ const StatisticsModule = (() => {
         statusCounts,
         seoPassCount,
         waitingCount: statusCounts["발행대기"],
-        scheduledCount: statusCounts["예약됨"],
+        scheduledCount: statusCounts["예약저장됨"] + statusCounts["예약됨"],
         publishedCount: statusCounts["발행완료"],
         bloggerIssueCount,
         imageRegisteredCount,
@@ -139,44 +151,16 @@ const StatisticsModule = (() => {
 
         const activeSchedule = hasActiveSchedule(post);
         if (activeSchedule) scheduledExists = true;
-        const statusSaysScheduled = post.status === "예약됨";
+        const statusSaysScheduled = post.status === "예약저장됨" || post.status === "예약됨";
         if (activeSchedule !== statusSaysScheduled) scheduleInconsistencyExists = true;
 
         if (LEGACY_STATUS_KEYS.includes(post.status)) legacyStatusExists = true;
       });
 
-      if (legacyStatusExists) {
-        ErrorLogModule.logError({
-          module: "statistics-module",
-          message: "상태값 영어 잔재 발견",
-          detail: "전체 점검 중 레거시 영어 상태값(draft/published/scheduled/error)이 남아있는 글을 발견함",
-          relatedId: null,
-        });
-      }
-      if (dataUrlImageExists) {
-        ErrorLogModule.logError({
-          module: "statistics-module",
-          message: "dataUrl 이미지 미변환 항목 발견",
-          detail: "전체 점검 중 dataUrl 형식 이미지가 포함된 글을 발견함",
-          relatedId: null,
-        });
-      }
-      if (bloggerIssueExists) {
-        ErrorLogModule.logError({
-          module: "statistics-module",
-          message: "Blogger 상태 불일치 발견",
-          detail: "전체 점검 중 bloggerInfo.lastError가 기록된 글을 발견함",
-          relatedId: null,
-        });
-      }
-      if (scheduleInconsistencyExists) {
-        ErrorLogModule.logError({
-          module: "statistics-module",
-          message: "예약 상태 불일치 발견",
-          detail: "전체 점검 중 status와 scheduleInfo가 서로 맞지 않는 글을 발견함",
-          relatedId: null,
-        });
-      }
+      // 참고: 아래 4개 항목(레거시 상태값/ dataUrl 이미지 / Blogger 이력 / 예약 불일치)은
+      // 실제 오류(저장 실패·파싱 실패·API 실패)가 아니라 전체 점검 시점의 데이터 상태 확인 결과다.
+      // 같은 점검을 반복 실행해도 오류 이력에 계속 쌓이지 않도록, 아래 items 결과 표시에만 반영하고
+      // ErrorLogModule에는 기록하지 않는다.
 
       const items = [
         {
