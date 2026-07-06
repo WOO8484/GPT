@@ -1,0 +1,22 @@
+{
+  "project": "GPT 공작소",
+  "version": "0.0.5",
+  "phase": "Phase E",
+  "releaseDate": "2026-07-06",
+  "description": "통계 화면, 전체 연결 검수 화면 추가 및 1차 완성본 마감(버튼명 정리, 제한사항 문서화)",
+  "storagePriority": ["indexedDB", "localStorage"],
+  "modules": [
+    "app-core.js",
+    "storage-module.js",
+    "archive-module.js",
+    "backup-module.js",
+    "error-log-module.js",
+    "gpt-upload-module.js",
+    "preview-module.js",
+    "image-module.js",
+    "seo-module.js",
+    "blogger-module.js",
+    "schedule-module.js",
+    "statistics-module.js"
+  ]
+}

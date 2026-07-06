@@ -1,0 +1,134 @@
+# MODULE HISTORY
+
+GPT 공작소 프로젝트의 모듈별 생성 이력을 기록합니다.
+
+## Phase E (0.0.5) - 2026-07-06
+
+| 모듈 | 파일 | 역할 | 상태 |
+|---|---|---|---|
+| Statistics Module | js/statistics-module.js | 전체 글 수/상태별 글 수/SEO 통과 글 수/Blogger 문제 글 수/이미지 등록·ALT 누락 글 수/최근 수정 글 목록 집계(읽기 전용), 전체 점검(저장소 상태·오류 로그·레거시 상태값·dataUrl 이미지·Blogger/예약 불일치 등 10개 항목 판정) | 생성 완료 |
+
+새 화면 2개: 통계, 전체 점검 (모두 설정 화면에서 진입, 바텀 네비 변경 없음)
+
+### Phase A~D 데이터와 연결된 방식
+- statistics-module.js는 `ArchiveModule.loadPosts()`가 반환하는, 이미 레거시 영어 상태값이 보정된 데이터를 그대로 사용한다(별도 정규화 로직을 중복 구현하지 않음).
+- `post.seoResult`(Phase C), `post.imageList`(Phase C), `post.bloggerInfo`/`post.scheduleInfo`(Phase D)를 그대로 읽어 집계하며, 이 필드들의 구조를 변경하지 않는다.
+- 통계/전체 점검 모두 `StorageModule.savePost()`를 호출하지 않는 완전한 읽기 전용 모듈이다.
+
+### 이번 Phase에서 보정한 기존 화면
+- 미리보기 화면의 탭 버튼명 정리: "HTML 보기"→"HTML 본문 보기", "TXT 보기"→"텍스트 보기" (기능/이벤트 바인딩은 변경 없음, 표시 텍스트만 수정)
+- 나머지 9개 화면(홈/업로드/자료실/미리보기/이미지 관리/SEO 검수/Blogger 업로드/예약발행/설정)의 고정 화면 구조(Phase D Repair 1에서 적용)는 변경 없이 유지 확인
+
+### Phase E 이후(차기) 연결 참고사항
+- 통계 화면의 `problemPosts`(Blogger 문제/ALT 누락) 목록은 자료실의 필터·상세보기와 동일한 post.id를 사용하므로, 차후 "문제 있는 글 목록"을 자료실 상세보기로 바로 연결하는 기능을 얹기 쉬운 구조다(이번 Phase에서는 읽기 전용 표시만 구현).
+- 전체 점검의 판정 항목(통과/확인 필요/오류)은 배열 구조(`items[]`)로 구성되어 있어, 향후 항목을 추가하거나 알림/배지 기능과 연결하기 쉽다.
+
+## Phase D Repair 1 (0.0.4 repair1) - 2026-07-06
+
+새 모듈 생성 없음. 새 기능 추가가 아니라 "발행 전 무결점 정리" 목적의 보정 작업.
+
+| 모듈/영역 | 파일 | 보정 내용 | 상태 |
+|---|---|---|---|
+| Blogger Module | js/blogger-module.js | `uploadToBlogger()`가 mode 인자(draft/publish)를 받아 isDraft 쿼리 파라미터를 구분 전송. 실패 메시지를 임시저장/실제발행으로 분리. 업로드 성공 후 로컬 저장 실패 시 lastError에 불일치 정보를 남기고 전용 오류 메시지로 기록 | 보정 완료 |
+| Schedule Module | js/schedule-module.js | 예약 저장 전 제목/HTML본문/SEO통과/상태값(발행대기·검수중) 조건 검사(`checkScheduleReadiness`, 모듈 내부 전용) 추가, 미충족 시 "예약 조건 미충족" 기록. 예약 취소 시 복원값 레거시 상태 정규화 | 보정 완료 |
+| Archive Module | js/archive-module.js | `loadPosts()`에 레거시 영어 상태값(draft/published/scheduled/error) 자동 보정 마이그레이션 추가(글 단위 개별 처리, 실패 시 개별 기록). `getFilteredPosts()` 상태 필터에 방어적 정규화 적용 | 보정 완료 |
+| App Core | js/app-core.js | 전체 데이터 가져오기/Blogger 업로드(임시저장·발행)/발행대기 전환/예약 저장 실행 전 확인 팝업 추가. 상태값 표시 지점에 방어적 `displayStatus()` 정규화 적용. Blogger 업로드 버튼을 임시저장/발행 2종으로 분리 대응 | 보정 완료 |
+| 레이아웃(CSS/HTML) | css/layout.css, css/base.css, css/components.css, index.html | app-container를 100vh(dvh) 고정형으로 전환, app-nav의 `position:fixed` 제거(flex 항목화), app-main을 스크롤 컨테이너에서 높이 고정 컨테이너로 전환. 자료실 목록/미리보기 본문/이미지 목록/SEO 문제 목록/예약 목록에 `.section--scroll`, 상세 패널/오류 패널에 `.detail-panel__scroll`/`.error-panel__scroll` 도입 | 보정 완료 |
+
+### 보정이 필요했던 이유
+- 기존 layout.css는 `.app-container{min-height:100vh}` + `.app-nav{position:fixed}` 조합으로, 콘텐츠가 길어지면 컨테이너 자체가 100vh를 넘어 자라면서 문서(body) 전체가 스크롤되는 구조였다. `min-height`를 `height`(+`100dvh`)로, `app-main`에 `min-height:0`을 주고 nav를 일반 flex 항목으로 바꿔 헤더/네비가 항상 고정되고 지정된 목록 영역만 내부 스크롤되도록 정리했다.
+- Blogger 업로드는 Phase D에서 임시저장/발행 구분이 payload 수준에서 명확하지 않았다. Repair 1에서 `isDraft` 쿼리 파라미터와 버튼 분리로 명확히 구분하고, 실제 발행에는 확인 팝업을 필수로 두어 오발행을 방지했다.
+- 예약발행은 Phase D에서 날짜 형식만 검증했으나, 발행 흐름과 연결되는 기능이므로 Repair 1에서 글 자체의 발행 가능 여부(제목/본문/SEO/상태)도 함께 검증하도록 강화했다.
+
+### Phase E 연결 시 참고사항 갱신
+- `bloggerInfo.lastError`에 "로컬 저장 실패로 인한 불일치" 케이스가 별도로 표시되므로, Phase E 통계/전체 검수 화면에서 이 필드를 통해 "Blogger와 실제 동기화가 어긋난 글" 목록을 만들 수 있다.
+- 상태값 마이그레이션이 archive-module.js 한 곳에 있으므로, Phase E에서 통계를 낼 때는 항상 `ArchiveModule.loadPosts()`를 거친 `cachedPosts` 기준으로 집계하면 레거시 상태값 문제가 없다.
+
+## Phase D (0.0.4) - 2026-07-06
+
+| 모듈 | 파일 | 역할 | 상태 |
+|---|---|---|---|
+| Blogger Module | js/blogger-module.js | Blog ID/Access Token 설정(세션 메모리 보관), 발행 전 검증, 제목·HTML·태그의 Blogger 업로드용 payload 변환, 발행대기 상태 전환, Blogger API v3 실제 업로드 호출, 성공/실패 결과 저장 | 생성 완료 |
+| Schedule Module | js/schedule-module.js | 예약일시 저장(상태값 → 예약됨), 예약 취소(이전 상태 복원), 전체 예약 목록 조회, 예약 시간 경과 여부 판별 | 생성 완료 |
+
+### Phase C image/seo 모듈과 연결된 방식
+- blogger-module.js는 seo-module.js가 저장한 `post.seoResult.result === "통과"` 조건을 발행 전 검증의 핵심 게이트로 그대로 사용한다(별도 재계산 없음).
+- blogger-module.js는 image-module.js가 관리하는 `post.imageList`를 읽어 dataUrl 형식 이미지 여부만 확인하고, HTML 본문에는 자동 삽입하지 않는다(이미지 자체 업로드는 이번 Phase 범위 밖).
+- blogger-module.js의 업로드 payload 생성 시 preview-module.js의 `sanitizeHtml()`을 재사용하여 금지 태그/인라인 이벤트가 제거된 HTML을 Blogger에 전송한다.
+- blogger-module.js, schedule-module.js 모두 image/seo 모듈과 동일한 패턴(`loadPost()`/`getCurrentPost()` + `StorageModule.savePost()` + `ArchiveModule.loadPosts()`)을 따른다.
+
+### Phase E 통계/전체 검수와 연결할 준비사항
+- 각 글에 `bloggerInfo`(업로드 성공/실패, publishedUrl, publishedAt)와 `scheduleInfo`(예약일시, 취소 여부)가 필드로 준비되어 있어, Phase E 통계 모듈이 발행 성공률/예약 준수율 등을 별도 구조 변경 없이 집계할 수 있다.
+- ErrorLogModule에 기록되는 Blogger/예약발행 오류가 이미 module 필드(`blogger-module`, `schedule-module`)로 구분되어 있어, 전체 검수(오류 현황판) 화면에서 모듈별 집계가 바로 가능하다.
+- 상태값 전이(검수중→발행대기→발행완료/예약됨)가 모두 한 곳(각 모듈의 저장 함수)에서 이루어지므로, Phase E에서 상태값 기준 통계를 낼 때 정합성이 보장된다.
+
+## Phase C (0.0.3) - 2026-07-06
+
+| 모듈 | 파일 | 역할 | 상태 |
+|---|---|---|---|
+| Image Module | js/image-module.js | 썸네일/본문 이미지 선택 및 dataUrl(base64) 저장, ALT 태그 입력, 이미지 삭제, article.imageList 관리 | 생성 완료 |
+| SEO Module | js/seo-module.js | 제목/메타설명 길이, H2/H3 구조, 이미지 ALT 누락, 이미지 개수, FAQ 여부, 태그 개수, 내부/외부링크 개수 점검 후 article.seoResult 저장 | 생성 완료 |
+
+### preview-module.js와 연결 방식
+- preview-module.js의 `renderPreview()`가 글 데이터의 `imageList`에서 `type: "thumbnail"`인 이미지를 찾아 본문 상단에 표시하고, `type: "body"`인 이미지 목록을 별도 영역에 표시하도록 반환값에 `thumbnail`, `bodyImages`를 추가했다.
+- HTML 본문 자체에는 이미지를 자동 삽입하지 않으며, 이미지 자동 배치는 이번 Phase 범위 밖이다.
+
+### Phase B 조건부 보정
+- gpt-upload-module.js의 기본 상태값을 영어 "draft"에서 한국어 "작성중"으로 수정했다.
+- 자료실 상태 필터(index.html)를 한국어 상태값(작성중/검수중/발행대기/예약됨/발행완료/보류/오류) 기준으로 갱신했다.
+- 기존에 "draft"로 저장된 데이터는 자동 변환되지 않으며, 상태 필터에서 별도로 노출되지 않을 수 있다(알려진 문제 참고).
+
+### Phase D에서 Blogger 업로드와 연결할 준비사항
+- `seoResult.result`가 "통과"인 글만 발행 대상으로 필터링하는 방식으로 Blogger 연동 전 검증 단계를 구성할 수 있음
+- 상태값에 이미 "발행대기", "예약됨", "발행완료" 등 Blogger/예약발행 흐름에 대응하는 값이 준비되어 있어, Phase D에서 실제 발행 로직과 상태 전이만 연결하면 됨
+- `imageList`의 dataUrl은 Blogger 업로드 시 실제 이미지 업로드 API로 변환하는 별도 로직이 필요함 (이번 Phase에서는 브라우저 내부 저장 형태로만 존재)
+
+## Phase B (0.0.2) - 2026-07-06
+
+### 진행 방향 변경 안내
+Phase B는 최초 "GPT 작업실 붙여넣기" 방향으로 진행되다 중단되었고,
+"GPT 결과물 파일 업로드" 방향으로 새로 재작성되었습니다.
+붙여넣기 방향에서 사용하던 gpt-workspace-module.js와 관련 UI(작업실 입력 폼)는
+이번 결과물에 포함되지 않습니다.
+
+또한 애초 계획했던 ZIP 업로드 방식은 ZIP 파싱에 필요한 외부 라이브러리(JSZip)를
+실제 파일로 확보할 수 없어 이번 Phase에서 보류되었고,
+metadata.json / content.html / content.md / content.txt 개별 파일 업로드 방식으로 축소되었습니다.
+
+| 모듈 | 파일 | 역할 | 상태 |
+|---|---|---|---|
+| GPT Upload Module | js/gpt-upload-module.js | metadata.json/HTML/Markdown/TXT 개별 파일 인식, 글 데이터 구성, 자료실 저장 | 생성 완료 |
+| Preview Module | js/preview-module.js | HTML 본문 보안 필터링(금지 태그/인라인 이벤트 제거) 및 HTML/Markdown/TXT 미리보기 렌더링 | 생성 완료 |
+
+### Phase A storage/archive/backup과 연결된 방식
+- gpt-upload-module.js는 인식된 파일로 글 데이터를 구성한 뒤 Phase A의 `StorageModule.savePost()`를 그대로 호출하여 저장한다.
+- 저장 후 `ArchiveModule.loadPosts()`로 자료실 목록을 갱신하며, 자료실 화면에서 정상적으로 조회/검색/필터/삭제가 가능하다.
+- 백업(backup-module.js)의 JSON 전체 내보내기/가져오기 구조는 변경 없이 유지되며, 업로드 기능과는 별개로 동작한다.
+- 글 데이터 구조는 Phase A의 9개 필드를 그대로 유지하며 metaDescription, tags, faqList, sourcePackageName, importedAt 5개 필드만 추가되었다(필드명 변경 없음).
+
+### Phase C image/seo 모듈과 연결할 준비사항
+- 글 데이터의 `imageList`, `seoResult` 필드가 이미 존재하므로 image-module, seo-module 연결 시 필드 재정의 없이 값만 채우면 됨
+- metadata.json의 imageList 필드를 그대로 받아오는 구조라, Phase C에서 이미지 파일 자체를 다루는 기능을 얹기 용이함
+- ZIP 업로드 기능이 필요해지면 Phase C 이후 별도 모듈(zip 파싱 전용)로 재설계 예정이며, 그 경우에도 자료실 저장은 gpt-upload-module.js가 사용하는 것과 동일한 `StorageModule.savePost()` 경로를 따르게 설계하면 연결이 쉬움
+
+## Phase A (0.0.1) - 2026-07-06
+
+| 모듈 | 파일 | 역할 | 상태 |
+|---|---|---|---|
+| App Core | js/app-core.js | 화면 전환, 공통 렌더링, 이벤트 바인딩, 앱 초기화 | 생성 완료 |
+| Storage Module | js/storage-module.js | IndexedDB 우선 저장, localStorage fallback | 생성 완료 |
+| Archive Module | js/archive-module.js | 저장글 목록 조회, 검색, 필터, 삭제, 개별 내보내기 | 생성 완료 |
+| Backup Module | js/backup-module.js | 전체 데이터 JSON 백업/복구, 개별 글 내보내기 | 생성 완료 |
+| Error Log Module | js/error-log-module.js | 오류 기록, 조회, 사용자 메시지 제공 | 생성 완료 |
+
+## 생성하지 않은 모듈 (금지 목록)
+- gpt-workspace-module.js (붙여넣기 방향, Phase B 재제작 과정에서 폐기됨)
+- image-module.js (Phase C에서 생성됨)
+- seo-module.js (Phase C에서 생성됨)
+- blogger-module.js (Phase D에서 생성됨)
+- schedule-module.js (Phase D에서 생성됨)
+- statistics-module.js
+
+## Phase E 연결 예정 모듈 (참고용, 미생성)
+- statistics-module.js: 통계
+- zip-import-module.js(가칭): ZIP 업로드/파싱 전용, 외부 라이브러리 확보 후 별도 설계 예정
