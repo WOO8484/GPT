@@ -1,14 +1,15 @@
 /**
  * app-core.js
- * 화면 전환, 이벤트 바인딩, 중앙 팝업 제어
+ * 이벤트 바인딩 + 중앙 팝업 제어
  *
- * 이 파일이 다루는 화면은 4모듈뿐이다: 로그인 / 업로드-미리보기 / 자료실 / 저장.
- * Gemini 품질검수, 점수, SEO, 예약, 통계, 백업 화면은 만들지 않는다.
+ * v1.1: 화면 전환(탭) 없이 업로드/자료실/미리보기/Blogger 저장 4개 패널을
+ * 한 화면에 동시에 표시하는 통합 작업대 구조로 정리했다. 패널을 채우는 각
+ * 함수는 UploadModule/LibraryModule/PreviewModule/R2ImageModule/
+ * BloggerSaveModule/WorkerApiModule/AuthModule을 v1.0과 동일하게 호출한다.
  */
 
-let pendingUploadPost = null; // 업로드 탭에서 파싱했지만 아직 자료실에 저장하지 않은 글
-let selectedPostId = null; // 저장 탭에서 사용할, 자료실에서 선택된 글 id
-let currentDetailPostId = null; // 상세 미리보기 팝업이 보여주고 있는 글 id
+let pendingUploadPost = null; // 업로드에서 파싱했지만 아직 자료실에 저장하지 않은 글
+let selectedPostId = null; // 미리보기/Blogger 저장 패널에 표시 중인 자료실 글 id
 
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -33,7 +34,8 @@ function statusBadgeClass(status) {
 }
 
 /* ----------------------------------------------------------
-   중앙 팝업 공통 제어
+   중앙 팝업 공통 제어 (업로드 확인/실패, 자료실 저장 완료,
+   R2 이미지 변환 진행, Blogger 임시저장 완료/실패)
    ---------------------------------------------------------- */
 function showPopup(title, bodyHtml) {
   document.getElementById("popup-title").textContent = title;
@@ -47,39 +49,6 @@ function updatePopupBody(bodyHtml) {
 
 function closePopup() {
   document.getElementById("popup-overlay").classList.remove("popup-overlay--open");
-}
-
-function showDetailPopup(post) {
-  if (!post) return;
-  currentDetailPostId = post.id;
-  const preview = PreviewModule.renderPreview(post);
-  document.getElementById("detail-title").textContent = post.title || "(제목 없음)";
-
-  if (!preview) {
-    document.getElementById("detail-body").innerHTML = `<p class="notice-text">미리보기를 표시할 수 없습니다.</p>`;
-  } else {
-    const tocHtml = preview.tableOfContents.length
-      ? `<div class="detail-toc">${preview.tableOfContents
-          .map((t) => `<div class="detail-toc__item detail-toc__item--${t.level}">${escapeHtml(t.text)}</div>`)
-          .join("")}</div>`
-      : "";
-
-    document.getElementById("detail-body").innerHTML = `
-      <div class="detail-meta">
-        <div class="detail-row"><span class="detail-row__label">키워드</span><span>${escapeHtml(preview.keyword)}</span></div>
-        <div class="detail-row"><span class="detail-row__label">태그</span><span>${escapeHtml(preview.tags)}</span></div>
-        <div class="detail-row"><span class="detail-row__label">상태</span><span class="status-badge ${statusBadgeClass(post.saveStatus)}">${escapeHtml(post.saveStatus)}</span></div>
-      </div>
-      ${tocHtml}
-      <div class="preview-content">${preview.safeHtml}</div>
-    `;
-  }
-
-  document.getElementById("popup-detail-overlay").classList.add("popup-overlay--open");
-}
-
-function closeDetailPopup() {
-  document.getElementById("popup-detail-overlay").classList.remove("popup-overlay--open");
 }
 
 function renderErrorsPopup() {
@@ -111,22 +80,51 @@ function closeErrorsPopup() {
 }
 
 /* ----------------------------------------------------------
-   탭 전환
+   👁 미리보기 패널 (업로드 직후 글 / 자료실 선택 글 공용)
    ---------------------------------------------------------- */
-function switchTab(name) {
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.classList.toggle("tab-btn--active", btn.dataset.tab === name);
-  });
-  document.querySelectorAll(".tab-panel").forEach((panel) => {
-    panel.classList.toggle("tab-panel--active", panel.id === "panel-" + name);
-  });
+function renderPreviewPanel(post) {
+  const emptyEl = document.getElementById("preview-empty");
+  const wrapEl = document.getElementById("preview-content-wrap");
 
-  if (name === "library") renderLibraryList();
-  if (name === "save") renderSavePanel();
+  if (!post) {
+    emptyEl.classList.remove("hidden");
+    wrapEl.classList.add("hidden");
+    return;
+  }
+
+  const preview = PreviewModule.renderPreview(post);
+  if (!preview) {
+    emptyEl.classList.remove("hidden");
+    wrapEl.classList.add("hidden");
+    return;
+  }
+
+  emptyEl.classList.add("hidden");
+  wrapEl.classList.remove("hidden");
+
+  document.getElementById("preview-meta").innerHTML = `
+    <div class="detail-row"><span class="detail-row__label">제목</span><span>${escapeHtml(preview.title)}</span></div>
+    <div class="detail-row"><span class="detail-row__label">키워드</span><span>${escapeHtml(preview.keyword)}</span></div>
+    <div class="detail-row"><span class="detail-row__label">태그</span><span>${escapeHtml(preview.tags)}</span></div>
+    ${post.saveStatus ? `<div class="detail-row"><span class="detail-row__label">상태</span><span class="status-badge ${statusBadgeClass(post.saveStatus)}">${escapeHtml(post.saveStatus)}</span></div>` : ""}
+  `;
+
+  const tocEl = document.getElementById("preview-toc");
+  if (preview.tableOfContents.length) {
+    tocEl.innerHTML = preview.tableOfContents
+      .map((t) => `<div class="detail-toc__item detail-toc__item--${t.level}">${escapeHtml(t.text)}</div>`)
+      .join("");
+    tocEl.classList.remove("hidden");
+  } else {
+    tocEl.innerHTML = "";
+    tocEl.classList.add("hidden");
+  }
+
+  document.getElementById("preview-content").innerHTML = preview.safeHtml;
 }
 
 /* ----------------------------------------------------------
-   2. 업로드 - 미리보기 모듈
+   📦 업로드 패널
    ---------------------------------------------------------- */
 function renderUploadChecklist(status) {
   const checklistEl = document.getElementById("upload-checklist");
@@ -149,7 +147,7 @@ async function handleZipSelected(event) {
 
   const result = await UploadModule.setZipFile(file);
   if (!result.success) {
-    showPopup("업로드 실패", `<p>${escapeHtml(result.reason)}</p>`);
+    showPopup("⚠️ 업로드 실패", `<p>${escapeHtml(result.reason)}</p>`);
     return;
   }
 
@@ -162,25 +160,11 @@ async function handleZipSelected(event) {
         .join(", ")}</p>`
     : "";
 
-  showPopup(
-    "업로드 확인",
-    `<p>ZIP 파일 확인이 끝났습니다. 확인을 누르면 미리보기가 표시됩니다.</p>${warningLines}`
-  );
+  showPopup("✅ 업로드 확인", `<p>ZIP 파일 확인이 끝났습니다. 오른쪽 미리보기에서 본문을 확인해주세요.</p>${warningLines}`);
 
   pendingUploadPost = UploadModule.buildPost();
-  pendingUploadPost.previewHtml = null;
-
-  const preview = PreviewModule.renderPreview(pendingUploadPost);
-  if (preview) {
-    document.getElementById("upload-preview-content").innerHTML = `
-      <div class="detail-row"><span class="detail-row__label">제목</span><span>${escapeHtml(preview.title)}</span></div>
-      <div class="detail-row"><span class="detail-row__label">키워드</span><span>${escapeHtml(preview.keyword)}</span></div>
-      <div class="detail-row"><span class="detail-row__label">태그</span><span>${escapeHtml(preview.tags)}</span></div>
-      <div class="preview-content">${preview.safeHtml}</div>
-    `;
-    document.getElementById("upload-preview-wrap").classList.remove("hidden");
-    document.getElementById("upload-save-btn").classList.remove("hidden");
-  }
+  renderPreviewPanel(pendingUploadPost);
+  document.getElementById("upload-save-btn").classList.remove("hidden");
 }
 
 async function handleUploadSaveClick() {
@@ -190,10 +174,13 @@ async function handleUploadSaveClick() {
   try {
     const res = await LibraryModule.savePost(pendingUploadPost);
     if (res.success) {
-      showPopup("자료실 저장 완료", `<p>"${escapeHtml(pendingUploadPost.title)}" 글을 자료실에 저장했습니다.</p>`);
+      showPopup("✅ 자료실 저장 완료", `<p>"${escapeHtml(pendingUploadPost.title)}" 글을 자료실에 저장했습니다.</p>`);
+      selectedPostId = pendingUploadPost.id;
+      await renderLibraryList();
+      renderSavePanel();
       resetUploadForm(true);
     } else {
-      showPopup("자료실 저장 실패", `<p>자료실 저장 중 오류가 발생했습니다. 오류 목록을 확인해주세요.</p>`);
+      showPopup("⚠️ 자료실 저장 실패", `<p>자료실 저장 중 오류가 발생했습니다. 오류 목록을 확인해주세요.</p>`);
     }
   } finally {
     btn.disabled = false;
@@ -209,13 +196,11 @@ function resetUploadForm(clearFileInput) {
   }
   document.getElementById("upload-checklist").classList.add("hidden");
   document.getElementById("upload-checklist").innerHTML = "";
-  document.getElementById("upload-preview-wrap").classList.add("hidden");
-  document.getElementById("upload-preview-content").innerHTML = "";
   document.getElementById("upload-save-btn").classList.add("hidden");
 }
 
 /* ----------------------------------------------------------
-   3. 자료실 / 게시판 모듈
+   📚 자료실 패널
    ---------------------------------------------------------- */
 async function renderLibraryList() {
   await LibraryModule.loadPosts();
@@ -233,7 +218,7 @@ async function renderLibraryList() {
   listEl.innerHTML = posts
     .map(
       (p) => `
-      <li class="library-item" data-id="${escapeHtml(p.id)}">
+      <li class="library-item${p.id === selectedPostId ? " library-item--selected" : ""}" data-id="${escapeHtml(p.id)}">
         <div class="library-item__title">${escapeHtml(p.title)}</div>
         <div class="library-item__meta">
           ${formatDate(p.createdAt)}
@@ -245,14 +230,17 @@ async function renderLibraryList() {
 
   listEl.querySelectorAll(".library-item").forEach((li) => {
     li.addEventListener("click", () => {
-      const post = LibraryModule.getPostById(li.dataset.id);
-      showDetailPopup(post);
+      selectedPostId = li.dataset.id;
+      const post = LibraryModule.getPostById(selectedPostId);
+      renderPreviewPanel(post);
+      renderSavePanel();
+      renderLibraryList();
     });
   });
 }
 
 /* ----------------------------------------------------------
-   4. 저장 모듈: R2 이미지 변환 후 Blogger 임시저장
+   📝 Blogger 저장 패널 (R2 이미지 변환 후 Blogger 임시저장 + 진행 상태)
    ---------------------------------------------------------- */
 function renderSavePanel() {
   const emptyEl = document.getElementById("save-empty");
@@ -289,7 +277,7 @@ async function handleSaveStartClick() {
     updatePopupBody(`<ul class="save-progress-list">${html}</ul>`);
   };
 
-  showPopup("R2 이미지 변환 진행", `<ul class="save-progress-list"></ul>`);
+  showPopup("🔄 R2 이미지 변환 진행", `<ul class="save-progress-list"></ul>`);
 
   const onProgress = (step, total, message) => {
     progressLines.push(`${step}/${total} ${message}`);
@@ -305,6 +293,7 @@ async function handleSaveStartClick() {
 
   btn.disabled = false;
   renderSavePanel();
+  renderPreviewPanel(post);
   await renderLibraryList();
 
   if (result.success) {
@@ -312,12 +301,12 @@ async function handleSaveStartClick() {
       ? `<p class="notice-text notice-text--warning">${result.warnings.map((w) => escapeHtml(w)).join("<br/>")}</p>`
       : "";
     showPopup(
-      "블로그스팟 임시저장 완료",
+      "✅ 블로그스팟 임시저장 완료",
       `<p>블로그스팟 임시저장 완료</p><p>Blogger 관리자에서 임시글을 확인하세요.</p>${warningHtml}`
     );
   } else {
     const reasonsHtml = (result.reasons || ["알 수 없는 오류"]).map((r) => `<p>${escapeHtml(r)}</p>`).join("");
-    showPopup("임시저장 실패", reasonsHtml);
+    showPopup("⚠️ 임시저장 실패", reasonsHtml);
   }
 }
 
@@ -330,24 +319,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   AuthModule.setOnLoginSuccess(async () => {
     await renderLibraryList();
-    switchTab("upload");
+    renderSavePanel();
+    renderPreviewPanel(null);
   });
   AuthModule.setOnLogout(() => {
     pendingUploadPost = null;
     selectedPostId = null;
-    currentDetailPostId = null;
   });
 
   if (AuthModule.isLoggedIn()) {
     AuthModule.showAppScreen();
     await renderLibraryList();
+    renderSavePanel();
   } else {
     AuthModule.showLoginScreen();
   }
-
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
-  });
 
   document.getElementById("logout-btn").addEventListener("click", () => AuthModule.logout());
 
@@ -357,12 +343,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("save-start-btn").addEventListener("click", handleSaveStartClick);
 
   document.getElementById("popup-close-btn").addEventListener("click", closePopup);
-  document.getElementById("detail-close-btn").addEventListener("click", closeDetailPopup);
-  document.getElementById("detail-goto-save-btn").addEventListener("click", () => {
-    selectedPostId = currentDetailPostId;
-    closeDetailPopup();
-    switchTab("save");
-  });
 
   document.getElementById("open-errors-btn").addEventListener("click", showErrorsPopup);
   document.getElementById("errors-close-btn").addEventListener("click", closeErrorsPopup);

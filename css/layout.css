@@ -102,81 +102,103 @@
   background-color: var(--color-bg-soft);
 }
 
-/* ---------- 탭바 (업로드 / 자료실 / 저장) ---------- */
-.tab-bar {
+.app-header__actions {
   flex-shrink: 0;
   display: flex;
+  align-items: center;
   gap: 4px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border);
 }
 
-.tab-btn {
-  flex: 1;
-  padding: 10px 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-soft);
-  border-radius: 8px;
-  text-align: center;
-}
-
-.tab-btn--active {
-  color: var(--color-primary);
-  background-color: var(--color-primary-bg);
-}
-
-/* ---------- 탭 패널 (한 번에 하나만 표시) ---------- */
-.tab-panels {
+/* ---------- 작업대: 업로드 / 자료실 / 미리보기 / Blogger 저장을 한 화면에 통합 ----------
+   전체 페이지는 스크롤되지 않는다. 패널 내부(.panel__body--scroll)만 스크롤된다.
+   모바일: 세로 카드형(위→아래). PC(min-width:860px): 좌/중/우 3열 패널형.        */
+.workbench {
   flex: 1;
   min-height: 0;
-  position: relative;
   overflow: hidden;
-}
-
-.tab-panel {
-  display: none;
-  height: 100%;
-  min-height: 0;
-}
-
-.tab-panel--active {
+  padding: 10px;
   display: flex;
   flex-direction: column;
-}
-
-.panel-fixed {
-  flex: 1;
-  min-height: 0;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.panel-fixed--library {
   gap: 10px;
 }
 
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-soft);
-  margin-bottom: 8px;
-  flex-shrink: 0;
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: var(--color-bg);
 }
 
-/* ---------- 내부 스크롤 허용 영역(예외) ----------
-   1) 자료실/게시판 목록 내부
-   2) 본문 미리보기 내부
-   3) 오류 목록 내부                                */
-.library-list-scroll,
-.preview-scroll,
-.popup-panel__scroll {
+.panel__header {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-soft);
+  background-color: var(--color-bg-soft);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.panel__body {
   flex: 1;
   min-height: 0;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 내부 스크롤 허용 영역(예외): 자료실 목록 내부 / 미리보기 내부 / 오류 목록 내부 */
+.panel__body--scroll,
+.popup-panel__scroll {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* 모바일: 패널마다 화면 비율을 나눠 갖고, 넘치는 내용은 패널 내부에서만 스크롤 */
+.panel--upload {
+  flex: 1.1 1 0;
+}
+.panel--library {
+  flex: 1.5 1 0;
+}
+.panel--preview {
+  flex: 2.6 1 0;
+}
+.panel--save {
+  flex: 1.8 1 0;
+}
+
+/* PC: 좌(업로드/자료실) - 중(미리보기) - 우(Blogger 저장) 3열 패널형 */
+@media (min-width: 860px) {
+  .app-container {
+    max-width: 1080px;
+  }
+
+  .workbench {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr) 320px;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "upload  preview save"
+      "library preview save";
+  }
+
+  .panel--upload {
+    grid-area: upload;
+  }
+  .panel--library {
+    grid-area: library;
+  }
+  .panel--preview {
+    grid-area: preview;
+  }
+  .panel--save {
+    grid-area: save;
+  }
 }
 
 /* ---------- 중앙 팝업(모든 팝업 공통) ---------- */
@@ -208,11 +230,6 @@
   box-shadow: 0 20px 50px rgba(20, 24, 33, 0.25);
 }
 
-.popup-panel--large {
-  max-width: 480px;
-  max-height: 86vh;
-}
-
 .popup-panel__header {
   flex-shrink: 0;
   display: flex;
@@ -231,22 +248,4 @@
   font-size: 16px;
   color: var(--color-text-soft);
   padding: 4px 8px;
-}
-
-/* ---------- 오류 신고 플로팅 버튼 ---------- */
-.error-fab {
-  position: absolute;
-  right: 16px;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: var(--color-warn-bg);
-  color: var(--color-warn);
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(20, 24, 33, 0.15);
-  z-index: 20;
 }

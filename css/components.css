@@ -36,17 +36,6 @@
   cursor: not-allowed;
 }
 
-.btn-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 14px;
-  flex-shrink: 0;
-}
-
-.btn-row .btn {
-  flex: 1;
-}
-
 /* ---------- 입력 ---------- */
 .input-text {
   width: 100%;
@@ -99,14 +88,6 @@
   margin-bottom: 10px;
   flex-shrink: 0;
   word-break: break-all;
-}
-
-.upload-preview-wrap {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  margin-top: 4px;
 }
 
 /* ---------- 점검 체크리스트 ---------- */
@@ -191,6 +172,11 @@
   border-radius: 12px;
   padding: 12px 14px;
   background-color: var(--color-bg);
+}
+
+.library-item--selected {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-bg);
 }
 
 .library-item:active {

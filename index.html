@@ -9,10 +9,10 @@
   <link rel="stylesheet" href="css/components.css" />
 </head>
 <body>
-  <!-- 1. 로그인 모듈 -->
+  <!-- 1. 로그인 모듈 (auth-module.js가 그대로 사용하는 ID이므로 구조를 바꾸지 않는다) -->
   <div id="screen-login" class="login-screen">
     <div class="login-box">
-      <div class="login-title">GPT 공작소 Lite</div>
+      <div class="login-title">🔐 GPT 공작소 Lite</div>
       <input
         id="login-password"
         class="input-text login-password-input"
@@ -23,70 +23,65 @@
       <div id="login-error" class="login-error hidden"></div>
       <button id="login-btn" class="btn btn--primary btn--block" type="button">입장하기</button>
     </div>
-    <div class="login-version">Lite v1.0</div>
+    <div class="login-version">Lite v1.1</div>
   </div>
 
   <!-- 메인 앱: 로그인 성공 전에는 hidden 상태로 유지 -->
   <div id="app-container" class="app-container hidden">
     <header class="app-header">
-      <div class="app-header__title">GPT 공작소 Lite</div>
-      <button id="logout-btn" class="header-icon-btn" type="button" aria-label="로그아웃">로그아웃</button>
+      <div class="app-header__title">🛠️ GPT 공작소 Lite</div>
+      <div class="app-header__actions">
+        <button id="open-errors-btn" class="header-icon-btn" type="button" aria-label="오류 목록">⚠️</button>
+        <button id="logout-btn" class="header-icon-btn" type="button" aria-label="로그아웃">로그아웃</button>
+      </div>
     </header>
 
-    <nav class="tab-bar" role="tablist">
-      <button class="tab-btn tab-btn--active" data-tab="upload" type="button" role="tab">업로드</button>
-      <button class="tab-btn" data-tab="library" type="button" role="tab">자료실</button>
-      <button class="tab-btn" data-tab="save" type="button" role="tab">저장</button>
-    </nav>
-
-    <main class="tab-panels">
-      <!-- 2. 파일 업로드 - 미리보기 모듈 -->
-      <section id="panel-upload" class="tab-panel tab-panel--active">
-        <div class="panel-fixed">
+    <!-- 한 화면 통합 작업대: 업로드 / 자료실 / 미리보기 / Blogger 저장(+상태) -->
+    <main class="workbench">
+      <section class="panel panel--upload" aria-label="업로드">
+        <div class="panel__header">📦 업로드</div>
+        <div class="panel__body">
           <label for="zip-file-input" class="file-input-label">📦 블로그자료 ZIP 선택</label>
           <input id="zip-file-input" type="file" accept=".zip" class="file-input-hidden" />
           <div id="upload-filename" class="upload-filename"></div>
-
           <ul id="upload-checklist" class="check-list hidden"></ul>
-
-          <div id="upload-preview-wrap" class="upload-preview-wrap hidden">
-            <div class="section-title">본문 미리보기</div>
-            <div class="preview-scroll">
-              <div id="upload-preview-content" class="preview-content"></div>
-            </div>
-          </div>
-
-          <button id="upload-save-btn" class="btn btn--primary btn--block hidden" type="button">자료실에 저장</button>
+          <button id="upload-save-btn" class="btn btn--primary btn--block hidden" type="button">📚 자료실에 저장</button>
         </div>
       </section>
 
-      <!-- 3. 자료실 / 게시판 모듈 -->
-      <section id="panel-library" class="tab-panel">
-        <div class="panel-fixed panel-fixed--library">
-          <div class="section-title">자료실</div>
-          <div class="library-list-scroll">
-            <ul id="library-list" class="library-list"></ul>
-            <div id="library-empty" class="archive-item--empty">저장된 글이 없습니다. 업로드 탭에서 먼저 등록해주세요.</div>
+      <section class="panel panel--library" aria-label="자료실">
+        <div class="panel__header">📚 자료실</div>
+        <div class="panel__body panel__body--scroll">
+          <ul id="library-list" class="library-list"></ul>
+          <div id="library-empty" class="archive-item--empty">저장된 글이 없습니다.<br />업로드에서 먼저 등록해주세요.</div>
+        </div>
+      </section>
+
+      <section class="panel panel--preview" aria-label="미리보기">
+        <div class="panel__header">👁 미리보기</div>
+        <div class="panel__body panel__body--scroll">
+          <div id="preview-empty" class="archive-item--empty">업로드하거나 자료실에서 글을 선택하면<br />여기에 미리보기가 표시됩니다.</div>
+          <div id="preview-content-wrap" class="hidden">
+            <div class="detail-meta" id="preview-meta"></div>
+            <div id="preview-toc" class="detail-toc hidden"></div>
+            <div id="preview-content" class="preview-content"></div>
           </div>
         </div>
       </section>
 
-      <!-- 4. 저장 모듈 (R2 이미지 변환 후 Blogger 임시저장) -->
-      <section id="panel-save" class="tab-panel">
-        <div class="panel-fixed">
-          <div id="save-empty" class="archive-item--empty">자료실에서 글을 선택하면 여기에서 저장할 수 있습니다.</div>
+      <section class="panel panel--save" aria-label="Blogger 저장">
+        <div class="panel__header">📝 Blogger 저장</div>
+        <div class="panel__body">
+          <div id="save-empty" class="archive-item--empty">자료실에서 글을 선택하세요.</div>
           <div id="save-target" class="save-target hidden">
-            <div class="section-title">선택된 글</div>
             <div id="save-target-title" class="save-target-title"></div>
             <div id="save-target-status" class="save-target-status"></div>
+            <button id="save-start-btn" class="btn btn--primary btn--block" type="button">📝 Blogger 임시저장 시작</button>
             <ul id="save-progress-list" class="save-progress-list"></ul>
-            <button id="save-start-btn" class="btn btn--primary btn--block" type="button">Blogger 임시저장 시작</button>
           </div>
         </div>
       </section>
     </main>
-
-    <button id="open-errors-btn" class="error-fab" type="button" aria-label="오류 목록">⚠</button>
   </div>
 
   <!-- 중앙 팝업: 업로드 확인/실패, 자료실 저장 완료, R2 변환 진행, Blogger 완료/실패 -->
@@ -100,25 +95,11 @@
     </div>
   </div>
 
-  <!-- 자료실 항목 상세 미리보기 팝업 -->
-  <div id="popup-detail-overlay" class="popup-overlay">
-    <div class="popup-panel popup-panel--large">
-      <div class="popup-panel__header">
-        <h2 id="detail-title">미리보기</h2>
-        <button id="detail-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
-      </div>
-      <div class="popup-panel__scroll" id="detail-body"></div>
-      <div class="btn-row">
-        <button id="detail-goto-save-btn" class="btn btn--primary btn--block" type="button">저장 모듈로 이동</button>
-      </div>
-    </div>
-  </div>
-
   <!-- 오류 목록 팝업 (내부 스크롤 허용 영역) -->
   <div id="popup-errors-overlay" class="popup-overlay">
     <div class="popup-panel">
       <div class="popup-panel__header">
-        <h2>오류 목록</h2>
+        <h2>⚠️ 오류 목록</h2>
         <button id="errors-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
       </div>
       <div class="popup-panel__scroll" id="errors-list"></div>

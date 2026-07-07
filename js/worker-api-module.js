@@ -2,8 +2,8 @@
  * worker-api-module.js
  * Cloudflare Worker 공통 호출 모듈
  *
- * 출처: GPT-main worker-api-module.js 이식.
- * Gemini 품질검수(/gemini/review) 호출은 Lite 웹 범위 밖이므로 가져오지 않는다.
+ * Blogger 임시저장(/blogger/draft)만 다룬다. 품질검수/점수 관련 Worker 호출은
+ * 포함하지 않는다.
  *
  * 보안 원칙:
  * - API Key, Client Secret, Refresh Token, 관리자 비밀번호는 이 파일에 두지 않는다.
@@ -53,19 +53,6 @@ const WorkerApiModule = (() => {
   }
 
   /* ----------------------------------------------------------
-     Blogger 연결 상태 확인 — /blogger/status
-     ---------------------------------------------------------- */
-  async function checkBloggerStatus() {
-    try {
-      const result = await callWorker("/blogger/status", { method: "GET" });
-      const connected = !!(result && (result.connected === true || result.ok === true));
-      return { ok: true, connected, result };
-    } catch (error) {
-      return { ok: false, connected: false, error: error.message };
-    }
-  }
-
-  /* ----------------------------------------------------------
      Blogger 임시저장 — /blogger/draft
      계약(작업지침서 9-4): { title, content, labels }
      반드시 content 안의 모든 img src가 https/http 이어야 한다(호출 전 검증은
@@ -86,34 +73,8 @@ const WorkerApiModule = (() => {
     }
   }
 
-  /* ----------------------------------------------------------
-     Worker 연결 확인 — /health (진단용, 401 시 자동 로그아웃을 피하기 위해
-     callWorker를 거치지 않고 단순 fetch로 처리)
-     ---------------------------------------------------------- */
-  async function checkWorkerHealth() {
-    const baseUrl = getWorkerBaseUrl();
-    const url = baseUrl.replace(/\/$/, "") + "/health";
-    try {
-      const response = await fetch(url, { method: "GET" });
-      let data = null;
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        data = null;
-      }
-      if (response.ok && data && data.ok) {
-        return { ok: true, url, data };
-      }
-      return { ok: false, url, reason: `HTTP ${response.status}` };
-    } catch (error) {
-      return { ok: false, url, reason: error.message };
-    }
-  }
-
   return {
     callWorker,
-    checkBloggerStatus,
     saveBloggerDraft,
-    checkWorkerHealth,
   };
 })();
