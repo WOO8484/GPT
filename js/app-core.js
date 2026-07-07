@@ -928,12 +928,14 @@ const AppCore = (() => {
   // hidden 클래스가 아니라 이 변수로 별도 추적한다(닫기 시 확인창 표시 여부에 사용).
   let currentRegisterStage = "none";
 
-  // stage: "none" | "package-fail" | "gemini-loading" | "gemini-pass" | "gemini-warn" | "gemini-call-fail" | "done"
+  // stage: "none" | "package-fail" | "package-ok" | "gemini-loading" | "gemini-pass" | "gemini-warn" | "gemini-call-fail" | "done"
   function setRegisterStage(stage) {
     currentRegisterStage = stage;
     const ids = [
       "register-package-check",
       "register-btn-row-package-fail",
+      "register-btn-row-package-ok",
+      "register-btn-row-package-ok-2",
       "register-gemini-status",
       "register-gemini-result",
       "register-gemini-fail",
@@ -957,6 +959,10 @@ const AppCore = (() => {
 
     if (stage === "package-fail") {
       document.getElementById("register-btn-row-package-fail").classList.remove("hidden");
+      document.getElementById("register-common-actions").classList.remove("hidden");
+    } else if (stage === "package-ok") {
+      document.getElementById("register-btn-row-package-ok").classList.remove("hidden");
+      document.getElementById("register-btn-row-package-ok-2").classList.remove("hidden");
       document.getElementById("register-common-actions").classList.remove("hidden");
     } else if (stage === "gemini-loading") {
       document.getElementById("register-gemini-status").classList.remove("hidden");
@@ -1038,10 +1044,12 @@ const AppCore = (() => {
   function mapGeminiStatusToSaveLabel(status) {
     if (status === "통과") return "품질검수 통과";
     if (status === "실패") return "품질검수 실패";
-    return "품질검수 보완필요";
+    if (status === "보완필요") return "품질검수 보완필요";
+    return "품질검수 전";
   }
 
-  // 작업지시서 3.2/5: 패키지 점검 → (정상/주의면) Gemini 품질검수 자동 실행.
+  // 0.0.10-final: 패키지 점검은 그대로 자동 실행하되, 품질검수(Gemini)는 더 이상
+  // 자동으로 이어서 실행하지 않는다. 사용자가 [품질검수 하기]를 눌렀을 때만 실행한다.
   function runRegisterPackageCheck() {
     const result = ZipUploadModule.runValidation();
     if (!result.success) {
@@ -1058,7 +1066,7 @@ const AppCore = (() => {
       return;
     }
 
-    runRegisterGeminiReview();
+    setRegisterStage("package-ok");
   }
 
   async function runRegisterGeminiReview() {
@@ -1141,11 +1149,17 @@ const AppCore = (() => {
     openPopup("popup-register");
   }
 
-  // 저장 판단 대기(Gemini 결과 확인 후 아직 저장/폐기 전) 상태인지 여부
+  // 저장 판단 대기(패키지 점검/Gemini 결과 확인 후 아직 저장/폐기 전) 상태인지 여부
   // fix2: X 버튼이 항상 보이게 되었으므로, "저장 판단 대기 중"(자료실 저장/문제 있어도 보관을
   // 아직 누르지 않은 상태) 여부는 X 버튼의 hidden 클래스 대신 현재 stage 값으로 판단한다.
+  // 0.0.10-final: 품질검수를 자동 실행하지 않으므로 package-ok(패키지 점검만 통과) 단계도
+  // 저장/임시저장/품질검수를 아직 선택하지 않은 대기 상태로 포함한다.
   function isRegisterAwaitingSave() {
-    return currentRegisterStage === "gemini-pass" || currentRegisterStage === "gemini-warn";
+    return (
+      currentRegisterStage === "package-ok" ||
+      currentRegisterStage === "gemini-pass" ||
+      currentRegisterStage === "gemini-warn"
+    );
   }
 
   function renderUploadCheckList() {
@@ -1227,6 +1241,57 @@ const AppCore = (() => {
     );
 
     document.getElementById("register-gemini-retry-btn").addEventListener("click", () => {
+      runRegisterGeminiReview();
+    });
+
+    // 0.0.10-final: 패키지 점검만 통과한(품질검수 전) 상태에서 바로 자료실에 저장한다.
+    document.getElementById("register-save-noreview-btn").addEventListener("click", (e) => {
+      handleRegisterSave(e.currentTarget);
+    });
+
+    // 0.0.10-final: 품질검수 전 상태에서 블로그 임시저장을 시도하면, 검수 없이 진행함을
+    // 안내하는 확인 팝업을 먼저 띄운다. 실제 저장/임시저장 로직(BloggerModule.saveDraftToBlogger())은
+    // 그대로 재사용하고, 여기서는 상태값만 "품질검수 전"으로 채워서 전달한다.
+    document.getElementById("register-blogger-draft-noreview-btn").addEventListener("click", (e) => {
+      const btn = e.currentTarget;
+      showConfirmAction({
+        icon: "⚠️",
+        title: "검수 없이 임시저장",
+        desc:
+          "이 글은 아직 AI 품질검수를 진행하지 않았습니다. 그래도 블로그스팟에 임시저장하시겠습니까?\n실제 블로그 미리보기 화면에서 제목, 본문, 이미지, 표, FAQ, 링크 표시 상태를 확인해주세요.",
+        confirmText: "검수 없이 임시저장",
+        danger: true,
+        onConfirm: async () => {
+          const post = ZipUploadModule.getValidatedPost();
+          if (!post) {
+            showToast("저장할 글이 없습니다.", "fail");
+            return;
+          }
+          btn.disabled = true;
+          try {
+            post.status = "품질검수 전";
+            BloggerModule.loadPost(post);
+            const result = await BloggerModule.saveDraftToBlogger();
+            if (result.success) {
+              await refreshDashboard();
+              showToast("블로그스팟에 임시저장되었습니다.", "success");
+              document.getElementById("register-success-card").classList.remove("hidden");
+              setRegisterStage("done");
+            } else {
+              showToast(
+                "블로그 임시저장 실패: " + (result.reasons ? result.reasons.join(", ") : "알 수 없는 오류"),
+                "fail"
+              );
+            }
+          } finally {
+            btn.disabled = false;
+          }
+        },
+      });
+    });
+
+    // 0.0.10-final: 품질검수는 더 이상 자동 실행되지 않으므로, 이 버튼을 눌렀을 때만 실행한다.
+    document.getElementById("register-run-review-btn").addEventListener("click", () => {
       runRegisterGeminiReview();
     });
 
@@ -1861,7 +1926,7 @@ const AppCore = (() => {
 
 const AppState = {
   version: "0.0.10",
-  build: "flow-check-gemini-auto-fix3-repair",
+  build: "flow-check-gemini-auto-final",
 };
 
 document.addEventListener("DOMContentLoaded", () => {

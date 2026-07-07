@@ -2,6 +2,26 @@
 
 GPT 공작소 프로젝트의 모듈별 생성 이력을 기록합니다.
 
+## 0.0.10 final - Blogger 전송 이미지 안정화 + 지시문 v5.1 + 품질검수 수동 실행 전환 - 2026-07-07
+
+새 모듈 없음. `GPT_Gongjakso_0.0.10_fix3_repair.zip` 기준으로 (1) Blogger 전송용 content에서 placeholder성 이미지를 제거하는 최소 로직 추가, (2) ZIP 업로드 후 Gemini 품질검수 자동 실행을 제거하고 수동 실행(버튼)으로 전환. 로그인 인증, 자료실 저장소 구조, Blogger 저장 핵심 로직(`saveDraftToBlogger()` 내부 흐름) 자체는 수정하지 않았다.
+
+| 파일 | 변경 내용 | 상태 |
+|---|---|---|
+| js/blogger-module.js | `stripNonHttpImages()` 신규 추가, `buildBloggerPayload()`가 `sanitizeHtml()` 다음 단계로 호출하도록 연결. `checkPublishReadiness()`에서 "품질검수 통과"를 `canPublish` 필수 조건에서 제거(품질검수 전 글도 임시저장 가능). `saveDraftToBlogger()` 내부 로직 자체는 변경 없음 | 부분 수정 |
+| js/app-core.js | `setRegisterStage()`에 `package-ok` 단계 추가. `runRegisterPackageCheck()`가 구조 통과 시 Gemini 자동 실행 대신 `package-ok`로 전환. `mapGeminiStatusToSaveLabel()`이 review 없는 경우 "품질검수 전" 반환. `isRegisterAwaitingSave()`에 `package-ok` 포함. 신규 버튼 이벤트 3개 추가([자료실 저장]-`register-save-noreview-btn`, [블로그 임시저장]-`register-blogger-draft-noreview-btn`, [품질검수 하기]-`register-run-review-btn`). `AppState.build` → `flow-check-gemini-auto-final` | 부분 수정 |
+| index.html | 등록 팝업에 `register-btn-row-package-ok`/`register-btn-row-package-ok-2` 버튼 행 추가(자료실 저장/블로그 임시저장/품질검수 하기). 안내 문구를 "품질검수 자동 실행 안 함" 기준으로 수정. 로그인 화면 버전 `v0.0.10-final` | 부분 수정 |
+| version.json | build → `flow-check-gemini-auto-final`, displayVersion → `v0.0.10-final`, phase/description에 이번 변경사항 요약 추가 | 부분 수정 |
+
+### 이번 final에서 다루지 않은 기존 모듈/파일
+- js/auth-module.js, js/worker-api-module.js, js/storage-module.js, js/archive-module.js, js/backup-module.js, js/seo-module.js, js/error-log-module.js, js/gpt-upload-module.js, js/zip-upload-module.js, js/guideline-module.js, js/image-module.js, js/statistics-module.js, js/gemini-review-module.js, js/preview-module.js, js/schedule-module.js, js/vendor/zip-reader.js, css/base.css, css/layout.css, css/components.css: 코드 수정 없음.
+- 자료실에 이미 저장된 글 후보를 고르는 별도의 "블로그 등록하기" 메인 팝업(`isBloggerEligible()`, 여전히 품질검수 통과 필수)은 이번 범위에서 다루지 않았다.
+- 저장 완료 후 자동 닫힘 금지, 버튼 디자인 통일, 중복 판단: 점검 결과 이미 충족되어 있거나(자동 닫힘 금지/버튼 디자인) 애초에 구현이 없어(중복 판단) 손대지 않았다.
+
+### 참고
+- 이번 작업은 `GPT_Gongjakso_0.0.10_fix3_repair.zip`을 기준으로 진행했다.
+- `stripNonHttpImages()`는 `preview-module.js`의 `sanitizeHtml()`/`mapImageSources()`와 별개의 함수이며, Blogger 전송 payload를 만들 때만 적용되고 미리보기 렌더링에는 영향을 주지 않는다.
+
 ## 0.0.10 fix3-repair - 남은 window.alert() 전체 제거(공작소 스타일 안내 카드로 교체) - 2026-07-07
 
 새 모듈 없음. `GPT_Gongjakso_0.0.10_fix3.zip` 기준으로 남아 있던 `window.alert()` 안내 문구만 최소 수정했다(로그인 인증, Blogger 저장/발행 핵심 로직, 자료실 저장소 구조, fix3에서 만든 상세/확인 팝업 로직은 수정하지 않음).

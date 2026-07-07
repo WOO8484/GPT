@@ -87,15 +87,17 @@ const BloggerModule = (() => {
     const htmlOk = !!(currentPost.htmlContent && currentPost.htmlContent.trim());
     if (!htmlOk) reasons.push("HTML 본문이 없습니다.");
 
+    // 0.0.10-final: 품질검수(Gemini) 통과는 더 이상 블로그 임시저장의 필수 조건이 아니다.
+    // 패키지 점검을 통과한 글은 품질검수 전 상태(qualityOk=false)여도 임시저장할 수 있으며,
+    // 화면에서는 검수 없이 진행함을 사용자에게 안내 팝업으로 확인받는다(app-core.js).
     const qualityOk = hasGeminiPass();
-    if (!qualityOk) reasons.push("품질검수를 통과하지 못했습니다.");
 
     const normalizedStatus = normalizeStatus(currentPost.status);
     const statusOk = !FORBIDDEN_DRAFT_STATUS.includes(normalizedStatus);
     if (!statusOk) reasons.push(`현재 상태(${currentPost.status})에서는 블로그 등록을 할 수 없습니다.`);
 
     return {
-      canPublish: titleOk && htmlOk && qualityOk && statusOk,
+      canPublish: titleOk && htmlOk && statusOk,
       titleOk,
       htmlOk,
       qualityOk,
@@ -105,15 +107,50 @@ const BloggerModule = (() => {
     };
   }
 
+  // repair(0.0.10-final): Blogger 전송용 content에서만 실행되는 이미지 정리 단계.
+  // content.html의 img src가 실제 https 이미지 URL이 아니면(ZIP 내부 상대경로 파일명,
+  // dataUrl, blob:, 빈 src 등) 그 img 태그를 제거한다. 미리보기(preview-module.js의
+  // mapImageSources)는 그대로 두고 건드리지 않으며, 이 처리는 Blogger 전송 payload를
+  // 만들 때만 적용해 실제 Blogspot 화면에 회색 IMG placeholder/깨진 이미지 아이콘이
+  // 남지 않게 한다.
+  function stripNonHttpImages(safeHtml) {
+    if (!safeHtml) return safeHtml;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(safeHtml, "text/html");
+      const images = doc.body.querySelectorAll("img");
+
+      images.forEach((img) => {
+        const src = (img.getAttribute("src") || "").trim();
+        const isRealHttpImage = /^https?:\/\//i.test(src);
+        if (!isRealHttpImage) {
+          img.remove();
+        }
+      });
+
+      return doc.body.innerHTML;
+    } catch (error) {
+      ErrorLogModule.logError({
+        module: "blogger-module",
+        message: "Blogger 전송용 이미지 정리 실패",
+        detail: error.message,
+        relatedId: currentPost ? currentPost.id : null,
+      });
+      return safeHtml;
+    }
+  }
+
   function buildBloggerPayload() {
     const safeHtml =
       typeof PreviewModule !== "undefined" && typeof PreviewModule.sanitizeHtml === "function"
         ? PreviewModule.sanitizeHtml(currentPost.htmlContent)
         : currentPost.htmlContent || "";
 
+    const bloggerHtml = stripNonHttpImages(safeHtml);
+
     return {
       title: currentPost.title || "",
-      html: safeHtml,
+      html: bloggerHtml,
       labels: Array.isArray(currentPost.tags) ? currentPost.tags : [],
       qualityScore: currentPost.geminiReview && typeof currentPost.geminiReview.score === "number"
         ? currentPost.geminiReview.score

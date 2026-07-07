@@ -62,6 +62,7 @@
 | Blogger 응답 파싱 실패 | Blogger API 응답 본문을 JSON으로 해석하는 중 오류가 발생한 경우 | blogger-module |
 | 발행 결과 저장 실패 | 발행대기 전환, 예약 저장/취소 결과를 글 데이터에 저장하는 중 오류가 발생한 경우 (Blogger 업로드 성공 후 저장 실패는 별도 항목 참고) | blogger-module, schedule-module |
 | dataUrl 이미지 변환 필요 | imageList에 dataUrl 형식 이미지가 포함된 상태로 업로드를 시도한 경우(업로드 자체는 계속 진행됨) | blogger-module |
+| Blogger 전송용 이미지 정리 실패 | (0.0.10-final 신규) buildBloggerPayload() 작성 중 stripNonHttpImages()가 content.html을 파싱하지 못한 경우(원본 HTML 그대로 반환하고 계속 진행됨) | blogger-module |
 | 예약일시 누락 | 예약 저장 시도 시 예약일시 입력값이 없는 경우 | schedule-module |
 | 예약일시 형식 오류 | 입력한 예약일시를 날짜로 해석할 수 없는 경우 | schedule-module |
 | 예약 취소 실패 | 취소할 예약 정보가 없거나 취소 결과 저장 중 오류가 발생한 경우 | schedule-module |

@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## [0.0.10 final] - 2026-07-07 - Blogger 전송 이미지 안정화 + 지시문 v5.1 + 품질검수 수동 실행 전환
+
+### 목적
+`GPT_Gongjakso_0.0.10_fix3_repair.zip`을 기준으로, 본체 대공사 없이 두 가지만 안정화했다.
+1) 실제 Blogspot 방문자 화면에서 content.html이 깨지지 않도록 Blogger 전송 시 placeholder성 이미지를 제거하고, 함께 제공된 블로그 자료 생성 지시문을 v5.1로 보정했다.
+2) ZIP 업로드 시 Gemini 품질검수를 더 이상 자동으로 실행하지 않고, 사용자가 직접 실행하도록 전환했다.
+
+### Blogger 전송 이미지 정리 (js/blogger-module.js)
+- `buildBloggerPayload()`가 `PreviewModule.sanitizeHtml()` 결과에 이어 새 `stripNonHttpImages()`를 한 단계 더 거치도록 했다.
+- content.html의 `<img>` src가 실제 `http(s)://` URL이 아니면(ZIP 내부 상대경로 파일명, `data:`, `blob:`, 빈 src 등) 해당 img 태그를 Blogger 전송용 본문에서만 제거한다.
+- 공작소 내 미리보기 화면(`preview-module.js`의 `mapImageSources()`, dataUrl로 치환해 보여주는 로직)은 그대로 두어 영향이 없다.
+- 목적: 실제 Blogspot 방문자 화면에서 회색 IMG placeholder나 깨진 이미지 아이콘이 보이지 않게 하기 위함.
+
+### 품질검수 자동 실행 → 수동 실행 전환 (js/app-core.js, js/blogger-module.js)
+- ZIP 선택 시 패키지 점검(정상/주의/실패)까지만 자동 실행된다. 기존에는 여기서 구조적 문제가 없으면 Gemini 품질검수가 자동으로 이어서 실행됐으나, 이번부터는 자동 실행하지 않는다.
+- 패키지 점검이 정상/주의이면 새 단계 `package-ok`로 전환되어 아래 버튼을 보여준다: [자료실 저장] [블로그 임시저장] [품질검수 하기] [다시 업로드](공용 버튼 행 재사용, 폐기 포함).
+- [품질검수 하기]를 눌러야만 기존 `runRegisterGeminiReview()`가 실행된다.
+- 품질검수를 실행하지 않고 저장하면 `mapGeminiStatusToSaveLabel()`이 빈 상태값을 "품질검수 보완필요" 대신 "품질검수 전"으로 매핑해 자료실에 정확히 표시된다.
+- `blogger-module.js`의 `checkPublishReadiness()`에서 "품질검수 통과" 여부를 블로그 임시저장의 필수 조건에서 제거했다(`canPublish` 계산에서 `qualityOk` 제외). 패키지 점검을 통과한 글은 품질검수 전 상태여도 임시저장할 수 있다.
+- 등록하기 팝업에서 [블로그 임시저장]을 누르면 "이 글은 아직 AI 품질검수를 진행하지 않았습니다..." 안내 확인 팝업(취소/검수 없이 임시저장)을 먼저 띄운 뒤, 기존 `saveDraftToBlogger()`를 그대로 호출한다(로직 자체는 변경하지 않음).
+- 패키지 점검 실패 상태는 기존과 동일하게 저장/임시저장 버튼이 없고 수정요청 복사 + 다시 업로드/폐기만 표시된다.
+- 범위 제외: 자료실에 이미 저장된 글 후보를 고르는 별도의 "블로그 등록하기" 메인 팝업(`isBloggerEligible()`)은 여전히 품질검수 통과를 조건으로 하며, 이번 범위에서 다루지 않았다.
+
+### 지시문 갱신
+- `GPT_공작소_블로그자료_자동생성지시서_v5.1_실제블로그표시안정화.md` 신규 작성. 기존 v5 내용을 유지하면서 content.html/이미지/광고/표/FAQ 기준을 실제 Blogspot 표시 기준으로 보정했다.
+
+### 버전/빌드 표시
+- version.json: `build`를 `flow-check-gemini-auto-final`, `displayVersion`을 `v0.0.10-final`로 갱신.
+- 로그인 화면 버전 표시를 `v0.0.10-final`로 갱신(index.html). `AppState.build`도 동일하게 갱신(js/app-core.js).
+
+### 범위 제외 (이번 final에서 다루지 않음)
+- 저장 완료 후 자동 닫힘 금지, 버튼 디자인 통일: 점검 결과 기존 코드가 이미 충족하고 있어 추가로 손대지 않았다.
+- 중복 판단(자료실 보유 글 기준): 애초에 구현된 로직이 없어 이번 범위에서 신규로 만들지 않았다.
+- Gemini 자동 수정, OpenAI API 자동 글 생성, Worker 0.0.5, 로그인/인증 로직, 자료실 저장 구조는 이번에도 변경하지 않았다.
+
 ## [0.0.10 fix3-repair] - 2026-07-07 - 남은 window.alert() 전체 제거(공작소 스타일 안내 카드로 교체)
 
 ### 목적
