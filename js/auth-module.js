@@ -11,7 +11,29 @@
  * - 세션 토큰은 sessionStorage에만 저장하며(localStorage 사용 안 함), 브라우저 세션 동안만 유지된다.
  */
 
-const WORKER_BASE_URL = "https://wooow.qudrnr84.workers.dev";
+// repair(0.0.9): Worker 주소를 고정 상수 대신 설정 화면에서 확인/저장할 수 있는 값으로 변경.
+// 기본값은 기존과 동일한 정상 주소이며, 로그인/인증 흐름 자체는 변경하지 않는다.
+const DEFAULT_WORKER_BASE_URL = "https://wooow.qudrnr84.workers.dev";
+const WORKER_URL_STORAGE_KEY = "gongjakso_worker_base_url";
+
+function getWorkerBaseUrl() {
+  try {
+    const stored = localStorage.getItem(WORKER_URL_STORAGE_KEY);
+    return stored && stored.trim() ? stored.trim() : DEFAULT_WORKER_BASE_URL;
+  } catch (error) {
+    return DEFAULT_WORKER_BASE_URL;
+  }
+}
+
+function setWorkerBaseUrl(url) {
+  try {
+    localStorage.setItem(WORKER_URL_STORAGE_KEY, url);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 const SESSION_TOKEN_KEY = "gongjakso_session_token";
 
 const AuthModule = (() => {
@@ -102,7 +124,7 @@ const AuthModule = (() => {
     loginBtn.textContent = "확인 중...";
 
     try {
-      const response = await fetch(WORKER_BASE_URL + "/auth/login", {
+      const response = await fetch(getWorkerBaseUrl() + "/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),

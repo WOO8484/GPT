@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## [0.0.9] - 2026-07-07 - 0.0.8 실기 잔여 문제 보정 + 버전 일치화 + Worker 연결 확인
+
+### 목적
+0.0.8은 GUI 보정 이후에도 실기에서 잔여 문제가 확인되었다. 이번 작업은 대규모 기능 추가가 아니라 실기에서 확인된 문제(버전 표시, Worker 연결, 품질검수 진행 UI, 문구, 목록 표시, 예약 기본값)를 정확히 해결하는 잔여 보정이다. 로그인 인증/Blogger 저장·임시저장·예약 핵심 로직/ZIP 파싱/SEO 계산/Gemini 프롬프트/저장소 구조는 변경하지 않았다.
+
+### 보정
+- **버전 표시 전체 일치화(index.html, js/app-core.js, version.json)**: 로그인 화면이 0.0.8 배포 후에도 `v0.0.7`로 남아있던 문제(0.0.8에서 로그인 화면 버전 갱신 누락)를 발견해 수정. 로그인 화면/AppState.version/설정 > 버전 정보/version.json을 모두 `0.0.9`로 통일
+- **Worker 주소 확인 및 설정 화면 관리 기능 추가(js/auth-module.js, js/worker-api-module.js, index.html, js/app-core.js)**: 실기 확인 결과 Worker 주소(`https://wooow.qudrnr84.workers.dev`)에는 오타가 없었음을 확인. Worker 주소를 하드코딩 상수에서 `localStorage` 기반 설정값(getWorkerBaseUrl/setWorkerBaseUrl, 기본값은 기존과 동일)으로 바꾸고, 설정 화면에 "Worker 연결" 항목(주소 표시/저장/`/health` 연결 확인)을 추가. 연결 확인은 기존 `callWorker()`의 401 자동 로그아웃 경로와 분리된 별도 진단 함수(`checkWorkerHealth`)로 구현해 로그인 로직에 영향을 주지 않는다
+- **품질검수 진행 UI 개선(js/gemini-review-module.js, js/app-core.js, index.html)**: 품질검수 버튼 클릭 시 "Gemini 품질검수 요청 중... 00:00" 타이머와 "단계: 요청 준비/Worker 전송/Gemini 응답 대기/결과 정리" 단계 문구를 표시. 실패 시 단순 실패 안내 대신 사유를 구분(Worker 연결 실패/인증 토큰 만료/AI_API_KEY 문제/Gemini 쿼터 초과/모델명 문제/응답 JSON 파싱 실패/네트워크 오류/알 수 없는 오류)해서 표시하고 실제 호출 주소를 함께 보여주며, [다시 품질검수]/[닫기] 버튼을 추가했다. Gemini 호출 경로·페이로드·프롬프트 로직 자체는 변경하지 않았다
+- **검은 alert/toast 제거(js/app-core.js, index.html, css/components.css)**: 블로그 임시저장/예약저장의 완료·실패 안내를 `alert()` 대신 블로그 등록 팝업 내부 안내 카드(`.result-card`)로 변경. 등록 저장 완료(0.0.8에서 이미 카드화)와 톤을 통일
+- **자료실/블로그 등록 목록 이력 한 줄 처리(css/components.css)**: `.archive-item__meta`에 `white-space: nowrap; overflow: hidden; text-overflow: ellipsis; word-break: keep-all;`를 적용해 이력 문구가 두 줄로 내려가지 않도록 수정
+- **블로그 등록 목록 표시 개수 개선(css/components.css)**: 블로그 등록 후보 목록에만 적용되는 `.check-list--tall`(최대 높이 320px)을 추가해 최소 4~5개 항목이 보이도록 수정. 등록/전체점검/품질검수에서 쓰는 기존 `.check-list--capped`(140px)는 그대로 유지해 다른 화면에 영향 없음
+- **'임시저장완료' 문구 의미 분리(js/app-core.js)**: 자료실/블로그 등록 목록에 단독으로 표시되던 `임시저장완료`를 `블로그스팟 임시저장 완료`로 표시(`displayStatus()`의 표시 매핑만 변경, 실제 저장 상태값(post.status)과 blogger-module.js 로직은 그대로 유지)
+- **예약 날짜/시간 기본값(js/app-core.js)**: 블로그 등록 상세 진입 시 예약 날짜/시간 입력값을 오늘 날짜·현재 시각 이후(다음 정시)로 자동 채움
+
+### 범위 제외 (이번 0.0.9에서 다루지 않음)
+- 로그인 인증 로직 재작성, Blogger 저장/임시저장/예약 핵심 로직, ZIP 파싱/저장소 데이터 구조, SEO 점수 계산 로직, Gemini 프롬프트 대규모 변경
+- OpenAI API 자동 생성, Gemini의 글 생성/수정/ZIP 직접 수정, 네이버 미리보기 추가
+
 ## [0.0.8] - 2026-07-07 - 0.0.7 GUI 실기 미통과 보정
 
 ### 목적

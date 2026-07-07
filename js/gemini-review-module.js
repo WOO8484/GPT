@@ -84,21 +84,61 @@ const GeminiReviewModule = (() => {
     };
   }
 
+  // 작업지시서 6.5: 실패 사유를 단순 안내 대신 구분해서 보여주기 위한 분류.
+  // 프롬프트/페이로드 구성 로직은 건드리지 않고, 에러 메시지 내용만으로 분류한다.
+  function classifyReviewError(error) {
+    const message = (error && error.message) || "";
+    const lower = message.toLowerCase();
+
+    if (error instanceof SyntaxError || message.includes("해석할 수 없") || lower.includes("json")) {
+      return "응답 JSON 파싱 실패";
+    }
+    if (message.includes("로그인이 만료") || message.includes("인증") || lower.includes("401")) {
+      return "인증 토큰 만료";
+    }
+    if (lower.includes("quota") || message.includes("쿼터") || message.includes("사용량")) {
+      return "Gemini 쿼터/사용량 초과";
+    }
+    if (lower.includes("api_key") || lower.includes("api key") || message.includes("키")) {
+      return "AI_API_KEY 문제";
+    }
+    if (lower.includes("model") || message.includes("모델")) {
+      return "모델명 문제";
+    }
+    if (message.includes("연결 오류") || lower.includes("network") || lower.includes("fetch")) {
+      return "Worker 연결 실패";
+    }
+    return message ? `알 수 없는 오류 (${message})` : "알 수 없는 오류";
+  }
+
+  // 실패 시 실기 확인을 위해 실제로 호출된 주소를 화면에 표시할 수 있도록 노출한다.
+  function getReviewEndpointUrl() {
+    return getWorkerBaseUrl() + "/gemini/review";
+  }
+
   // 작업지시서 7: 구조/SEO 1차 검증(이미 완료)을 마친 글을 대상으로 Gemini 품질검수를 요청한다.
   // 실패 시 ZIP 등록 실패로 취급하지 않고, 정식 오류(Gemini API 호출 실패/응답 파싱 실패)로만 기록한다.
-  async function requestReview(post, forcedMode) {
+  // onStage(stageLabel)는 화면에 진행 단계를 표시하기 위한 선택적 콜백이다(호출 로직/프롬프트는 변경 없음).
+  async function requestReview(post, forcedMode, onStage) {
     if (!post) {
-      return { success: false, error: "글 정보가 없습니다." };
+      return { success: false, error: "글 정보가 없습니다.", reason: "알 수 없는 오류" };
     }
 
+    const notify = typeof onStage === "function" ? onStage : () => {};
+
+    notify("요청 준비");
     const mode = decideModelMode(post, forcedMode);
     const payload = buildRequestPayload(post, mode);
 
     try {
+      notify("Worker 전송");
+      notify("Gemini 응답 대기");
       const raw = await WorkerApiModule.requestGeminiReview(payload);
+      notify("결과 정리");
       const review = parseGeminiResult(raw);
       return { success: true, mode, review };
     } catch (error) {
+      const reason = classifyReviewError(error);
       const isParseError = error instanceof SyntaxError;
       ErrorLogModule.logError({
         module: "gemini-review-module",
@@ -106,7 +146,12 @@ const GeminiReviewModule = (() => {
         detail: error.message,
         relatedId: post.id || null,
       });
-      return { success: false, error: "품질검수 요청에 실패했습니다. 잠시 후 다시 시도해주세요." };
+      return {
+        success: false,
+        error: "품질검수 요청에 실패했습니다.",
+        reason,
+        url: getReviewEndpointUrl(),
+      };
     }
   }
 

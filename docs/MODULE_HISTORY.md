@@ -2,6 +2,27 @@
 
 GPT 공작소 프로젝트의 모듈별 생성 이력을 기록합니다.
 
+## 0.0.9 - 0.0.8 실기 잔여 문제 보정 + 버전 일치화 + Worker 연결 확인 - 2026-07-07
+
+새 모듈 없음. 표시/설정값 보정 위주로 7개 파일만 수정했다(css/base.css, css/layout.css 및 Blogger/Schedule/SEO/Storage/Archive 등 핵심 로직 파일은 수정하지 않음).
+
+| 파일 | 변경 내용 | 상태 |
+|---|---|---|
+| index.html | 로그인 화면 버전 0.0.9, 설정에 "Worker 연결" 메뉴/하위 팝업 추가, 품질검수 진행 UI(타이머/단계/실패사유/호출주소/재시도) 마크업 추가, 블로그 등록 결과 카드 추가 | 부분 수정 |
+| js/app-core.js | AppState.version 0.0.9, displayStatus()에 '임시저장완료'→'블로그스팟 임시저장 완료' 표시 매핑 추가, 품질검수 타이머/단계/재시도 로직 추가, 블로그 임시저장/예약저장 alert() 제거 후 결과카드로 전환, 예약 날짜/시간 기본값 자동 채움, 설정 Worker 연결 이벤트 바인딩 추가 | 부분 수정 |
+| js/auth-module.js | Worker 주소를 고정 상수에서 `getWorkerBaseUrl()`/`setWorkerBaseUrl()`(localStorage 기반, 기본값 동일)로 변경. 로그인 호출 경로 자체는 변경 없음 | 부분 수정 |
+| js/worker-api-module.js | `callWorker()`가 `getWorkerBaseUrl()`을 사용하도록 변경, `/health` 진단 전용 `checkWorkerHealth()` 추가(401 자동 로그아웃과 무관한 별도 fetch) | 부분 수정 |
+| js/gemini-review-module.js | 실패 사유 분류(`classifyReviewError`)와 진행 단계 콜백(`onStage`), 호출 주소 노출(`getReviewEndpointUrl`) 추가. 페이로드 구성/프롬프트 로직은 변경 없음 | 부분 수정 |
+| css/components.css | `.archive-item__meta` 한 줄 고정, `.check-list--tall`(블로그 등록 목록 전용, 다른 목록 영향 없음), `.result-card`(성공/실패 공통 안내 카드) 추가 | 부분 수정 |
+| version.json | 버전/설명 갱신 | 부분 수정 |
+
+### 이번 0.0.9에서 다루지 않은 기존 모듈
+- css/base.css, css/layout.css, js/storage-module.js, js/archive-module.js, js/backup-module.js, js/seo-module.js, js/error-log-module.js, js/gpt-upload-module.js, js/zip-upload-module.js, js/preview-module.js, js/blogger-module.js, js/schedule-module.js, js/statistics-module.js, js/guideline-module.js, js/image-module.js, js/vendor/zip-reader.js: 코드 수정 없음. Blogger 저장/임시저장/예약 저장 핵심 로직(blogger-module.js, schedule-module.js)과 Gemini 호출 경로/모델 선택 로직은 이번에도 그대로 유지했다.
+
+### 참고
+- Worker 주소는 설정 화면에서 저장한 값이 있으면 그 값을 우선 사용하고, 없으면 기존과 동일한 기본값(`https://wooow.qudrnr84.workers.dev`)을 사용한다.
+- `/health` 연결 확인은 인증 토큰 유무와 무관하게 동작하도록 `callWorker()`를 거치지 않는 별도 함수로 구현했다(로그인 여부에 따른 자동 로그아웃 부작용 방지).
+
 ## 0.0.8 - 0.0.7 GUI 실기 미통과 보정 - 2026-07-07
 
 새 모듈 없음. 기능 로직 변경 없이 GUI/CSS/HTML 표시 구조만 보정했다. index.html, css/components.css, css/layout.css, js/app-core.js 4개 파일만 수정했다.

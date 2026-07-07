@@ -21,8 +21,16 @@ const AppCore = (() => {
   const TICKER_INTERVAL_MS = 4000;
   const TICKER_MAX_ITEMS = 5;
 
+  // repair(0.0.9): '임시저장완료'는 실제로 Blogger에 초안이 저장된 상태에서만 설정되는 값이지만,
+  // 목록에 그대로 표시하면 "블로그 임시저장"과 혼동될 수 있어 표시 문구만 명확히 한다
+  // (blogger-module.js가 저장하는 실제 상태값(post.status)은 변경하지 않는다).
+  const STATUS_DISPLAY_OVERRIDE = {
+    임시저장완료: "블로그스팟 임시저장 완료",
+  };
+
   function displayStatus(status) {
-    return LEGACY_STATUS_MAP[status] || status || "-";
+    const mapped = LEGACY_STATUS_MAP[status] || status || "-";
+    return STATUS_DISPLAY_OVERRIDE[mapped] || mapped;
   }
 
   function generateId() {
@@ -474,8 +482,39 @@ const AppCore = (() => {
      ============================================================ */
 
   let lastQualityReviewRewriteText = "";
+  let qualityReviewTimerHandle = null;
+  let qualityReviewStartTime = null;
+
+  function formatElapsedTime(ms) {
+    const totalSec = Math.max(0, Math.floor(ms / 1000));
+    const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+    const ss = String(totalSec % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
+  }
+
+  function stopQualityReviewTimer() {
+    if (qualityReviewTimerHandle) {
+      clearInterval(qualityReviewTimerHandle);
+      qualityReviewTimerHandle = null;
+    }
+  }
+
+  function startQualityReviewTimer() {
+    stopQualityReviewTimer();
+    qualityReviewStartTime = Date.now();
+    const valueEl = document.getElementById("quality-review-status-value");
+    valueEl.textContent = "Gemini 품질검수 요청 중... 00:00";
+    qualityReviewTimerHandle = setInterval(() => {
+      valueEl.textContent = `Gemini 품질검수 요청 중... ${formatElapsedTime(Date.now() - qualityReviewStartTime)}`;
+    }, 1000);
+  }
+
+  function setQualityReviewStage(stageLabel) {
+    document.getElementById("quality-review-stage-text").textContent = `단계: ${stageLabel}`;
+  }
 
   function resetQualityReviewPanel() {
+    stopQualityReviewTimer();
     document.getElementById("quality-review-panel").classList.add("hidden");
     document.getElementById("quality-review-status").classList.add("hidden");
     document.getElementById("quality-review-result").classList.add("hidden");
@@ -487,6 +526,7 @@ const AppCore = (() => {
     document.getElementById("quality-review-status").classList.toggle("hidden", state !== "loading");
     document.getElementById("quality-review-result").classList.toggle("hidden", state !== "done");
     document.getElementById("quality-review-fail").classList.toggle("hidden", state !== "fail");
+    if (state !== "loading") stopQualityReviewTimer();
   }
 
   function renderQualityReviewIssues(issues) {
@@ -524,14 +564,20 @@ const AppCore = (() => {
 
     const triggerBtn = document.getElementById("archive-detail-quality-btn");
     triggerBtn.disabled = true;
-    triggerBtn.textContent = "품질검수 중";
+    triggerBtn.textContent = "검수 중...";
 
     showQualityReviewState("loading");
-    document.getElementById("quality-review-status-value").textContent = "품질검수 진행 중";
+    startQualityReviewTimer();
+    setQualityReviewStage("요청 준비");
 
-    const result = await GeminiReviewModule.requestReview(post);
+    const result = await GeminiReviewModule.requestReview(post, null, setQualityReviewStage);
 
     if (!result.success) {
+      document.getElementById("quality-review-fail-reason").textContent =
+        `품질검수 요청에 실패했습니다. (${result.reason || "알 수 없는 오류"})`;
+      document.getElementById("quality-review-fail-url").textContent = result.url
+        ? `호출 주소: ${result.url}`
+        : "";
       showQualityReviewState("fail");
       triggerBtn.disabled = false;
       triggerBtn.textContent = "품질 검수";
@@ -552,6 +598,15 @@ const AppCore = (() => {
     document.getElementById("archive-detail-quality-btn").addEventListener("click", () => {
       if (!selectedArchivePostId) return;
       runQualityReview(selectedArchivePostId);
+    });
+
+    document.getElementById("quality-review-retry-btn").addEventListener("click", () => {
+      if (!selectedArchivePostId) return;
+      runQualityReview(selectedArchivePostId);
+    });
+
+    document.getElementById("quality-review-fail-close-btn").addEventListener("click", () => {
+      resetQualityReviewPanel();
     });
 
     document.getElementById("quality-review-copy-btn").addEventListener("click", async () => {
@@ -854,6 +909,30 @@ const AppCore = (() => {
     });
   }
 
+  // 작업지시서 11: 예약 날짜 기본값은 오늘, 시간은 현재 시각 이후(다음 정시)로 설정한다.
+  function getDefaultScheduleDatetimeLocal() {
+    const next = new Date();
+    next.setMinutes(0, 0, 0);
+    next.setHours(next.getHours() + 1);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}T${pad(
+      next.getHours()
+    )}:${pad(next.getMinutes())}`;
+  }
+
+  function showBloggerResult(type, message) {
+    const el = document.getElementById("blogger-result-card");
+    el.textContent = message;
+    el.classList.remove("hidden", "result-card--success", "result-card--fail");
+    el.classList.add(type === "success" ? "result-card--success" : "result-card--fail");
+  }
+
+  function resetBloggerResultCard() {
+    const el = document.getElementById("blogger-result-card");
+    el.classList.add("hidden");
+    el.textContent = "";
+  }
+
   async function openBloggerDetail(id) {
     const post = ArchiveModule.getPostById(id);
     if (!post) return;
@@ -866,7 +945,8 @@ const AppCore = (() => {
     document
       .getElementById("blogger-image-warning")
       .classList.toggle("hidden", !BloggerModule.hasDataUrlImages());
-    document.getElementById("blogger-schedule-datetime").value = "";
+    document.getElementById("blogger-schedule-datetime").value = getDefaultScheduleDatetimeLocal();
+    resetBloggerResultCard();
 
     showBloggerDetailView();
 
@@ -896,15 +976,20 @@ const AppCore = (() => {
 
       const btn = e.currentTarget;
       btn.disabled = true;
+      resetBloggerResultCard();
       try {
         const result = await BloggerModule.saveDraftToBlogger();
         if (result.success) {
-          alert("블로그 임시 저장이 완료되었습니다.");
+          showBloggerResult(
+            "success",
+            "블로그스팟 임시저장 완료\nBlogger 관리자 화면에서 초안으로 확인할 수 있습니다."
+          );
           await refreshDashboard();
-          showBloggerListView();
-          renderBloggerCandidateList();
         } else {
-          alert("블로그 임시 저장에 실패했습니다.\n" + (result.reasons ? result.reasons.join("\n") : ""));
+          showBloggerResult(
+            "fail",
+            "블로그 등록 실패\n사유: " + (result.reasons ? result.reasons.join(", ") : "알 수 없는 오류")
+          );
         }
       } finally {
         btn.disabled = false;
@@ -914,20 +999,23 @@ const AppCore = (() => {
     document.getElementById("blogger-schedule-btn").addEventListener("click", async () => {
       const value = document.getElementById("blogger-schedule-datetime").value;
       if (!value) {
-        alert("예약 일시를 입력해주세요.");
+        showBloggerResult("fail", "예약 일시를 입력해주세요.");
         return;
       }
       const ok = confirm("입력한 일시로 예약 저장하시겠습니까?");
       if (!ok) return;
 
+      resetBloggerResultCard();
       const result = await ScheduleModule.saveSchedule(value);
       if (result.success) {
-        alert("예약 저장되었습니다. (브라우저에 저장되는 로컬 예약 정보)");
+        const [datePart, timePart] = value.split("T");
+        showBloggerResult(
+          "success",
+          `예약 저장 완료\n예약 날짜: ${datePart}\n예약 시간: ${timePart || "-"}`
+        );
         await refreshDashboard();
-        showBloggerListView();
-        renderBloggerCandidateList();
       } else {
-        alert("예약 저장에 실패했습니다.\n" + result.reasons.join("\n"));
+        showBloggerResult("fail", "예약 저장 실패\n사유: " + result.reasons.join(", "));
       }
     });
   }
@@ -1046,6 +1134,35 @@ const AppCore = (() => {
     });
     document.getElementById("settings-limitations-close-btn").addEventListener("click", () => {
       closePopup("popup-settings-limitations");
+    });
+
+    document.getElementById("open-settings-worker-btn").addEventListener("click", () => {
+      document.getElementById("settings-worker-url-input").value = getWorkerBaseUrl();
+      document.getElementById("settings-worker-result").textContent = "";
+      openPopup("popup-settings-worker");
+    });
+    document.getElementById("settings-worker-close-btn").addEventListener("click", () => {
+      closePopup("popup-settings-worker");
+    });
+    document.getElementById("settings-worker-save-btn").addEventListener("click", () => {
+      const input = document.getElementById("settings-worker-url-input");
+      const value = input.value.trim();
+      const resultEl = document.getElementById("settings-worker-result");
+      if (!value) {
+        resultEl.textContent = "Worker 주소를 입력해주세요.";
+        return;
+      }
+      const saved = setWorkerBaseUrl(value);
+      resultEl.textContent = saved ? "저장했습니다. 다음 요청부터 이 주소를 사용합니다." : "저장에 실패했습니다.";
+    });
+    document.getElementById("settings-worker-check-btn").addEventListener("click", async () => {
+      const input = document.getElementById("settings-worker-url-input");
+      const resultEl = document.getElementById("settings-worker-result");
+      resultEl.textContent = "연결 확인 중...";
+      const health = await WorkerApiModule.checkWorkerHealth(input.value.trim());
+      resultEl.textContent = health.ok
+        ? `연결 정상 (${health.url})`
+        : `연결 실패 (${health.url}) - ${health.reason}`;
     });
 
     document.getElementById("open-settings-version-btn").addEventListener("click", () => {
@@ -1216,7 +1333,7 @@ const AppCore = (() => {
 })();
 
 const AppState = {
-  version: "0.0.7",
+  version: "0.0.9",
 };
 
 document.addEventListener("DOMContentLoaded", () => {

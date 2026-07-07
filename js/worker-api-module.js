@@ -21,7 +21,7 @@ const WorkerApiModule = (() => {
 
     let response;
     try {
-      response = await fetch(WORKER_BASE_URL + path, {
+      response = await fetch(getWorkerBaseUrl() + path, {
         method: opts.method || "POST",
         headers,
         body: opts.method === "GET" ? undefined : JSON.stringify(opts.payload || {}),
@@ -102,10 +102,38 @@ const WorkerApiModule = (() => {
     return callWorker("/gemini/review", { payload });
   }
 
+  /* ----------------------------------------------------------
+     Worker 연결 확인 — /health (0.0.9 신규, 설정 화면 진단용)
+     callWorker()는 401 시 자동 로그아웃을 유발하므로, 로그인 여부와 무관하게
+     주소만 확인하는 이 기능은 callWorker를 거치지 않고 별도의 단순 fetch로 처리한다.
+     ---------------------------------------------------------- */
+  async function checkWorkerHealth(baseUrlOverride) {
+    const baseUrl = (baseUrlOverride && baseUrlOverride.trim()) || getWorkerBaseUrl();
+    const url = baseUrl.replace(/\/$/, "") + "/health";
+
+    try {
+      const response = await fetch(url, { method: "GET" });
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        data = null;
+      }
+
+      if (response.ok && data && data.ok) {
+        return { ok: true, url, data };
+      }
+      return { ok: false, url, reason: `HTTP ${response.status}` };
+    } catch (error) {
+      return { ok: false, url, reason: error.message };
+    }
+  }
+
   return {
     callWorker,
     checkBloggerStatus,
     saveBloggerDraft,
     requestGeminiReview,
+    checkWorkerHealth,
   };
 })();

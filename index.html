@@ -23,7 +23,7 @@
       <div id="login-error" class="login-error hidden"></div>
       <button id="login-btn" class="btn btn--primary btn--block">입장하기</button>
     </div>
-    <div class="login-version">v0.0.7</div>
+    <div class="login-version">v0.0.9</div>
   </div>
 
   <!-- 메인 앱: 로그인 성공 전에는 hidden 상태로 유지된다 -->
@@ -218,7 +218,8 @@
           <div id="quality-review-panel" class="quality-review-panel hidden">
             <div id="quality-review-status" class="card hidden">
               <div class="card__label">품질 검수</div>
-              <div class="card__value" id="quality-review-status-value">품질검수 진행 중</div>
+              <div class="card__value" id="quality-review-status-value">Gemini 품질검수 요청 중... 00:00</div>
+              <div class="notice-text" id="quality-review-stage-text">단계: 요청 준비</div>
             </div>
 
             <div id="quality-review-result" class="hidden">
@@ -237,7 +238,12 @@
             </div>
 
             <div id="quality-review-fail" class="hidden">
-              <div class="notice-text notice-text--warning">품질검수 요청에 실패했습니다.<br />잠시 후 다시 시도해주세요.</div>
+              <div class="notice-text notice-text--warning" id="quality-review-fail-reason">품질검수 요청에 실패했습니다.</div>
+              <div class="notice-text" id="quality-review-fail-url"></div>
+              <div class="btn-row">
+                <button id="quality-review-retry-btn" class="btn btn--primary">다시 품질검수</button>
+                <button id="quality-review-fail-close-btn" class="btn">닫기</button>
+              </div>
             </div>
           </div>
         </div>
@@ -382,6 +388,7 @@
             <div id="blogger-image-warning" class="notice-text notice-text--warning hidden">
               이미지가 브라우저 임시 저장(dataUrl) 형식입니다. Blogger에 정상 표시되려면 별도 호스팅 URL 변환이 필요합니다. (임시 저장 자체는 계속 진행됩니다)
             </div>
+            <div id="blogger-result-card" class="result-card hidden"></div>
           </div>
 
           <div class="section">
@@ -418,6 +425,7 @@
           <button id="open-settings-fullcheck-btn" class="btn btn--block" type="button">전체점검</button>
           <button id="open-settings-backup-btn" class="btn btn--block" type="button">백업 / 복구</button>
           <button id="open-settings-limitations-btn" class="btn btn--block" type="button">제한사항</button>
+          <button id="open-settings-worker-btn" class="btn btn--block" type="button">Worker 연결</button>
           <button id="open-settings-version-btn" class="btn btn--block" type="button">버전 정보</button>
         </div>
 
@@ -468,6 +476,25 @@
         <button id="settings-limitations-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
       </div>
       <div class="notice-text">docs/KNOWN_LIMITATIONS.md 문서를 참고해주세요. (버그가 아닌 설계상 의도된 제한사항입니다)</div>
+    </div>
+  </div>
+
+  <!-- 설정 하위 팝업: Worker 연결 (0.0.9 신규, 스크롤 없음) -->
+  <div id="popup-settings-worker" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <div class="popup-panel__header">
+        <h2>Worker 연결</h2>
+        <button id="settings-worker-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="detail-row">
+        <span class="detail-row__label">Worker 주소</span>
+      </div>
+      <input id="settings-worker-url-input" class="input-text" type="text" placeholder="https://wooow.qudrnr84.workers.dev" />
+      <div class="btn-row">
+        <button id="settings-worker-save-btn" class="btn btn--primary">저장</button>
+        <button id="settings-worker-check-btn" class="btn">연결 확인</button>
+      </div>
+      <div id="settings-worker-result" class="notice-text"></div>
     </div>
   </div>
 
