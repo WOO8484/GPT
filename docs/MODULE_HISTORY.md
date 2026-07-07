@@ -2,6 +2,23 @@
 
 GPT 공작소 프로젝트의 모듈별 생성 이력을 기록합니다.
 
+## 0.0.8 - 0.0.7 GUI 실기 미통과 보정 - 2026-07-07
+
+새 모듈 없음. 기능 로직 변경 없이 GUI/CSS/HTML 표시 구조만 보정했다. index.html, css/components.css, css/layout.css, js/app-core.js 4개 파일만 수정했다.
+
+| 파일 | 변경 내용 | 상태 |
+|---|---|---|
+| index.html | GPT 지시서 복사를 작업대 버튼으로 변경, 자료실 상세 버튼 2열+1열 재배치, 별도 품질검수 팝업 제거 후 자료실 상세 내부 카드로 대체, 등록 팝업에 저장 완료 성공 카드 추가 | 부분 수정 |
+| js/app-core.js | 품질검수 표시 로직을 팝업 open/close에서 자료실 상세 내부 카드 show/hide로 변경(진행 중 버튼 문구 전환 포함), 등록 저장 완료 처리에서 `alert()` 제거 후 성공 카드 표시로 변경, 저장 버튼 클릭 즉시 비활성화 추가 | 부분 수정 |
+| css/components.css | `.btn` 최소 높이(52px)/가로 텍스트 고정, `.btn-row` 간격(12px), `.btn:disabled` 회색 처리, `.register-success-card` 스타일 추가 | 부분 수정 |
+| css/layout.css | `.desk-btn` 높이/간격 보정, `#archive-detail-view` 내부 스크롤(본문만 스크롤, 버튼 고정) 구조 추가, `.quality-review-panel` 여백 추가 | 부분 수정 |
+
+### 이번 0.0.8에서 다루지 않은 기존 모듈
+- js/auth-module.js, js/worker-api-module.js, js/gemini-review-module.js, js/preview-module.js, js/storage-module.js, js/archive-module.js, js/backup-module.js, js/seo-module.js, js/error-log-module.js, js/gpt-upload-module.js, js/zip-upload-module.js, js/blogger-module.js, js/schedule-module.js, js/statistics-module.js, js/guideline-module.js, js/vendor/zip-reader.js, js/image-module.js, css/base.css: 코드 수정 없음. Gemini 호출 경로/모델 선택 로직(gemini-review-module.js, worker-api-module.js)은 이번 GUI 보정 대상에서 제외했다.
+
+### 품질검수 표시 구조 변경 메모
+- 0.0.7에서는 `popup-quality-review`라는 별도 중앙 팝업으로 표시했으나, 실기에서 자료실 팝업 위에 겹쳐 보이는 문제가 확인되어 0.0.8부터는 자료실 상세보기(`archive-detail-view`) 내부의 `#quality-review-panel` 카드로 표시 방식만 바꿨다. 진행 중/완료/실패 상태 판단 로직과 `GeminiReviewModule`/`WorkerApiModule` 호출 자체는 변경하지 않았다.
+
 ## 0.0.7 - 실기 화면 보정 + 미리보기 이미지/가독성 보정 + Gemini 품질검수 반영 - 2026-07-07
 
 새 모듈 1개 추가(gemini-review-module.js). worker-api-module.js는 함수 1개 추가(기존 함수 변경 없음). preview-module.js는 이미지 src 매핑 함수 1개 추가. app-core.js는 품질검수 팝업 관련 함수/이벤트 바인딩만 추가. css 3개 파일은 세로 텍스트 깨짐 방지/미리보기 가독성/오버플로 방지 규칙만 추가. index.html은 품질검수 버튼/팝업, 안내 문구, 스크립트 태그만 추가. 로그인/Worker 인증/Blogger 연결/SEO 로직/저장소 핵심 구조는 변경하지 않았다.

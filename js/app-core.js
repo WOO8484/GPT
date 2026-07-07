@@ -205,6 +205,7 @@ const AppCore = (() => {
     const imgCount = Array.isArray(post.imageList) ? post.imageList.length : 0;
     document.getElementById("archive-detail-images").textContent = `${imgCount}장`;
 
+    resetQualityReviewPanel();
     showArchiveDetailView();
   }
 
@@ -467,14 +468,22 @@ const AppCore = (() => {
   }
 
   /* ============================================================
-     팝업: 품질 검수 (Gemini, 0.0.7 신규)
+     품질 검수 (Gemini, 0.0.7 도입 / 0.0.8: 별도 팝업 대신 자료실 상세 내부 카드로 표시)
      Gemini는 글을 생성/수정하지 않으며 검수 결과와 수정 제안만 표시한다.
      실패해도 자료실 데이터는 그대로 유지되며, 실패 안내만 표시한다.
      ============================================================ */
 
   let lastQualityReviewRewriteText = "";
 
+  function resetQualityReviewPanel() {
+    document.getElementById("quality-review-panel").classList.add("hidden");
+    document.getElementById("quality-review-status").classList.add("hidden");
+    document.getElementById("quality-review-result").classList.add("hidden");
+    document.getElementById("quality-review-fail").classList.add("hidden");
+  }
+
   function showQualityReviewState(state) {
+    document.getElementById("quality-review-panel").classList.remove("hidden");
     document.getElementById("quality-review-status").classList.toggle("hidden", state !== "loading");
     document.getElementById("quality-review-result").classList.toggle("hidden", state !== "done");
     document.getElementById("quality-review-fail").classList.toggle("hidden", state !== "fail");
@@ -513,14 +522,19 @@ const AppCore = (() => {
     const post = ArchiveModule.getPostById(postId);
     if (!post) return;
 
+    const triggerBtn = document.getElementById("archive-detail-quality-btn");
+    triggerBtn.disabled = true;
+    triggerBtn.textContent = "품질검수 중";
+
     showQualityReviewState("loading");
     document.getElementById("quality-review-status-value").textContent = "품질검수 진행 중";
-    openPopup("popup-quality-review");
 
     const result = await GeminiReviewModule.requestReview(post);
 
     if (!result.success) {
       showQualityReviewState("fail");
+      triggerBtn.disabled = false;
+      triggerBtn.textContent = "품질 검수";
       return;
     }
 
@@ -530,16 +544,14 @@ const AppCore = (() => {
     renderQualityReviewIssues(review.issues);
     lastQualityReviewRewriteText = GeminiReviewModule.buildRewriteRequestText(post, review);
     showQualityReviewState("done");
+    triggerBtn.disabled = false;
+    triggerBtn.textContent = "품질 검수";
   }
 
   function bindQualityReviewEvents() {
     document.getElementById("archive-detail-quality-btn").addEventListener("click", () => {
       if (!selectedArchivePostId) return;
       runQualityReview(selectedArchivePostId);
-    });
-
-    document.getElementById("quality-review-close-btn").addEventListener("click", () => {
-      closePopup("popup-quality-review");
     });
 
     document.getElementById("quality-review-copy-btn").addEventListener("click", async () => {
@@ -599,6 +611,7 @@ const AppCore = (() => {
     document.getElementById("register-btn-row-fail").classList.add("hidden");
     document.getElementById("register-btn-row-pass").classList.add("hidden");
     document.getElementById("register-btn-row-done").classList.add("hidden");
+    document.getElementById("register-success-card").classList.add("hidden");
     document.getElementById("register-close-x-btn").classList.remove("hidden");
 
     GptUploadModule.reset();
@@ -651,6 +664,8 @@ const AppCore = (() => {
         result.seoResult && result.seoResult.issues && result.seoResult.issues.length > 0
           ? `SEO 참고 사항: ${result.seoResult.issues.join(", ")}`
           : "SEO 참고 사항이 없습니다.";
+      document.getElementById("register-success-card").classList.add("hidden");
+      document.getElementById("register-save-btn").disabled = false;
       showRegisterButtonRow("pass");
     } else {
       // SEO 미통과: 저장 버튼을 표시하지 않고 미통과 사유를 표시한다.
@@ -712,13 +727,17 @@ const AppCore = (() => {
     document.getElementById("register-revalidate-btn").addEventListener("click", runRegisterValidation);
     document.getElementById("register-revalidate-btn-2").addEventListener("click", runRegisterValidation);
 
-    document.getElementById("register-save-btn").addEventListener("click", async () => {
+    document.getElementById("register-save-btn").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true; // 중복 저장 방지: 응답 전에는 다시 누를 수 없게 즉시 비활성화
+
       const result = await ZipUploadModule.saveToArchive();
       if (result.success) {
         await refreshDashboard();
+        document.getElementById("register-success-card").classList.remove("hidden");
         showRegisterButtonRow("done");
-        alert("저장 완료되었습니다.");
       } else {
+        btn.disabled = false;
         alert("저장에 실패했습니다.");
       }
     });

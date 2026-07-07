@@ -50,7 +50,7 @@
         <button id="open-register-btn" class="desk-btn" type="button">📦 등록하기</button>
         <button id="open-archive-btn" class="desk-btn" type="button">📁 자료실</button>
         <button id="open-blogger-btn" class="desk-btn" type="button">🚀 블로그 등록하기</button>
-        <button id="copy-guideline-btn" class="dashboard-secondary-btn" type="button">GPT 지시서 복사</button>
+        <button id="copy-guideline-btn" class="desk-btn" type="button">📋 GPT 지시서 복사</button>
       </section>
     </main>
   </div>
@@ -99,6 +99,7 @@
             <button id="register-save-btn" class="btn btn--primary">저장</button>
           </div>
           <div class="notice-text">재검증은 현재 선택된 ZIP을 다시 검사합니다. 파일 선택창을 다시 열지 않습니다.</div>
+          <div id="register-success-card" class="register-success-card hidden">✅ 저장 완료</div>
           <div class="btn-row hidden" id="register-btn-row-done">
             <button id="register-goto-archive-btn" class="btn btn--primary btn--block">자료실에서 보기</button>
           </div>
@@ -194,27 +195,59 @@
 
       <div id="archive-detail-view" class="popup-panel__fixed hidden">
         <h3 id="archive-detail-title">제목</h3>
-        <div class="detail-row">
-          <span class="detail-row__label">상태</span>
-          <span id="archive-detail-status">-</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-row__label">수정일</span>
-          <span id="archive-detail-updated">-</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-row__label">SEO</span>
-          <span id="archive-detail-seo">-</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-row__label">이미지</span>
-          <span id="archive-detail-images">-</span>
+
+        <div class="archive-detail-scroll">
+          <div class="detail-row">
+            <span class="detail-row__label">상태</span>
+            <span id="archive-detail-status">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row__label">수정일</span>
+            <span id="archive-detail-updated">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row__label">SEO</span>
+            <span id="archive-detail-seo">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row__label">이미지</span>
+            <span id="archive-detail-images">-</span>
+          </div>
+
+          <!-- 품질검수 결과: 0.0.8부터 별도 팝업 대신 자료실 상세 내부 카드로 표시 -->
+          <div id="quality-review-panel" class="quality-review-panel hidden">
+            <div id="quality-review-status" class="card hidden">
+              <div class="card__label">품질 검수</div>
+              <div class="card__value" id="quality-review-status-value">품질검수 진행 중</div>
+            </div>
+
+            <div id="quality-review-result" class="hidden">
+              <div class="card">
+                <div class="card__label">품질 검수</div>
+                <div class="card__value" id="quality-review-score">-</div>
+              </div>
+              <div class="notice-text" id="quality-review-summary"></div>
+              <div class="section">
+                <div class="section-title">보완 항목</div>
+                <ul id="quality-review-issue-list" class="check-list check-list--capped"></ul>
+              </div>
+              <div class="btn-row">
+                <button id="quality-review-copy-btn" class="btn btn--primary btn--block">수정요청 복사</button>
+              </div>
+            </div>
+
+            <div id="quality-review-fail" class="hidden">
+              <div class="notice-text notice-text--warning">품질검수 요청에 실패했습니다.<br />잠시 후 다시 시도해주세요.</div>
+            </div>
+          </div>
         </div>
 
         <div class="btn-row">
           <button id="archive-detail-preview-btn" class="btn btn--primary">미리 보기</button>
           <button id="archive-detail-quality-btn" class="btn">품질 검수</button>
-          <button id="archive-detail-delete-btn" class="btn btn--danger">삭제 하기</button>
+        </div>
+        <div class="btn-row">
+          <button id="archive-detail-delete-btn" class="btn btn--danger btn--block">삭제 하기</button>
         </div>
         <button id="archive-detail-back-btn" class="btn btn--block" type="button">목록으로</button>
       </div>
@@ -366,41 +399,6 @@
           </div>
 
           <button id="blogger-detail-back-btn" class="btn btn--block" type="button">목록으로</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 팝업: 품질 검수 결과 (Gemini, 0.0.7 신규) - 기존 중앙 팝업 톤 재사용, 스크롤 없음 -->
-  <div id="popup-quality-review" class="popup-overlay">
-    <div class="popup-panel">
-      <div class="popup-panel__header">
-        <h2>품질 검수</h2>
-        <button id="quality-review-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
-      </div>
-      <div class="popup-panel__fixed">
-        <div id="quality-review-status" class="card">
-          <div class="card__label">상태</div>
-          <div class="card__value" id="quality-review-status-value">품질검수 진행 중</div>
-        </div>
-
-        <div id="quality-review-result" class="hidden">
-          <div class="card">
-            <div class="card__label">점수</div>
-            <div class="card__value" id="quality-review-score">-</div>
-          </div>
-          <div class="notice-text" id="quality-review-summary"></div>
-          <div class="section">
-            <div class="section-title">보완 항목</div>
-            <ul id="quality-review-issue-list" class="check-list check-list--capped"></ul>
-          </div>
-          <div class="btn-row">
-            <button id="quality-review-copy-btn" class="btn btn--primary btn--block">수정요청 복사</button>
-          </div>
-        </div>
-
-        <div id="quality-review-fail" class="hidden">
-          <div class="notice-text notice-text--warning">품질검수 요청에 실패했습니다.<br />잠시 후 다시 시도해주세요.</div>
         </div>
       </div>
     </div>
