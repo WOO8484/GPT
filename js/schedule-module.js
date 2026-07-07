@@ -16,8 +16,9 @@ const ScheduleModule = (() => {
     error: "오류",
   };
 
-  // 예약 가능한 상태값: 발행대기/검수중(레거시) + 등록완료/임시저장완료(repair1 신규 상태값)
-  const ALLOWED_SCHEDULE_STATUS = ["발행대기", "검수중", "등록완료", "임시저장완료"];
+  // 0.0.10 fix1: 예약 가능 기준도 SEO가 아니라 Gemini 품질검수 통과 기준으로 본다.
+  // 레거시 상태값은 기존 데이터 호환을 위해 최소 유지한다.
+  const ALLOWED_SCHEDULE_STATUS = ["품질검수 통과", "등록완료", "임시저장완료", "발행대기", "검수중"];
 
   let currentPost = null;
 
@@ -49,6 +50,12 @@ const ScheduleModule = (() => {
     return isPast ? "예약됨 (예약 시간 지남)" : "예약됨";
   }
 
+  function hasGeminiPass() {
+    if (!currentPost) return false;
+    if (currentPost.geminiReview && currentPost.geminiReview.status === "통과") return true;
+    return normalizeStatus(currentPost.status) === "품질검수 통과";
+  }
+
   function checkScheduleReadiness() {
     if (!currentPost) {
       return { canSchedule: false, reasons: ["선택된 글이 없습니다."] };
@@ -62,18 +69,19 @@ const ScheduleModule = (() => {
     const htmlOk = !!(currentPost.htmlContent && currentPost.htmlContent.trim());
     if (!htmlOk) reasons.push("HTML 본문이 없습니다.");
 
-    const seoOk = !!(currentPost.seoResult && currentPost.seoResult.result === "통과");
-    if (!seoOk) reasons.push("SEO 검수를 통과하지 못했습니다.");
+    const qualityOk = hasGeminiPass();
+    if (!qualityOk) reasons.push("Gemini 품질검수를 통과하지 못했습니다.");
 
     const normalizedStatus = normalizeStatus(currentPost.status);
     const statusOk = ALLOWED_SCHEDULE_STATUS.includes(normalizedStatus);
     if (!statusOk) reasons.push(`현재 상태(${currentPost.status})에서는 예약할 수 없습니다.`);
 
     return {
-      canSchedule: titleOk && htmlOk && seoOk && statusOk,
+      canSchedule: titleOk && htmlOk && qualityOk && statusOk,
       titleOk,
       htmlOk,
-      seoOk,
+      qualityOk,
+      seoOk: qualityOk,
       statusOk,
       reasons,
     };

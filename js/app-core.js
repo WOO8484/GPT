@@ -42,6 +42,14 @@ const AppCore = (() => {
     return "품질검수 전";
   }
 
+  // 0.0.10 fix1: 블로그 등록/예약 후보 판단은 더 이상 seoResult를 보지 않는다.
+  // Gemini 품질검수 통과 여부만 최종 품질 기준으로 사용한다.
+  function isQualityPassed(post) {
+    if (!post) return false;
+    if (post.geminiReview && post.geminiReview.status === "통과") return true;
+    return displayStatus(post.status) === "품질검수 통과";
+  }
+
   function generateId() {
     return "post_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
   }
@@ -1033,9 +1041,9 @@ const AppCore = (() => {
   function isBloggerEligible(post) {
     const titleOk = !!(post.title && post.title.trim());
     const htmlOk = !!(post.htmlContent && post.htmlContent.trim());
-    const seoOk = !!(post.seoResult && post.seoResult.result === "통과");
+    const qualityOk = isQualityPassed(post);
     const statusOk = !BLOGGER_FORBIDDEN_STATUS.includes(displayStatus(post.status));
-    return titleOk && htmlOk && seoOk && statusOk;
+    return titleOk && htmlOk && qualityOk && statusOk;
   }
 
   function showBloggerListView() {
@@ -1057,7 +1065,7 @@ const AppCore = (() => {
     if (eligible.length === 0) {
       const li = document.createElement("li");
       li.className = "check-item";
-      li.textContent = "블로그 등록 가능한 글이 없습니다. (제목/본문/SEO 통과 필요)";
+      li.textContent = "블로그 등록 가능한 글이 없습니다. (제목/본문/품질검수 통과 필요)";
       listEl.appendChild(li);
       return;
     }
@@ -1511,7 +1519,7 @@ const AppCore = (() => {
 
 const AppState = {
   version: "0.0.10",
-  build: "flow-check-gemini-auto",
+  build: "flow-check-gemini-auto-fix1",
 };
 
 document.addEventListener("DOMContentLoaded", () => {

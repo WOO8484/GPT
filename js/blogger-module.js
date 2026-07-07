@@ -68,6 +68,12 @@ const BloggerModule = (() => {
     );
   }
 
+  function hasGeminiPass() {
+    if (!currentPost) return false;
+    if (currentPost.geminiReview && currentPost.geminiReview.status === "통과") return true;
+    return normalizeStatus(currentPost.status) === "품질검수 통과";
+  }
+
   function checkPublishReadiness() {
     if (!currentPost) {
       return { canPublish: false, reasons: ["선택된 글이 없습니다."] };
@@ -81,18 +87,19 @@ const BloggerModule = (() => {
     const htmlOk = !!(currentPost.htmlContent && currentPost.htmlContent.trim());
     if (!htmlOk) reasons.push("HTML 본문이 없습니다.");
 
-    const seoOk = !!(currentPost.seoResult && currentPost.seoResult.result === "통과");
-    if (!seoOk) reasons.push("SEO 검수를 통과하지 못했습니다.");
+    const qualityOk = hasGeminiPass();
+    if (!qualityOk) reasons.push("Gemini 품질검수를 통과하지 못했습니다.");
 
     const normalizedStatus = normalizeStatus(currentPost.status);
     const statusOk = !FORBIDDEN_DRAFT_STATUS.includes(normalizedStatus);
     if (!statusOk) reasons.push(`현재 상태(${currentPost.status})에서는 블로그 등록을 할 수 없습니다.`);
 
     return {
-      canPublish: titleOk && htmlOk && seoOk && statusOk,
+      canPublish: titleOk && htmlOk && qualityOk && statusOk,
       titleOk,
       htmlOk,
-      seoOk,
+      qualityOk,
+      seoOk: qualityOk,
       statusOk,
       reasons,
     };
@@ -108,8 +115,8 @@ const BloggerModule = (() => {
       title: currentPost.title || "",
       html: safeHtml,
       labels: Array.isArray(currentPost.tags) ? currentPost.tags : [],
-      qualityScore: currentPost.seoResult && typeof currentPost.seoResult.totalScore === "number"
-        ? currentPost.seoResult.totalScore
+      qualityScore: currentPost.geminiReview && typeof currentPost.geminiReview.score === "number"
+        ? currentPost.geminiReview.score
         : 0,
     };
   }

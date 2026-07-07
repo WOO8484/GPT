@@ -21,7 +21,7 @@ const BackupModule = (() => {
       const payload = {
         exportFormat: "json", // 추후 zip 등 확장 대비 필드
         exportedAt: new Date().toISOString(),
-        version: "0.0.9",
+        version: "0.0.10",
         posts,
         errors,
       };

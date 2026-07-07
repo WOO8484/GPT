@@ -11,6 +11,9 @@
 const StatisticsModule = (() => {
   // repair1: 등록완료/임시저장완료/예약저장됨(신규 상태값) 추가. 기존 값은 호환 표시를 위해 유지한다.
   const STATUS_LIST = [
+    "품질검수 통과",
+    "품질검수 보완필요",
+    "품질검수 실패",
     "등록완료",
     "임시저장완료",
     "예약저장됨",
@@ -52,7 +55,7 @@ const StatisticsModule = (() => {
         statusCounts[s] = 0;
       });
 
-      let seoPassCount = 0;
+      let qualityPassCount = 0;
       let bloggerIssueCount = 0;
       let imageRegisteredCount = 0;
       let altMissingCount = 0;
@@ -62,8 +65,8 @@ const StatisticsModule = (() => {
           statusCounts[post.status] += 1;
         }
 
-        if (post.seoResult && post.seoResult.result === "통과") {
-          seoPassCount += 1;
+        if ((post.geminiReview && post.geminiReview.status === "통과") || post.status === "품질검수 통과") {
+          qualityPassCount += 1;
         }
 
         if (hasBloggerIssue(post)) {
@@ -103,7 +106,7 @@ const StatisticsModule = (() => {
         success: true,
         totalCount: posts.length,
         statusCounts,
-        seoPassCount,
+        qualityPassCount,
         waitingCount: statusCounts["발행대기"],
         scheduledCount: statusCounts["예약저장됨"] + statusCounts["예약됨"],
         publishedCount: statusCounts["발행완료"],
@@ -130,7 +133,7 @@ const StatisticsModule = (() => {
       const errors = ErrorLogModule.getAllErrors();
       const storageMode = StorageModule.getMode();
 
-      let seoPassCount = 0;
+      let qualityPassCount = 0;
       let altMissingExists = false;
       let dataUrlImageExists = false;
       let bloggerIssueExists = false;
@@ -140,7 +143,7 @@ const StatisticsModule = (() => {
       let legacyStatusExists = false;
 
       posts.forEach((post) => {
-        if (post.seoResult && post.seoResult.result === "통과") seoPassCount += 1;
+        if ((post.geminiReview && post.geminiReview.status === "통과") || post.status === "품질검수 통과") qualityPassCount += 1;
         if (hasMissingAlt(post)) altMissingExists = true;
         if (hasDataUrlImage(post)) dataUrlImageExists = true;
 
@@ -169,7 +172,7 @@ const StatisticsModule = (() => {
           verdict: storageMode ? "통과" : "오류",
         },
         { label: "자료실 글 수", detail: `${posts.length}개`, verdict: "통과" },
-        { label: "SEO 통과 글 수", detail: `${seoPassCount}개`, verdict: "통과" },
+        { label: "품질검수 통과 글 수", detail: `${qualityPassCount}개`, verdict: "통과" },
         {
           label: "이미지 ALT 누락 여부",
           detail: altMissingExists ? "누락된 글 있음" : "없음",
