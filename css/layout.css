@@ -281,7 +281,20 @@
 }
 
 /* repair2: 자료실은 목록 내부 영역에만 스크롤을 허용한다(상세보기 화면은 스크롤 없음). */
+/* repair(0.0.10): 등록 팝업 콘텐츠가 패키지 점검+Gemini 결과로 늘어나 화면 밖으로
+   밀리지 않도록, 헤더(X 버튼)는 고정하고 본문만 내부 스크롤되게 한다. */
+#popup-register .popup-panel__fixed {
+  display: flex;
+  flex-direction: column;
+}
+
 .archive-list-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.register-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;

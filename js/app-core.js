@@ -33,6 +33,15 @@ const AppCore = (() => {
     return STATUS_DISPLAY_OVERRIDE[mapped] || mapped;
   }
 
+  // 작업지시서 9: 점수 체계를 Gemini 품질검수 점수 하나로 통일한다("SEO 80점 통과" 같은 표시는 제거).
+  function buildQualityDisplayText(post) {
+    if (post.geminiReview && post.geminiReview.status) {
+      const scoreText = typeof post.geminiReview.score === "number" ? `${post.geminiReview.score}점` : "-";
+      return `품질검수 ${post.geminiReview.status} · ${scoreText}`;
+    }
+    return "품질검수 전";
+  }
+
   function generateId() {
     return "post_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
   }
@@ -184,11 +193,11 @@ const AppCore = (() => {
       titleEl.textContent = post.title || "(제목 없음)";
 
       const imgCount = Array.isArray(post.imageList) ? post.imageList.length : 0;
-      const seoText = post.seoResult && post.seoResult.result ? `SEO ${post.seoResult.result}` : "SEO 미검수";
+      const qualityText = buildQualityDisplayText(post);
 
       const metaEl = document.createElement("div");
       metaEl.className = "archive-item__meta";
-      metaEl.textContent = `${displayStatus(post.status)} · ${formatDate(post.updatedAt)} · ${seoText} · 이미지 ${imgCount}장`;
+      metaEl.textContent = `${displayStatus(post.status)} · ${formatDate(post.updatedAt)} · ${qualityText} · 이미지 ${imgCount}장`;
 
       itemEl.appendChild(titleEl);
       itemEl.appendChild(metaEl);
@@ -206,10 +215,7 @@ const AppCore = (() => {
     document.getElementById("archive-detail-title").textContent = post.title || "(제목 없음)";
     document.getElementById("archive-detail-status").textContent = displayStatus(post.status);
     document.getElementById("archive-detail-updated").textContent = formatDate(post.updatedAt);
-    document.getElementById("archive-detail-seo").textContent =
-      post.seoResult && post.seoResult.result
-        ? `${post.seoResult.result} (${post.seoResult.totalScore}점)`
-        : "미검수";
+    document.getElementById("archive-detail-seo").textContent = buildQualityDisplayText(post);
     const imgCount = Array.isArray(post.imageList) ? post.imageList.length : 0;
     document.getElementById("archive-detail-images").textContent = `${imgCount}장`;
 
@@ -483,7 +489,6 @@ const AppCore = (() => {
 
   let lastQualityReviewRewriteText = "";
   let qualityReviewTimerHandle = null;
-  let qualityReviewStartTime = null;
 
   function formatElapsedTime(ms) {
     const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -492,51 +497,32 @@ const AppCore = (() => {
     return `${mm}:${ss}`;
   }
 
-  function stopQualityReviewTimer() {
-    if (qualityReviewTimerHandle) {
-      clearInterval(qualityReviewTimerHandle);
-      qualityReviewTimerHandle = null;
-    }
-  }
-
-  function startQualityReviewTimer() {
-    stopQualityReviewTimer();
-    qualityReviewStartTime = Date.now();
-    const valueEl = document.getElementById("quality-review-status-value");
-    valueEl.textContent = "Gemini 품질검수 요청 중... 00:00";
-    qualityReviewTimerHandle = setInterval(() => {
-      valueEl.textContent = `Gemini 품질검수 요청 중... ${formatElapsedTime(Date.now() - qualityReviewStartTime)}`;
+  // repair(0.0.10): 자료실 상세와 등록 팝업이 동일한 타이머/단계 로직을 공유하도록 일반화.
+  function startElapsedTimer(valueElId, labelPrefix) {
+    const valueEl = document.getElementById(valueElId);
+    const startTime = Date.now();
+    valueEl.textContent = `${labelPrefix} 00:00`;
+    return setInterval(() => {
+      valueEl.textContent = `${labelPrefix} ${formatElapsedTime(Date.now() - startTime)}`;
     }, 1000);
   }
 
-  function setQualityReviewStage(stageLabel) {
-    document.getElementById("quality-review-stage-text").textContent = `단계: ${stageLabel}`;
+  function stopElapsedTimer(handle) {
+    if (handle) clearInterval(handle);
   }
 
-  function resetQualityReviewPanel() {
-    stopQualityReviewTimer();
-    document.getElementById("quality-review-panel").classList.add("hidden");
-    document.getElementById("quality-review-status").classList.add("hidden");
-    document.getElementById("quality-review-result").classList.add("hidden");
-    document.getElementById("quality-review-fail").classList.add("hidden");
+  function setStageText(elId, stageLabel) {
+    document.getElementById(elId).textContent = `단계: ${stageLabel}`;
   }
 
-  function showQualityReviewState(state) {
-    document.getElementById("quality-review-panel").classList.remove("hidden");
-    document.getElementById("quality-review-status").classList.toggle("hidden", state !== "loading");
-    document.getElementById("quality-review-result").classList.toggle("hidden", state !== "done");
-    document.getElementById("quality-review-fail").classList.toggle("hidden", state !== "fail");
-    if (state !== "loading") stopQualityReviewTimer();
-  }
-
-  function renderQualityReviewIssues(issues) {
-    const listEl = document.getElementById("quality-review-issue-list");
+  function renderIssueList(listElId, issues) {
+    const listEl = document.getElementById(listElId);
     listEl.innerHTML = "";
 
     if (!issues || issues.length === 0) {
       const li = document.createElement("li");
       li.className = "check-item";
-      li.textContent = "보완이 필요한 항목이 없습니다.";
+      li.textContent = "문제 항목이 없습니다.";
       listEl.appendChild(li);
       return;
     }
@@ -558,6 +544,60 @@ const AppCore = (() => {
     });
   }
 
+  // 작업지시서 6: Gemini 결과에는 개선내역(improvements)도 함께 표시한다.
+  function renderImprovementList(listElId, improvements) {
+    const listEl = document.getElementById(listElId);
+    listEl.innerHTML = "";
+
+    if (!improvements || improvements.length === 0) {
+      const li = document.createElement("li");
+      li.className = "check-item";
+      li.textContent = "개선내역이 없습니다.";
+      listEl.appendChild(li);
+      return;
+    }
+
+    improvements.forEach((item, idx) => {
+      const li = document.createElement("li");
+      li.className = "check-item";
+      const labelEl = document.createElement("span");
+      labelEl.textContent = `${idx + 1}. ${item}`;
+      li.appendChild(labelEl);
+      listEl.appendChild(li);
+    });
+  }
+
+  function buildGeminiFailDetailText(result) {
+    const reasonText = result.reason || "알 수 없는 오류";
+    return reasonText.includes("Gemini 품질검수 응답을 해석하지 못했습니다")
+      ? "Worker가 Gemini 원문 응답을 JSON으로 해석하지 못했습니다. 본문 전달값을 보정했으니 다시 품질검수를 눌러 확인하세요."
+      : `품질검수 요청에 실패했습니다. (${reasonText})`;
+  }
+
+  function setQualityReviewStage(stageLabel) {
+    setStageText("quality-review-stage-text", stageLabel);
+  }
+
+  function resetQualityReviewPanel() {
+    stopElapsedTimer(qualityReviewTimerHandle);
+    qualityReviewTimerHandle = null;
+    document.getElementById("quality-review-panel").classList.add("hidden");
+    document.getElementById("quality-review-status").classList.add("hidden");
+    document.getElementById("quality-review-result").classList.add("hidden");
+    document.getElementById("quality-review-fail").classList.add("hidden");
+  }
+
+  function showQualityReviewState(state) {
+    document.getElementById("quality-review-panel").classList.remove("hidden");
+    document.getElementById("quality-review-status").classList.toggle("hidden", state !== "loading");
+    document.getElementById("quality-review-result").classList.toggle("hidden", state !== "done");
+    document.getElementById("quality-review-fail").classList.toggle("hidden", state !== "fail");
+    if (state !== "loading") {
+      stopElapsedTimer(qualityReviewTimerHandle);
+      qualityReviewTimerHandle = null;
+    }
+  }
+
   async function runQualityReview(postId) {
     const post = ArchiveModule.getPostById(postId);
     if (!post) return;
@@ -567,17 +607,13 @@ const AppCore = (() => {
     triggerBtn.textContent = "검수 중...";
 
     showQualityReviewState("loading");
-    startQualityReviewTimer();
+    qualityReviewTimerHandle = startElapsedTimer("quality-review-status-value", "Gemini 품질검수 요청 중...");
     setQualityReviewStage("요청 준비");
 
     const result = await GeminiReviewModule.requestReview(post, null, setQualityReviewStage);
 
     if (!result.success) {
-      const reasonText = result.reason || "알 수 없는 오류";
-      const detailText = reasonText.includes("Gemini 품질검수 응답을 해석하지 못했습니다")
-        ? "Worker가 Gemini 원문 응답을 JSON으로 해석하지 못했습니다. 본문 전달값을 보정했으니 다시 품질검수를 눌러 확인하세요."
-        : `품질검수 요청에 실패했습니다. (${reasonText})`;
-      document.getElementById("quality-review-fail-reason").textContent = detailText;
+      document.getElementById("quality-review-fail-reason").textContent = buildGeminiFailDetailText(result);
       document.getElementById("quality-review-fail-url").textContent = result.url
         ? `호출 주소: ${result.url}`
         : "";
@@ -590,7 +626,8 @@ const AppCore = (() => {
     const review = result.review;
     document.getElementById("quality-review-score").textContent = `${review.score}점 (${review.status})`;
     document.getElementById("quality-review-summary").textContent = review.summary || "요약이 없습니다.";
-    renderQualityReviewIssues(review.issues);
+    renderIssueList("quality-review-issue-list", review.issues);
+    renderImprovementList("quality-review-improvement-list", review.improvements);
     lastQualityReviewRewriteText = GeminiReviewModule.buildRewriteRequestText(post, review);
     showQualityReviewState("done");
     triggerBtn.disabled = false;
@@ -623,54 +660,197 @@ const AppCore = (() => {
   }
 
   /* ============================================================
-     팝업: 등록하기 (ZIP 자동 업로드 + 검증 게이트 + 수동 업로드 보조)
-     repair2: ZIP 선택 즉시 자동 인식+검증을 실행하고, 결과는 가로 요약카드로만
-     표시한다(파일별 긴 목록은 노출하지 않음). 스크롤 금지 대상이므로 내용은
-     항상 화면 안에 들어오도록 유지한다.
+     팝업: 등록하기 (ZIP 업로드 → 패키지 점검 자동 실행 → Gemini 품질검수 자동 실행 → 사용자 판단)
+     0.0.10: 업로드 즉시 자료실에 저장하지 않는다. Gemini 결과 확인 후 사용자가
+     [자료실 저장]/[문제 있어도 보관]을 눌렀을 때만 저장한다.
+     기존 "재검증" 버튼은 삭제하고 [다시 업로드](새 ZIP 선택)/[다시 품질검수](같은 패키지로
+     Gemini만 재실행)로 분리했다. 패키지 점검은 ZIP 선택 즉시 자동 실행되므로 별도 버튼이 없다.
      ============================================================ */
 
-  let registerHasValidated = false;
+  let registerHasResult = false;
+  let registerGeminiTimerHandle = null;
+  let lastRegisterRewriteText = "";
+  let registerCurrentReview = null;
 
-  function showRegisterButtonRow(stage) {
-    document.getElementById("register-btn-row-fail").classList.toggle("hidden", stage !== "fail");
-    document.getElementById("register-btn-row-pass").classList.toggle("hidden", stage !== "pass");
-    document.getElementById("register-btn-row-done").classList.toggle("hidden", stage !== "done");
-    // 검증 통과 후 저장 대기 상태에서는 실수로 팝업을 닫아버리는 것을 막기 위해 X 닫기 버튼을 숨긴다.
-    document.getElementById("register-close-x-btn").classList.toggle("hidden", stage === "pass");
+  // stage: "none" | "package-fail" | "gemini-loading" | "gemini-pass" | "gemini-warn" | "gemini-call-fail" | "done"
+  function setRegisterStage(stage) {
+    const ids = [
+      "register-package-check",
+      "register-btn-row-package-fail",
+      "register-gemini-status",
+      "register-gemini-result",
+      "register-gemini-fail",
+      "register-btn-row-gemini-pass",
+      "register-btn-row-gemini-pass-2",
+      "register-btn-row-gemini-warn",
+      "register-btn-row-gemini-warn-2",
+      "register-btn-row-gemini-call-fail",
+      "register-common-actions",
+      "register-btn-row-done",
+    ];
+    ids.forEach((id) => document.getElementById(id).classList.add("hidden"));
+    document.getElementById("register-close-x-btn").classList.remove("hidden");
+
+    if (stage === "none") return;
+
+    document.getElementById("register-package-check").classList.remove("hidden");
+
+    if (stage === "package-fail") {
+      document.getElementById("register-btn-row-package-fail").classList.remove("hidden");
+      document.getElementById("register-common-actions").classList.remove("hidden");
+    } else if (stage === "gemini-loading") {
+      document.getElementById("register-gemini-status").classList.remove("hidden");
+    } else if (stage === "gemini-pass") {
+      document.getElementById("register-gemini-result").classList.remove("hidden");
+      document.getElementById("register-btn-row-gemini-pass").classList.remove("hidden");
+      document.getElementById("register-btn-row-gemini-pass-2").classList.remove("hidden");
+      document.getElementById("register-common-actions").classList.remove("hidden");
+      // 저장 판단 대기 중에는 실수로 팝업을 닫아버리는 것을 막기 위해 X를 숨긴다.
+      document.getElementById("register-close-x-btn").classList.add("hidden");
+    } else if (stage === "gemini-warn") {
+      document.getElementById("register-gemini-result").classList.remove("hidden");
+      document.getElementById("register-btn-row-gemini-warn").classList.remove("hidden");
+      document.getElementById("register-btn-row-gemini-warn-2").classList.remove("hidden");
+      document.getElementById("register-common-actions").classList.remove("hidden");
+      document.getElementById("register-close-x-btn").classList.add("hidden");
+    } else if (stage === "gemini-call-fail") {
+      document.getElementById("register-gemini-fail").classList.remove("hidden");
+      document.getElementById("register-btn-row-gemini-call-fail").classList.remove("hidden");
+      document.getElementById("register-common-actions").classList.remove("hidden");
+    } else if (stage === "done") {
+      document.getElementById("register-gemini-result").classList.remove("hidden");
+      document.getElementById("register-btn-row-done").classList.remove("hidden");
+    }
   }
 
-  function renderRegisterSummary(result) {
-    const summaryEl = document.getElementById("register-summary");
-    const failDetailEl = document.getElementById("register-fail-detail");
+  // 작업지시서 4: 패키지 점검은 SEO 점수가 아니라 정상/주의/실패 상태로만 표시한다.
+  function renderRegisterPackageCheck(result) {
+    document.getElementById("register-package-status-value").textContent = `패키지 점검: ${result.packageStatus}`;
 
-    summaryEl.classList.remove("hidden");
-    document.getElementById("register-summary-total").textContent = result.totalCount;
-    document.getElementById("register-summary-ok").textContent = result.okCount;
-    document.getElementById("register-summary-fail").textContent = result.failCount;
+    const advisoriesEl = document.getElementById("register-package-advisories");
+    const failDetailEl = document.getElementById("register-package-fail-detail");
 
-    if (result.failCount > 0) {
-      const firstFail = result.checklist.find((item) => !item.ok);
-      failDetailEl.textContent = `⚠️ 실패 ${result.failCount}개: ${firstFail ? firstFail.label + " 형식 오류" : "필수 항목 누락"}`;
+    if (!result.structureOk) {
+      const failedLabels = result.checklist.filter((item) => !item.ok).map((item) => item.label);
+      failDetailEl.textContent = `누락/실패 항목: ${failedLabels.join(", ")}`;
       failDetailEl.classList.remove("hidden");
+      advisoriesEl.classList.add("hidden");
+      advisoriesEl.textContent = "";
+      return;
+    }
+
+    failDetailEl.classList.add("hidden");
+    failDetailEl.textContent = "";
+
+    if (result.advisories && result.advisories.length > 0) {
+      advisoriesEl.textContent = `주의 항목: ${result.advisories.join(", ")}`;
+      advisoriesEl.classList.remove("hidden");
     } else {
-      failDetailEl.classList.add("hidden");
-      failDetailEl.textContent = "";
+      advisoriesEl.classList.add("hidden");
+      advisoriesEl.textContent = "";
+    }
+  }
+
+  // 패키지 점검 자체가 실패(구조 오류)한 경우 Gemini 없이 GPT에게 보낼 수정요청 문구를 만든다.
+  function buildPackageFailureRewriteText(checklist) {
+    const failedLabels = checklist
+      .filter((item) => !item.ok)
+      .map((item) => `- ${item.label}`)
+      .join("\n");
+    return (
+      `방금 업로드한 ZIP 패키지에서 아래 필수 항목이 인식되지 않았습니다.\n\n` +
+      `누락/인식 실패 항목:\n${failedLabels || "- 없음"}\n\n` +
+      `기존 제목과 주제는 유지하고,\n` +
+      `위 항목이 모두 포함되도록 ZIP 구조를 다시 만들어줘.\n` +
+      `파일명은 metadata.json, content.html, content.md, content.txt, thumbnail.(png/jpg/jpeg/webp), body-01~03.(png/jpg/jpeg/webp) 형식을 지켜줘.`
+    );
+  }
+
+  function mapGeminiStatusToSaveLabel(status) {
+    if (status === "통과") return "품질검수 통과";
+    if (status === "실패") return "품질검수 실패";
+    return "품질검수 보완필요";
+  }
+
+  // 작업지시서 3.2/5: 패키지 점검 → (정상/주의면) Gemini 품질검수 자동 실행.
+  function runRegisterPackageCheck() {
+    const result = ZipUploadModule.runValidation();
+    if (!result.success) {
+      alert("ZIP 파일을 먼저 선택해주세요.");
+      return;
+    }
+
+    registerHasResult = true;
+    renderRegisterPackageCheck(result);
+
+    if (!result.structureOk) {
+      lastRegisterRewriteText = buildPackageFailureRewriteText(result.checklist);
+      setRegisterStage("package-fail");
+      return;
+    }
+
+    runRegisterGeminiReview();
+  }
+
+  async function runRegisterGeminiReview() {
+    const post = ZipUploadModule.getValidatedPost();
+    if (!post) return;
+
+    setRegisterStage("gemini-loading");
+    registerGeminiTimerHandle = startElapsedTimer("register-gemini-status-value", "Gemini 품질검수 요청 중...");
+    setStageText("register-gemini-stage-text", "패키지 점검 완료");
+
+    const result = await GeminiReviewModule.requestReview(post, null, (stageLabel) =>
+      setStageText("register-gemini-stage-text", stageLabel)
+    );
+
+    stopElapsedTimer(registerGeminiTimerHandle);
+    registerGeminiTimerHandle = null;
+
+    if (!result.success) {
+      document.getElementById("register-gemini-fail-reason").textContent = buildGeminiFailDetailText(result);
+      document.getElementById("register-gemini-fail-url").textContent = result.url
+        ? `호출 주소: ${result.url}`
+        : "";
+      setRegisterStage("gemini-call-fail");
+      return;
+    }
+
+    const review = result.review;
+    registerCurrentReview = review;
+    document.getElementById("register-gemini-score").textContent = `${review.score}점 (${review.status})`;
+    document.getElementById("register-gemini-summary").textContent = review.summary || "요약이 없습니다.";
+    renderIssueList("register-gemini-issue-list", review.issues);
+    renderImprovementList("register-gemini-improvement-list", review.improvements);
+    lastRegisterRewriteText = GeminiReviewModule.buildRewriteRequestText(post, review);
+
+    setRegisterStage(review.status === "통과" ? "gemini-pass" : "gemini-warn");
+  }
+
+  async function handleRegisterSave(btn) {
+    btn.disabled = true; // 중복 저장 방지: 응답 전에는 다시 누를 수 없게 즉시 비활성화
+    const statusLabel = mapGeminiStatusToSaveLabel(registerCurrentReview ? registerCurrentReview.status : "");
+    const result = await ZipUploadModule.saveToArchive(statusLabel, registerCurrentReview);
+    if (result.success) {
+      await refreshDashboard();
+      document.getElementById("register-success-card").classList.remove("hidden");
+      setRegisterStage("done");
+    } else {
+      btn.disabled = false;
+      alert("저장에 실패했습니다.");
     }
   }
 
   function resetRegisterPopupUI() {
     ZipUploadModule.reset();
-    registerHasValidated = false;
+    registerHasResult = false;
+    registerCurrentReview = null;
+    stopElapsedTimer(registerGeminiTimerHandle);
+    registerGeminiTimerHandle = null;
     document.getElementById("zip-upload-input").value = "";
     renderUploadFileName("zip-upload-filename", null);
-    document.getElementById("register-summary").classList.add("hidden");
-    document.getElementById("register-fail-detail").classList.add("hidden");
-    document.getElementById("register-score-area").classList.add("hidden");
-    document.getElementById("register-btn-row-fail").classList.add("hidden");
-    document.getElementById("register-btn-row-pass").classList.add("hidden");
-    document.getElementById("register-btn-row-done").classList.add("hidden");
     document.getElementById("register-success-card").classList.add("hidden");
-    document.getElementById("register-close-x-btn").classList.remove("hidden");
+    setRegisterStage("none");
 
     GptUploadModule.reset();
     ["metadata", "html", "markdown", "text"].forEach((key) => {
@@ -688,55 +868,9 @@ const AppCore = (() => {
     openPopup("popup-register");
   }
 
-  // 검증 통과 후 저장 전(register-btn-row-pass 표시 중)인지 여부
+  // 저장 판단 대기(Gemini 결과 확인 후 아직 저장/폐기 전) 상태인지 여부
   function isRegisterAwaitingSave() {
-    return !document.getElementById("register-btn-row-pass").classList.contains("hidden");
-  }
-
-  function runRegisterValidation() {
-    const result = ZipUploadModule.runValidation();
-    if (!result.success) {
-      alert("ZIP 파일을 먼저 선택해주세요.");
-      return;
-    }
-
-    registerHasValidated = true;
-    renderRegisterSummary(result);
-
-    if (!result.structureOk) {
-      // 필수 파일/이미지 누락: 구조 검증 실패
-      document.getElementById("register-score-area").classList.add("hidden");
-      showRegisterButtonRow("fail");
-      return;
-    }
-
-    // 구조 검증은 통과했으므로 SEO 점수/판정은 항상 표시한다.
-    const scoreArea = document.getElementById("register-score-area");
-    scoreArea.classList.remove("hidden");
-    document.getElementById("register-score-value").textContent = result.seoResult
-      ? `${result.seoResult.totalScore}점 (${result.seoResult.result})`
-      : "-";
-
-    if (result.seoOk) {
-      document.getElementById("register-briefing").textContent =
-        result.seoResult && result.seoResult.issues && result.seoResult.issues.length > 0
-          ? `SEO 참고 사항: ${result.seoResult.issues.join(", ")}`
-          : "SEO 참고 사항이 없습니다.";
-      document.getElementById("register-success-card").classList.add("hidden");
-      document.getElementById("register-save-btn").disabled = false;
-      showRegisterButtonRow("pass");
-    } else {
-      // SEO 미통과: 저장 버튼을 표시하지 않고 미통과 사유를 표시한다.
-      const issuesText =
-        result.seoResult && result.seoResult.issues && result.seoResult.issues.length > 0
-          ? result.seoResult.issues.join(", ")
-          : "SEO 검수 기준을 충족하지 못했습니다.";
-      document.getElementById("register-briefing").textContent =
-        `현재 ${result.seoResult ? result.seoResult.totalScore : 0}점 / 수정 필요\n` +
-        `기준: 80점 이상 통과\n` +
-        `누락 항목: ${issuesText}`;
-      showRegisterButtonRow("fail");
-    }
+    return document.getElementById("register-close-x-btn").classList.contains("hidden");
   }
 
   function renderUploadCheckList() {
@@ -751,7 +885,7 @@ const AppCore = (() => {
 
   function bindRegisterEvents() {
     document.getElementById("register-close-x-btn").addEventListener("click", () => {
-      if (registerHasValidated && isRegisterAwaitingSave()) {
+      if (registerHasResult && isRegisterAwaitingSave()) {
         openPopup("popup-confirm-register-close");
         return;
       }
@@ -771,33 +905,69 @@ const AppCore = (() => {
       const file = e.target.files[0];
       await ZipUploadModule.setZipFile(file);
       renderUploadFileName("zip-upload-filename", file);
-      registerHasValidated = false;
-      document.getElementById("register-summary").classList.add("hidden");
-      document.getElementById("register-fail-detail").classList.add("hidden");
-      document.getElementById("register-score-area").classList.add("hidden");
-      showRegisterButtonRow("none");
-      // repair2: 사용자가 별도로 [검증하기]를 누르지 않도록 선택 즉시 자동 검증한다.
+      registerHasResult = false;
+      registerCurrentReview = null;
+      setRegisterStage("none");
+      // 작업지시서 3.2/8: ZIP 선택 즉시 패키지 점검이 자동 실행된다(별도 재검증 버튼 없음).
       if (file) {
-        runRegisterValidation();
+        runRegisterPackageCheck();
       }
     });
 
-    document.getElementById("register-revalidate-btn").addEventListener("click", runRegisterValidation);
-    document.getElementById("register-revalidate-btn-2").addEventListener("click", runRegisterValidation);
-
-    document.getElementById("register-save-btn").addEventListener("click", async (e) => {
-      const btn = e.currentTarget;
-      btn.disabled = true; // 중복 저장 방지: 응답 전에는 다시 누를 수 없게 즉시 비활성화
-
-      const result = await ZipUploadModule.saveToArchive();
-      if (result.success) {
-        await refreshDashboard();
-        document.getElementById("register-success-card").classList.remove("hidden");
-        showRegisterButtonRow("done");
-      } else {
-        btn.disabled = false;
-        alert("저장에 실패했습니다.");
+    document.getElementById("register-package-copy-btn").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(lastRegisterRewriteText);
+        alert("수정요청 문구를 클립보드에 복사했습니다.");
+      } catch (error) {
+        alert("복사에 실패했습니다.");
       }
+    });
+
+    [document.getElementById("register-gemini-copy-btn"), document.getElementById("register-gemini-copy-btn-warn")].forEach(
+      (btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(lastRegisterRewriteText);
+            alert("수정요청 문구를 클립보드에 복사했습니다.");
+          } catch (error) {
+            alert("복사에 실패했습니다.");
+          }
+        });
+      }
+    );
+
+    [document.getElementById("register-preview-btn"), document.getElementById("register-preview-btn-warn")].forEach(
+      (btn) => {
+        btn.addEventListener("click", () => {
+          const post = ZipUploadModule.getValidatedPost();
+          if (!post) {
+            alert("미리보기를 열 수 없습니다.");
+            return;
+          }
+          openPreviewPopup(post);
+        });
+      }
+    );
+
+    document.getElementById("register-gemini-retry-btn").addEventListener("click", () => {
+      runRegisterGeminiReview();
+    });
+
+    document.getElementById("register-reupload-btn").addEventListener("click", () => {
+      resetRegisterPopupUI();
+      document.getElementById("zip-upload-input").click();
+    });
+
+    document.getElementById("register-discard-btn").addEventListener("click", () => {
+      resetRegisterPopupUI();
+    });
+
+    document.getElementById("register-save-btn").addEventListener("click", (e) => {
+      handleRegisterSave(e.currentTarget);
+    });
+
+    document.getElementById("register-keep-anyway-btn").addEventListener("click", (e) => {
+      handleRegisterSave(e.currentTarget);
     });
 
     document.getElementById("register-goto-archive-btn").addEventListener("click", () => {
@@ -1089,6 +1259,8 @@ const AppCore = (() => {
 
   async function renderSettingsPanel() {
     document.getElementById("settings-version-value").textContent = `v${AppState.version}`;
+    document.getElementById("settings-build-value").textContent = AppState.build || "-";
+    document.getElementById("settings-version-worker-value").textContent = getWorkerBaseUrl();
 
     const statusEl = document.getElementById("settings-blogger-status");
     statusEl.textContent = "확인 중";
@@ -1170,6 +1342,8 @@ const AppCore = (() => {
 
     document.getElementById("open-settings-version-btn").addEventListener("click", () => {
       document.getElementById("settings-version-value").textContent = `v${AppState.version}`;
+      document.getElementById("settings-build-value").textContent = AppState.build || "-";
+      document.getElementById("settings-version-worker-value").textContent = getWorkerBaseUrl();
       openPopup("popup-settings-version");
     });
     document.getElementById("settings-version-close-btn").addEventListener("click", () => {
@@ -1336,7 +1510,8 @@ const AppCore = (() => {
 })();
 
 const AppState = {
-  version: "0.0.9",
+  version: "0.0.10",
+  build: "flow-check-gemini-auto",
 };
 
 document.addEventListener("DOMContentLoaded", () => {

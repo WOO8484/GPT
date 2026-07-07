@@ -2,6 +2,27 @@
 
 GPT 공작소 프로젝트의 모듈별 생성 이력을 기록합니다.
 
+## 0.0.10 - 업로드 → 패키지 점검 → Gemini 품질검수 자동 실행 → 사용자 판단 → 저장 흐름 재정리 - 2026-07-07
+
+새 모듈 없음. 흐름/표시 정리 위주로 6개 파일만 수정했다(로그인 인증, Blogger 저장/발행, 저장소 핵심 구조, ZIP 파싱 자체는 수정하지 않음).
+
+| 파일 | 변경 내용 | 상태 |
+|---|---|---|
+| js/zip-upload-module.js | `runValidation()`: SEO 통과 여부가 아니라 구조(필수 파일/이미지) 기준으로만 저장 가능 여부를 판단하도록 변경, `packageStatus`(정상/주의/실패) 추가. `getValidatedPost()` 신규(등록 팝업에서 저장 전 Gemini 품질검수에 사용). `saveToArchive(statusLabel, geminiReview)`: 상태 라벨과 Gemini 결과(점수 등)를 함께 저장하도록 확장 | 부분 수정 |
+| js/gemini-review-module.js | `parseGeminiResult()`에 `improvements`(개선내역) 파싱 추가(없으면 issues의 suggestion으로 대체 생성). `buildRewriteRequestText()`에서 "SEO 점수" 표현 제거, 개선내역 포함하도록 갱신 | 부분 수정 |
+| js/app-core.js | 등록 팝업 로직 전면 교체(패키지 점검 자동 실행 → Gemini 자동 실행 → 저장/수정요청/미리보기/다시업로드/다시품질검수/폐기/문제있어도보관). 자료실 카드/상세의 SEO 표시를 Gemini 품질검수 표시로 교체. 타이머/단계/이슈목록 렌더링 함수를 자료실·등록 팝업 공용으로 일반화. AppState에 build 필드 추가, 설정 화면에 빌드/Worker 주소 표시 추가 | 부분 수정 |
+| index.html | 등록 팝업 마크업 전면 교체(패키지 점검 카드, Gemini 진행/결과/실패 카드, 개선내역 목록, 새 버튼 그룹). 자료실 상세 라벨 SEO→품질검수. 설정 버전 정보 팝업에 빌드/Worker 행 추가. 로그인 화면 버전 v0.0.10 | 부분 수정 |
+| css/layout.css | 등록 팝업 전용 내부 스크롤(`.register-scroll`, 헤더 고정) 추가 | 부분 수정 |
+| version.json | 버전/빌드/설명 갱신 | 부분 수정 |
+
+### 이번 0.0.10에서 다루지 않은 기존 모듈
+- js/auth-module.js, js/worker-api-module.js, js/storage-module.js, js/archive-module.js, js/backup-module.js, js/seo-module.js(내부 계산 로직 자체는 무변경), js/error-log-module.js, js/gpt-upload-module.js, js/blogger-module.js, js/schedule-module.js, js/statistics-module.js, js/guideline-module.js, js/image-module.js, js/preview-module.js, js/vendor/zip-reader.js, css/base.css, css/components.css: 코드 수정 없음.
+
+### 참고
+- `seo-module.js`의 점수 계산 로직 자체는 그대로 유지된다. 0.0.10에서 바뀐 것은 "그 결과를 저장 가능 여부의 게이트로 쓰지 않는다"와 "화면에 숫자 점수를 노출하지 않는다" 두 가지뿐이다.
+- Blogger 등록 후보 목록 필터(`seoOk = post.seoResult.result === "통과"`)는 `seoResult`가 여전히 동일하게 계산되므로 기존과 동일하게 동작한다(별도 수정 없음).
+- 이번 작업은 `GPT_Gongjakso_0.0.9_fix2.zip`을 기준으로 진행했다(0.0.9 원본/fix1은 기준으로 사용하지 않음).
+
 ## 0.0.9 - 0.0.8 실기 잔여 문제 보정 + 버전 일치화 + Worker 연결 확인 - 2026-07-07
 
 새 모듈 없음. 표시/설정값 보정 위주로 7개 파일만 수정했다(css/base.css, css/layout.css 및 Blogger/Schedule/SEO/Storage/Archive 등 핵심 로직 파일은 수정하지 않음).

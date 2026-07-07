@@ -181,14 +181,20 @@ const ZipUploadModule = (() => {
     };
   }
 
-  // repair1: 검증하기 — 필수 파일(8종) 구조 검증 + SEO 검수를 함께 실행한다.
-  // 구조 검증에 실패하면(필수 파일/이미지 누락) 저장을 막고, 통과하면 검증된 임시 post를
-  // 저장해 두어 saveToArchive()가 같은 데이터로만 저장하도록 한다.
+  // repair(0.0.10): 패키지 점검은 SEO 점수 통과 여부가 아니라 구조(필수 파일/이미지) 기준으로만
+  // 실패를 판정한다. SEO 검수 결과는 "주의 항목"(advisories)으로만 취급하며, 구조가 정상이면
+  // 주의 항목이 있어도 저장/Gemini 품질검수 진행을 막지 않는다.
   function runValidation() {
     validatedPost = null;
 
     if (!loadedHtml && !loadedMarkdown && !loadedText) {
-      return { success: false, structureOk: false, checklist: [], reasons: ["ZIP 안에서 글 파일을 인식하지 못했습니다."] };
+      return {
+        success: false,
+        structureOk: false,
+        packageStatus: "실패",
+        checklist: [],
+        reasons: ["ZIP 안에서 글 파일을 인식하지 못했습니다."],
+      };
     }
 
     const checklist = [
@@ -216,17 +222,15 @@ const ZipUploadModule = (() => {
     const structureOk = failCount === 0;
 
     let seoResult = null;
+    let tempPost = null;
     if (structureOk) {
-      const tempPost = buildPostFromLoadedFiles();
+      tempPost = buildPostFromLoadedFiles();
       if (tempPost) {
         SeoModule.loadPost(tempPost);
         seoResult = SeoModule.runCheck();
         tempPost.seoResult = seoResult || {};
-        // SEO 판정이 "통과"일 때만 저장 대상으로 확정한다. 구조 검증만 통과하고
-        // SEO가 미통과인 경우 validatedPost를 세팅하지 않아 saveToArchive()가 저장을 거부한다.
-        if (seoResult && seoResult.result === "통과") {
-          validatedPost = tempPost;
-        }
+        // 구조 검증만 통과하면 저장/Gemini 품질검수 대상으로 확정한다(SEO는 더 이상 저장 가능 여부의 기준이 아님).
+        validatedPost = tempPost;
       }
     } else {
       ErrorLogModule.logError({
@@ -237,19 +241,24 @@ const ZipUploadModule = (() => {
       });
     }
 
-    const seoOk = !!(seoResult && seoResult.result === "통과");
+    const advisories = seoResult && Array.isArray(seoResult.issues) ? seoResult.issues : [];
+    const packageStatus = !structureOk ? "실패" : advisories.length > 0 ? "주의" : "정상";
 
     return {
       success: true,
       structureOk,
-      seoOk,
-      passed: structureOk && seoOk,
+      packageStatus,
+      advisories,
       checklist,
       totalCount: checklist.length,
       okCount,
       failCount,
       seoResult,
     };
+  }
+
+  function getValidatedPost() {
+    return validatedPost;
   }
 
   function buildFallbackTitle() {
@@ -325,9 +334,10 @@ const ZipUploadModule = (() => {
     return post;
   }
 
-  // repair1: 검증하기(runValidation)를 통과해야만 저장할 수 있다. 검증 전/검증 실패 상태에서는
-  // 저장하지 않는다. 저장 시 기본 상태값은 "등록완료"로 한다.
-  async function saveToArchive() {
+  // repair(0.0.10): 저장 시 상태값을 Gemini 품질검수 결과에 맞춰 표시한다.
+  // statusLabel을 넘기지 않으면 기존과 동일하게 "등록완료"로 저장된다(하위 호환 유지).
+  // geminiReview를 넘기면 자료실 카드에 "품질검수 통과 · 85점" 형태로 표시할 수 있도록 함께 저장한다.
+  async function saveToArchive(statusLabel, geminiReview) {
     if (!validatedPost) {
       ErrorLogModule.logError({
         module: "zip-upload-module",
@@ -339,7 +349,15 @@ const ZipUploadModule = (() => {
     }
 
     const post = validatedPost;
-    post.status = "등록완료";
+    post.status = statusLabel || "등록완료";
+    if (geminiReview) {
+      post.geminiReview = {
+        status: geminiReview.status || "",
+        score: typeof geminiReview.score === "number" ? geminiReview.score : null,
+        summary: geminiReview.summary || "",
+        checkedAt: new Date().toISOString(),
+      };
+    }
 
     try {
       await StorageModule.savePost(post);
@@ -373,6 +391,7 @@ const ZipUploadModule = (() => {
     setZipFile,
     getCheckStatus,
     runValidation,
+    getValidatedPost,
     saveToArchive,
     reset,
   };

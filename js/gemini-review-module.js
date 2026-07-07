@@ -109,11 +109,19 @@ const GeminiReviewModule = (() => {
       throw new Error("품질검수 응답 형식이 올바르지 않습니다.");
     }
 
+    const issues = Array.isArray(data.issues) ? data.issues : [];
+    // 작업지시서 11: improvements가 없으면 issues의 suggestion으로 개선내역을 만들어 표시한다.
+    let improvements = Array.isArray(data.improvements) ? data.improvements.filter(Boolean) : [];
+    if (improvements.length === 0 && issues.length > 0) {
+      improvements = issues.map((issue) => issue.suggestion).filter(Boolean);
+    }
+
     return {
       status: data.status || "보완필요",
       score: typeof data.score === "number" ? data.score : 0,
       summary: data.summary || "",
-      issues: Array.isArray(data.issues) ? data.issues : [],
+      issues,
+      improvements,
       rewriteRequest: data.rewriteRequest || "",
     };
   }
@@ -189,10 +197,11 @@ const GeminiReviewModule = (() => {
     }
   }
 
-  // 작업지시서 12: 공작소 SEO 검증 + Gemini 검수 결과를 합쳐 GPT에게 다시 전달할 수정요청 문구를 만든다.
+  // 작업지시서 12: 패키지 점검(구조/주의 항목) + Gemini 검수 결과를 합쳐 GPT에게 다시 전달할
+  // 수정요청 문구를 만든다. "SEO 점수" 같은 명칭은 노출하지 않는다.
   function buildRewriteRequestText(post, review) {
     const seoResult = post.seoResult || {};
-    const seoIssues =
+    const advisories =
       Array.isArray(seoResult.issues) && seoResult.issues.length > 0
         ? seoResult.issues.map((issue) => `- ${issue}`).join("\n")
         : "- 없음";
@@ -200,15 +209,20 @@ const GeminiReviewModule = (() => {
       Array.isArray(review.issues) && review.issues.length > 0
         ? review.issues.map((issue) => `- ${issue.message || issue.suggestion || ""}`).join("\n")
         : "- 없음";
+    const improvementsText =
+      Array.isArray(review.improvements) && review.improvements.length > 0
+        ? review.improvements.map((item, idx) => `${idx + 1}. ${item}`).join("\n")
+        : "- 없음";
     const rewriteHint = review.rewriteRequest ? `\n${review.rewriteRequest}\n` : "";
 
     return (
       `방금 생성한 블로그 ZIP을 검증한 결과 아래 항목 보완이 필요합니다.\n\n` +
-      `공작소 검증:\n` +
-      `- SEO 점수: ${seoResult.totalScore != null ? seoResult.totalScore : "-"}점 / 기준 80점\n` +
-      `${seoIssues}\n\n` +
-      `Gemini 품질검수:\n` +
-      `${geminiIssues}\n` +
+      `패키지 점검 주의 항목:\n` +
+      `${advisories}\n\n` +
+      `Gemini 품질검수 문제 항목:\n` +
+      `${geminiIssues}\n\n` +
+      `개선내역:\n` +
+      `${improvementsText}\n` +
       `${rewriteHint}\n` +
       `기존 제목과 주제는 유지하고,\n` +
       `위 항목만 보완해서 다시 통과 가능한 ZIP으로 만들어줘.\n` +

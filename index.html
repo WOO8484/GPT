@@ -23,7 +23,7 @@
       <div id="login-error" class="login-error hidden"></div>
       <button id="login-btn" class="btn btn--primary btn--block">입장하기</button>
     </div>
-    <div class="login-version">v0.0.9</div>
+    <div class="login-version">v0.0.10</div>
   </div>
 
   <!-- 메인 앱: 로그인 성공 전에는 hidden 상태로 유지된다 -->
@@ -63,6 +63,7 @@
         <button id="register-close-x-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
       </div>
       <div class="popup-panel__fixed">
+        <div class="register-scroll">
         <div class="section">
           <p class="upload-desc">GPT 공작소 자료 패키지 ZIP 파일 1개를 선택하세요. 선택 즉시 자동으로 인식/검증됩니다.</p>
           <label for="zip-upload-input" class="upload-drop-zone">ZIP 파일 선택</label>
@@ -75,30 +76,71 @@
           <div id="zip-upload-filename" class="upload-filename">선택된 파일 없음</div>
         </div>
 
-        <div id="register-summary" class="register-summary hidden">
-          <div class="register-summary__item">📦 전체 <span id="register-summary-total">0</span>개</div>
-          <div class="register-summary__item">✅ 정상 <span id="register-summary-ok">0</span>개</div>
-          <div class="register-summary__item">⚠️ 실패 <span id="register-summary-fail">0</span>개</div>
-        </div>
-        <div id="register-fail-detail" class="register-summary__fail-detail hidden"></div>
-
-        <div id="register-score-area" class="section hidden">
+        <div id="register-package-check" class="section hidden">
           <div class="card">
-            <div class="card__label">검증 점수</div>
-            <div class="card__value" id="register-score-value">-</div>
+            <div class="card__label">패키지 점검</div>
+            <div class="card__value" id="register-package-status-value">-</div>
           </div>
-          <div id="register-briefing" class="notice-text"></div>
+          <div id="register-package-advisories" class="notice-text hidden"></div>
+          <div id="register-package-fail-detail" class="notice-text notice-text--warning hidden"></div>
+          <div class="btn-row hidden" id="register-btn-row-package-fail">
+            <button id="register-package-copy-btn" class="btn btn--primary btn--block">수정요청 복사</button>
+          </div>
+        </div>
+
+        <div id="register-gemini-status" class="card hidden">
+          <div class="card__label">품질 검수</div>
+          <div class="card__value" id="register-gemini-status-value">Gemini 품질검수 요청 중... 00:00</div>
+          <div class="notice-text" id="register-gemini-stage-text">단계: 패키지 점검 완료</div>
+        </div>
+
+        <div id="register-gemini-result" class="section hidden">
+          <div class="card">
+            <div class="card__label">품질 검수</div>
+            <div class="card__value" id="register-gemini-score">-</div>
+          </div>
+          <div class="notice-text" id="register-gemini-summary"></div>
+          <div class="section">
+            <div class="section-title">문제 항목</div>
+            <ul id="register-gemini-issue-list" class="check-list check-list--capped"></ul>
+          </div>
+          <div class="section">
+            <div class="section-title">개선내역</div>
+            <ul id="register-gemini-improvement-list" class="check-list check-list--capped"></ul>
+          </div>
+
+          <div class="btn-row quality-review-actions hidden" id="register-btn-row-gemini-pass">
+            <button id="register-save-btn" class="btn btn--primary">자료실 저장</button>
+            <button id="register-gemini-copy-btn" class="btn">수정요청 복사</button>
+          </div>
+          <div class="btn-row hidden" id="register-btn-row-gemini-pass-2">
+            <button id="register-preview-btn" class="btn btn--block">미리 보기</button>
+          </div>
+
+          <div class="btn-row quality-review-actions hidden" id="register-btn-row-gemini-warn">
+            <button id="register-gemini-copy-btn-warn" class="btn btn--primary">수정요청 복사</button>
+            <button id="register-preview-btn-warn" class="btn">미리 보기</button>
+          </div>
+          <div class="btn-row hidden" id="register-btn-row-gemini-warn-2">
+            <button id="register-keep-anyway-btn" class="btn btn--block">문제 있어도 보관</button>
+          </div>
+        </div>
+
+        <div id="register-gemini-fail" class="section hidden">
+          <div class="notice-text notice-text--warning" id="register-gemini-fail-reason"></div>
+          <div class="notice-text" id="register-gemini-fail-url"></div>
+          <div class="btn-row hidden" id="register-btn-row-gemini-call-fail">
+            <button id="register-gemini-retry-btn" class="btn btn--primary btn--block">다시 품질검수</button>
+          </div>
+        </div>
+
+        <div class="btn-row quality-review-actions hidden" id="register-common-actions">
+          <button id="register-reupload-btn" class="btn">다시 업로드</button>
+          <button id="register-discard-btn" class="btn">폐기</button>
         </div>
 
         <div class="section">
-          <div class="btn-row hidden" id="register-btn-row-fail">
-            <button id="register-revalidate-btn" class="btn btn--primary btn--block">재검증</button>
-          </div>
-          <div class="btn-row hidden" id="register-btn-row-pass">
-            <button id="register-revalidate-btn-2" class="btn">재검증</button>
-            <button id="register-save-btn" class="btn btn--primary">저장</button>
-          </div>
-          <div class="notice-text">재검증은 현재 선택된 ZIP을 다시 검사합니다. 파일 선택창을 다시 열지 않습니다.</div>
+          <div class="notice-text">파일을 선택하면 패키지 점검이 자동 실행되고, 문제가 없으면 Gemini 품질검수가 이어서 자동 실행됩니다.</div>
           <div id="register-success-card" class="register-success-card hidden">✅ 저장 완료</div>
           <div class="btn-row hidden" id="register-btn-row-done">
             <button id="register-goto-archive-btn" class="btn btn--primary btn--block">자료실에서 보기</button>
@@ -155,6 +197,7 @@
           </div>
         </div>
       </div>
+      </div>
     </div>
   </div>
 
@@ -206,7 +249,7 @@
             <span id="archive-detail-updated">-</span>
           </div>
           <div class="detail-row">
-            <span class="detail-row__label">SEO</span>
+            <span class="detail-row__label">품질검수</span>
             <span id="archive-detail-seo">-</span>
           </div>
           <div class="detail-row">
@@ -229,8 +272,12 @@
               </div>
               <div class="notice-text" id="quality-review-summary"></div>
               <div class="section">
-                <div class="section-title">보완 항목</div>
+                <div class="section-title">문제 항목</div>
                 <ul id="quality-review-issue-list" class="check-list check-list--capped"></ul>
+              </div>
+              <div class="section">
+                <div class="section-title">개선내역</div>
+                <ul id="quality-review-improvement-list" class="check-list check-list--capped"></ul>
               </div>
               <div class="btn-row">
                 <button id="quality-review-copy-btn" class="btn btn--primary btn--block">수정요청 복사</button>
@@ -505,8 +552,17 @@
         <h2>버전 정보</h2>
         <button id="settings-version-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
       </div>
-      <div class="card">
-        <div class="card__value" id="settings-version-value">-</div>
+      <div class="detail-row">
+        <span class="detail-row__label">버전</span>
+        <span id="settings-version-value">-</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-row__label">빌드</span>
+        <span id="settings-build-value">-</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-row__label">Worker</span>
+        <span id="settings-version-worker-value">-</span>
       </div>
     </div>
   </div>
