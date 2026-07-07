@@ -158,6 +158,108 @@ const BloggerModule = (() => {
     };
   }
 
+
+  // imgtest(0.0.10): Blogger가 dataUrl 이미지를 본문에 유지/표시할 수 있는지 확인하기 위한
+  // 최소 실증 테스트 전용 함수다. 기존 일반 임시저장(saveDraftToBlogger)은 그대로 두며,
+  // 이 함수는 stripNonHttpImages()를 거치지 않고 imageList의 첫 번째 dataUrl 이미지를
+  // 테스트 본문에 직접 삽입해 /blogger/draft로 보낸다. 성공/실패 판정은 실제 Blogger
+  // 관리자와 모바일/PC 화면에서 이미지가 표시되는지 사용자가 확인해야 한다.
+  function escapeHtmlText(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function getFirstDataUrlImage() {
+    if (!currentPost || !Array.isArray(currentPost.imageList)) return null;
+    return currentPost.imageList.find(
+      (img) => img && typeof img.dataUrl === "string" && img.dataUrl.indexOf("data:image/") === 0
+    ) || null;
+  }
+
+  function canRunImageDraftTest() {
+    const readiness = checkPublishReadiness();
+    const image = getFirstDataUrlImage();
+    const reasons = [];
+    if (!readiness.canPublish) reasons.push(...readiness.reasons);
+    if (!image) reasons.push("dataUrl 형식의 테스트 이미지가 없습니다. ZIP 업로드 후 이미지가 포함된 글을 선택해주세요.");
+    return {
+      canTest: readiness.canPublish && !!image,
+      image,
+      reasons,
+    };
+  }
+
+  function buildImageDraftTestPayload(image) {
+    const title = `[이미지 테스트] ${currentPost.title || "Blogger 이미지 포함 임시저장"}`;
+    const nowText = new Date().toLocaleString("ko-KR");
+    const altText = escapeHtmlText(image.altText || image.fileName || currentPost.title || "테스트 이미지");
+    const fileName = escapeHtmlText(image.fileName || "이미지 파일명 없음");
+    const dataUrl = image.dataUrl;
+
+    const html = `
+      <h2>Blogger 이미지 포함 임시저장 테스트</h2>
+      <p>이 글은 GPT 공작소 이미지 포함 임시저장 실증 테스트용 초안입니다.</p>
+      <p>확인 항목: 아래 이미지가 Blogger 관리자, 모바일 화면, PC 화면에서 모두 정상 표시되는지 확인합니다.</p>
+      <figure>
+        <img src="${dataUrl}" alt="${altText}" style="max-width:100%;height:auto;display:block;margin:16px auto;border-radius:12px;" />
+        <figcaption>테스트 이미지: ${fileName}</figcaption>
+      </figure>
+      <p>테스트 생성 시각: ${escapeHtmlText(nowText)}</p>
+      <p>이 초안에서 이미지가 보이면 dataUrl 이미지가 Blogger 임시저장 본문에 유지되는 것입니다. 이미지가 보이지 않거나 깨지면 Blogger 자체 이미지 저장 또는 외부 이미지 저장소 변환이 필요합니다.</p>
+    `.trim();
+
+    return {
+      title,
+      html,
+      labels: ["GPT공작소", "이미지테스트"],
+      qualityScore: 0,
+    };
+  }
+
+  async function saveImageDraftTestToBlogger() {
+    if (!currentPost) {
+      return { success: false, reasons: ["선택된 글이 없습니다."] };
+    }
+
+    const testReady = canRunImageDraftTest();
+    if (!testReady.canTest) {
+      ErrorLogModule.logError({
+        module: "blogger-module",
+        message: "이미지 테스트 조건 미충족",
+        detail: testReady.reasons.join(" / "),
+        relatedId: currentPost.id,
+      });
+      return { success: false, reasons: testReady.reasons };
+    }
+
+    const payload = buildImageDraftTestPayload(testReady.image);
+    const result = await WorkerApiModule.saveBloggerDraft(payload);
+
+    if (!result.ok) {
+      const reason = (result.result && result.result.message) || result.error || "이미지 테스트 임시저장 실패";
+      ErrorLogModule.logError({
+        module: "blogger-module",
+        message: "이미지 테스트 임시저장 실패",
+        detail: reason,
+        relatedId: currentPost.id,
+      });
+      return { success: false, reasons: [reason] };
+    }
+
+    const r = result.result || {};
+    return {
+      success: true,
+      result: r,
+      postId: r.postId || r.id || null,
+      url: r.url || null,
+      message: "이미지 테스트 초안 저장 완료. Blogger 관리자에서 이미지 표시 여부를 확인해주세요.",
+    };
+  }
+
   // 블로그 임시 저장 — Worker의 /blogger/draft만 호출한다. 실제 발행(즉시 공개) 경로는
   // 이번 repair의 Worker에 없으므로 만들지 않는다.
   async function saveDraftToBlogger() {
@@ -259,5 +361,7 @@ const BloggerModule = (() => {
     hasDataUrlImages,
     checkPublishReadiness,
     saveDraftToBlogger,
+    canRunImageDraftTest,
+    saveImageDraftTestToBlogger,
   };
 })();

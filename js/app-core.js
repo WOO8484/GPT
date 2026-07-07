@@ -1481,9 +1481,14 @@ const AppCore = (() => {
     ScheduleModule.loadPost(post);
 
     document.getElementById("blogger-detail-title").textContent = post.title || "(제목 없음)";
+    const hasDataUrlImage = BloggerModule.hasDataUrlImages();
     document
       .getElementById("blogger-image-warning")
-      .classList.toggle("hidden", !BloggerModule.hasDataUrlImages());
+      .classList.toggle("hidden", !hasDataUrlImage);
+    const imageTestGuide = document.getElementById("blogger-image-test-guide");
+    if (imageTestGuide) imageTestGuide.classList.toggle("hidden", !hasDataUrlImage);
+    const imageTestBtn = document.getElementById("blogger-image-test-btn");
+    if (imageTestBtn) imageTestBtn.disabled = !hasDataUrlImage;
     document.getElementById("blogger-schedule-datetime").value = getDefaultScheduleDatetimeLocal();
     resetBloggerResultCard();
 
@@ -1540,6 +1545,41 @@ const AppCore = (() => {
         },
       });
     });
+
+    const bloggerImageTestBtn = document.getElementById("blogger-image-test-btn");
+    if (bloggerImageTestBtn) {
+      bloggerImageTestBtn.addEventListener("click", (e) => {
+        const btn = e.currentTarget;
+        showConfirmAction({
+          icon: "🖼️",
+          title: "이미지 1장 테스트 임시저장",
+          desc: "선택 글의 첫 번째 이미지를 dataUrl 그대로 넣어 별도 테스트 초안을 만듭니다. 저장 후 Blogger 관리자에서 이미지가 보이는지 확인해야 합니다.",
+          confirmText: "이미지 테스트",
+          danger: false,
+          onConfirm: async () => {
+            btn.disabled = true;
+            resetBloggerResultCard();
+            try {
+              const result = await BloggerModule.saveImageDraftTestToBlogger();
+              if (result.success) {
+                const urlText = result.url ? "\nURL: " + result.url : "";
+                showBloggerResult(
+                  "success",
+                  "이미지 테스트 초안 저장 완료\nBlogger 관리자 임시글에서 이미지가 실제로 보이는지 확인해주세요." + urlText
+                );
+              } else {
+                showBloggerResult(
+                  "fail",
+                  "이미지 테스트 실패\n사유: " + (result.reasons ? result.reasons.join(", ") : "알 수 없는 오류")
+                );
+              }
+            } finally {
+              btn.disabled = !BloggerModule.hasDataUrlImages();
+            }
+          },
+        });
+      });
+    }
 
     document.getElementById("blogger-schedule-btn").addEventListener("click", () => {
       const value = document.getElementById("blogger-schedule-datetime").value;
