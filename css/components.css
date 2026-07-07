@@ -36,6 +36,27 @@
   cursor: not-allowed;
 }
 
+/* v1.3: 메인 저장 버튼보다 덜 강조되는 보조 버튼(블로그 지시서 복사 등) */
+.btn--ghost {
+  background-color: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-soft);
+}
+
+.btn--ghost:active {
+  background-color: var(--color-bg-soft);
+}
+
+/* v1.3: 게시판 데이터 초기화 등 되돌릴 수 없는 동작에 사용하는 강조 버튼 */
+.btn--danger {
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.btn--danger:active {
+  background-color: #f7d7d3;
+}
+
 /* v1.2: 패널 헤더 안에 들어가는 작은 보조 버튼(전체 게시판 등) */
 .panel-header-btn {
   flex-shrink: 0;
@@ -116,6 +137,13 @@
 
 .file-input-label:active {
   opacity: 0.85;
+}
+
+/* v1.3: 설정창 안의 작은 파일 선택 버튼(TXT 지시서 불러오기) */
+.settings-file-label {
+  min-height: 44px;
+  font-size: 14px;
+  margin-bottom: 10px;
 }
 
 .upload-filename {
@@ -416,4 +444,47 @@
   font-size: 11px;
   color: var(--color-text-soft);
   margin-top: 2px;
+}
+
+/* ---------- v1.3: 설정 팝업 구획 ---------- */
+.settings-section {
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-section > .btn,
+.settings-section > .settings-file-label {
+  margin-bottom: 8px;
+}
+
+.settings-section > .btn:last-child,
+.settings-section > p:last-child {
+  margin-bottom: 0;
+}
+
+.settings-section--last {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+/* v1.3: 설정창 "오류 목록" 섹션의 최근 오류 미니 목록. 오류 목록 팝업(error-item)과
+   같은 시각 언어를 쓰되 카드 형태로 묶어 구분감을 준다. */
+.error-list-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.error-list-compact .error-item {
+  border: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.error-list-compact .archive-item--empty {
+  padding: 16px 12px;
 }

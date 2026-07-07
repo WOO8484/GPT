@@ -109,18 +109,12 @@
   gap: 4px;
 }
 
-/* ---------- v1.2: 보조 기능 버튼 줄(블로그 지시서 복사 등) ----------
-   업로드/게시판/블로그 저장 작업대(.workbench)와는 별도 영역이라 grid 배치에
-   영향을 주지 않는다. */
-.quick-actions {
-  flex-shrink: 0;
-  padding: 10px 10px 0;
-}
-
-/* ---------- 작업대: 업로드 / 게시판 / Blogger 저장을 한 화면에 통합 ----------
+/* ---------- 작업대: 업로드 / 게시판 / 블로그 저장을 한 화면에 통합 ----------
    전체 페이지는 스크롤되지 않는다. 패널 내부(.panel__body--scroll)만 스크롤된다.
    모바일: 세로 카드형(위→아래). PC(min-width:860px): 좌/중/우 3열 패널형.
-   v1.2: 독립 미리보기 패널은 제거하고 게시판 글 클릭 시 미리보기 팝업으로 흡수했다. */
+   v1.3: 게시판 기본 화면은 최신 글 1개만 표시하도록 정리해 높이를 줄이고,
+   블로그 저장 영역이 남은 공간을 차지하도록 재배분했다(하단 버튼/상태 잘림 방지).
+   블로그 지시서 복사 버튼은 블로그 저장 영역 안 보조 버튼으로 옮겼다. */
 .workbench {
   flex: 1;
   min-height: 0;
@@ -175,20 +169,39 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* 모바일: 패널마다 화면 비율을 나눠 갖고, 넘치는 내용은 패널 내부에서만 스크롤
-   v1.2: 독립 미리보기 패널을 제거하면서 그 비중을 게시판(panel--library) 쪽으로 옮겼다. */
-.panel--upload {
-  flex: 1.1 1 0;
-}
-.panel--library {
-  flex: 3 1 0;
-}
-.panel--save {
-  flex: 1.8 1 0;
+/* v1.3: 블로그 저장 패널 내부. save-body-scroll(선택 글 상태/저장 버튼/진행 목록)만
+   내부 스크롤되고, 그 아래 블로그 지시서 복사 보조 버튼은 항상 고정 노출된다. */
+.save-body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* PC: 좌(업로드/블로그 저장) - 우(게시판) 2열 패널형
-   v1.2: 미리보기 열을 제거하고 게시판이 남은 공간을 차지하도록 정리했다. */
+.panel--save .panel__body {
+  gap: 10px;
+}
+
+.panel--save #prompt-copy-open-btn {
+  flex-shrink: 0;
+}
+
+/* 모바일: 업로드/게시판은 내용만큼만 높이를 차지하고(고정 크기), 블로그 저장이
+   남은 공간을 모두 채운다. v1.3: 게시판 기본 화면이 최신 글 1개만 표시하므로
+   더 이상 큰 비율을 배분할 필요가 없다 - 이 재배분이 "블로그 저장 버튼/상태
+   영역이 완전히 보이지 않는" 문제의 핵심 수정이다. */
+.panel--upload {
+  flex: 0 0 auto;
+}
+.panel--library {
+  flex: 0 0 auto;
+}
+.panel--save {
+  flex: 1 1 0;
+  min-height: 220px;
+}
+
+/* PC: 좌(업로드/게시판) - 우(블로그 저장) 2열 패널형 */
 @media (min-width: 860px) {
   .app-container {
     max-width: 900px;
@@ -197,10 +210,10 @@
   .workbench {
     display: grid;
     grid-template-columns: 300px minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
-      "upload  library"
-      "save    library";
+      "upload  save"
+      "library save";
   }
 
   .panel--upload {
@@ -248,7 +261,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .popup-panel__header h2 {
@@ -257,7 +270,9 @@
   color: var(--color-text);
 }
 
-/* v1.2: 모든 팝업 공통 닫기 버튼. 원형 + 안에 × 문자, 모바일 터치 가능한 크기(40px). */
+/* v1.3: 팝업 공통 닫기 버튼. 원형 + 안에 × 문자, 모바일 터치 가능한 크기(40px).
+   v1.2 검수사항 반영: 대비가 낮다는 지적에 따라 배경을 더 진하게, 글자는 진한
+   본문색+굵게로 바꿔 시인성을 높였다. */
 .popup-close-btn {
   flex-shrink: 0;
   width: 40px;
@@ -267,21 +282,41 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 700;
   line-height: 1;
-  color: var(--color-text-soft);
-  background-color: var(--color-bg-soft);
+  color: var(--color-text);
+  background-color: var(--color-border);
   padding: 0;
 }
 
 .popup-close-btn:active {
-  background-color: var(--color-border);
+  background-color: #d7dbe3;
 }
 
-/* v1.2: 팝업 안 취소/확인 버튼 그룹(저장 확인 팝업 등) */
+/* v1.3: 팝업 안내 문구와 버튼 사이 여백을 넉넉하게(제목 → 설명 → 여백 → 버튼) */
 .popup-actions {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 20px;
+}
+
+/* v1.3: 오류 목록/데이터 관리 등 버튼 2개를 가로로 나란히 배치할 때 사용 */
+.popup-actions--row {
+  flex-direction: row;
+}
+
+.popup-actions--row .btn {
+  flex: 1;
+  min-width: 0;
+}
+
+/* v1.3: 팝업 내부 소제목(업로드 확인의 "저장 전 미리보기", 설정의 각 섹션 제목 등).
+   여러 팝업이 공통으로 재사용한다. */
+.popup-subheading {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-soft);
+  margin: 16px 0 8px;
 }

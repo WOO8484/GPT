@@ -1,22 +1,42 @@
 /**
  * app-core.js
- * 이벤트 바인딩 + 중앙 팝업 제어
+ * 연결(wiring) 전담 계층 + 신규 모듈 안전 연결.
  *
- * v1.1: 화면 전환(탭) 없이 업로드/게시판(구 자료실)/미리보기/블로그 저장 4개
- * 패널을 한 화면에 동시에 표시하는 통합 작업대 구조로 정리했다. 패널을 채우는
- * 각 함수는 UploadModule/LibraryModule/PreviewModule/R2ImageModule/
- * BloggerSaveModule/WorkerApiModule/AuthModule을 v1.0과 동일하게 호출한다.
+ * 이 파일이 직접 소유하는 것:
+ * - 공용 팝업 유틸(showPopup/closePopup 등) — 여러 모듈이 함께 쓰는 UI 인프라
+ * - 게시판(board) 목록 렌더링 — 기본 화면은 최신 글 1개만, 전체 게시판 팝업은 전체 목록
+ * - 미리보기 팝업 — 게시판 글 클릭 시 표시
+ * - 블로그 저장 확인 팝업 → BloggerSaveModule.runSaveFlow 트리거
+ * - 기본 업로드 흐름의 "최후 보루"(fallback) — 아래 안전 기준 참고
  *
- * v1.2: 화면 표시명 정리(Lite 제거, 자료실→게시판, 영어 표시명 한글화) 및
- * 독립 미리보기 패널 제거(게시판 팝업 흡수), 블로그 저장 확인 팝업 추가.
- * - 게시판 저장 구조(LibraryModule/StorageModule)는 그대로 사용한다.
- * - 미리보기 렌더링(PreviewModule.renderPreview)과 표시용 DOM id는 그대로
- *   유지하고, 담는 그릇만 상시 패널에서 팝업으로 옮겼다.
- * - 블로그 저장 핵심 흐름(BloggerSaveModule.runSaveFlow)은 수정하지 않고,
- *   그 앞에 확인 팝업 한 단계만 추가했다.
+ * 이 파일이 소유하지 않는 것(각 전용 모듈이 자체적으로 이벤트 바인딩까지 담당):
+ * - 업로드 확인/미리보기 팝업(선택 기능) → UploadConfirmModule
+ * - 설정(계정/작업 서버/지시서 관리/오류 목록/데이터 관리, 선택 기능) → SettingsModule
+ * - 블로그 지시서 복사(선택 기능) → PromptCopyModule
+ *
+ * ------------------------------------------------------------------
+ * 신규 모듈 안전 연결 기준
+ * ------------------------------------------------------------------
+ * 1. 기본 기능(블로그자료 업로드 / 게시판 저장 / 글 선택 / R2 이미지 업로드 /
+ *    Blogger 임시저장)은 신규 모듈이 죽어도 항상 살아 있어야 한다.
+ * 2. 설정창 / 업로드 확인 팝업 / 지시서 관리 / 오류 목록 같은 신규 모듈은
+ *    "선택 기능"이다. 오류가 나도 기본 업로드/저장 흐름은 계속 써야 한다.
+ * 3. 신규 모듈 초기화(setOnConfirmSave/setOnDataReset 연결 등)는 각각 독립된
+ *    safeInit()(try/catch)로 감싼다. 한 모듈 실패가 다른 초기화를 막지 않는다.
+ * 4. 신규 모듈 자신도 DOM 요소가 없으면 예외를 던지지 않고 조용히 종료하도록
+ *    만들어져 있다(각 모듈 파일 참고). app-core.js는 그 결과를 isReady()로 확인한다.
+ * 5. 이벤트 중복 연결 방지: 신규 업로드 확인 모듈이 정상 연결됐을 때만 그 모듈이
+ *    zip-file-input을 담당하고, 그렇지 않을 때만 아래 "대체 업로드 흐름"이
+ *    zip-file-input을 담당한다 — 항상 둘 중 하나만 연결된다.
+ * 6. 기존 안정화 모듈(AuthModule/UploadModule/LibraryModule/StorageModule/
+ *    PreviewModule/R2ImageModule/WorkerApiModule/BloggerSaveModule 등) 내부
+ *    로직은 이 파일에서 수정하지 않는다. 공개 함수 호출/콜백 연결만 한다.
+ * 7. 신규 모듈(js 파일 + index.html script 태그 + 아래 safeInit 연결 + 팝업
+ *    마크업 + 전용 CSS)을 통째로 제거해도, "대체 업로드 흐름"이 core 요소만
+ *    사용하므로 블로그자료 업로드 → 게시판 저장은 계속 동작한다.
+ * ------------------------------------------------------------------
  */
 
-let pendingUploadPost = null; // 업로드에서 파싱했지만 아직 게시판에 저장하지 않은 글
 let selectedPostId = null; // 미리보기/블로그 저장 패널에 표시 중인 게시판 글 id
 
 function escapeHtml(text) {
@@ -41,9 +61,32 @@ function statusBadgeClass(status) {
   return "status-badge--pending"; // 등록됨
 }
 
+// 신규 모듈 초기화 전용 안전 래퍼. 실패해도 예외를 밖으로 던지지 않고, 가능하면
+// 오류 목록에 기록한 뒤 false를 돌려준다(호출부가 대체 동작을 선택할 수 있게).
+function safeInit(moduleName, fn) {
+  try {
+    fn();
+    return true;
+  } catch (error) {
+    try {
+      if (typeof ErrorLogModule !== "undefined") {
+        ErrorLogModule.logError({
+          module: moduleName,
+          message: "신규 모듈 초기화에 실패했습니다",
+          detail: error && error.message,
+          relatedId: null,
+        });
+      }
+    } catch (logError) {
+      // 오류 기록 자체가 실패해도 앱 진행을 막지 않는다.
+    }
+    return false;
+  }
+}
+
 /* ----------------------------------------------------------
-   중앙 팝업 공통 제어 (업로드 실패, 게시판 저장 완료,
-   R2 이미지 변환 진행, 블로그 임시저장 완료/실패)
+   공용 중앙 팝업 (업로드 대체 확인, 게시판 저장 완료/실패, R2 이미지 변환 진행,
+   블로그 임시저장 완료/실패). 여러 모듈이 함께 쓰는 공용 UI 인프라다.
    ---------------------------------------------------------- */
 function showPopup(title, bodyHtml) {
   document.getElementById("popup-title").textContent = title;
@@ -79,7 +122,11 @@ function renderErrorsPopup() {
 }
 
 function showErrorsPopup() {
-  renderErrorsPopup();
+  try {
+    renderErrorsPopup();
+  } catch (error) {
+    // 오류 목록 렌더링 실패는 팝업을 여는 것 자체를 막지 않는다.
+  }
   document.getElementById("popup-errors-overlay").classList.add("popup-overlay--open");
 }
 
@@ -88,10 +135,9 @@ function closeErrorsPopup() {
 }
 
 /* ----------------------------------------------------------
-   👁 미리보기 팝업 (업로드 직후 글 / 게시판 선택 글 공용)
-   v1.2: 메인 화면의 독립 미리보기 패널을 제거하고 팝업으로 흡수했다.
-   렌더링 대상 DOM id(preview-empty 등)는 v1.1과 동일하게 유지해서
-   PreviewModule 호출부는 그대로 재사용한다.
+   👁 미리보기 팝업 (게시판 글 클릭 시 사용).
+   PreviewModule.renderPreview()의 결과만 표시하고, 렌더링 핵심 로직/보안
+   필터링은 그대로 재사용한다(재작성하지 않음).
    ---------------------------------------------------------- */
 function renderPreviewPanel(post) {
   const emptyEl = document.getElementById("preview-empty");
@@ -146,90 +192,13 @@ function closePreviewPopup() {
 }
 
 /* ----------------------------------------------------------
-   📦 업로드 패널
+   📚 게시판 패널 + 전체 게시판 팝업 (기본 기능: 글 선택)
+   기본 화면(panel--library)에는 최신 글 1개만 표시한다(모바일 배치 안정화).
+   전체 목록은 [전체 게시판] 팝업에서만 보여준다. 정렬(최신순)과 저장 구조는
+   LibraryModule.getFilteredPosts()를 그대로 사용한다.
    ---------------------------------------------------------- */
-function renderUploadChecklist(status) {
-  const checklistEl = document.getElementById("upload-checklist");
-  checklistEl.innerHTML = status.checklist
-    .map((item) => {
-      const stateClass = item.ok ? "check-item__status--ok" : item.optional ? "check-item__status--warn" : "check-item__status--missing";
-      const stateLabel = item.ok ? "확인" : item.optional ? "없음" : "누락";
-      return `<li class="check-item"><span>${escapeHtml(item.label)}</span><span class="check-item__status ${stateClass}">${stateLabel}</span></li>`;
-    })
-    .join("");
-  checklistEl.classList.remove("hidden");
-}
+const BOARD_MAIN_VISIBLE_COUNT = 1;
 
-async function handleZipSelected(event) {
-  const file = event.target.files && event.target.files[0];
-  resetUploadForm(false);
-  if (!file) return;
-
-  document.getElementById("upload-filename").textContent = file.name;
-
-  const result = await UploadModule.setZipFile(file);
-  if (!result.success) {
-    showPopup("⚠️ 업로드 실패", `<p>${escapeHtml(result.reason)}</p>`);
-    return;
-  }
-
-  const status = UploadModule.getCheckStatus();
-  renderUploadChecklist(status);
-
-  const warningLines = status.unresolvedImageRefs.length
-    ? `<p class="notice-text notice-text--warning">본문에서 참조하지만 ZIP 안에 없는 이미지: ${status.unresolvedImageRefs
-        .map((s) => escapeHtml(s))
-        .join(", ")}</p>`
-    : "";
-
-  pendingUploadPost = UploadModule.buildPost();
-
-  // v1.2: 업로드 확인 안내 + 본문 확인을 미리보기 팝업 하나로 합쳤다(독립 미리보기
-  // 패널이 없어졌으므로). 사용자는 팝업에서 본문을 확인한 뒤 닫고 저장 버튼을 누른다.
-  openPreviewPopup(
-    pendingUploadPost,
-    `<p class="notice-text">ZIP 파일 확인이 끝났습니다. 아래에서 본문을 확인한 뒤 게시판에 저장해주세요.</p>${warningLines}`
-  );
-
-  document.getElementById("upload-save-btn").classList.remove("hidden");
-}
-
-async function handleUploadSaveClick() {
-  if (!pendingUploadPost) return;
-  const btn = document.getElementById("upload-save-btn");
-  btn.disabled = true;
-  try {
-    const res = await LibraryModule.savePost(pendingUploadPost);
-    if (res.success) {
-      showPopup("✅ 게시판 저장 완료", `<p>"${escapeHtml(pendingUploadPost.title)}" 글을 게시판에 저장했습니다.</p>`);
-      selectedPostId = pendingUploadPost.id;
-      await renderLibraryList();
-      renderSavePanel();
-      resetUploadForm(true);
-    } else {
-      showPopup("⚠️ 게시판 저장 실패", `<p>게시판 저장 중 오류가 발생했습니다. 오류 목록을 확인해주세요.</p>`);
-    }
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-function resetUploadForm(clearFileInput) {
-  pendingUploadPost = null;
-  UploadModule.reset();
-  if (clearFileInput) {
-    document.getElementById("zip-file-input").value = "";
-    document.getElementById("upload-filename").textContent = "";
-  }
-  document.getElementById("upload-checklist").classList.add("hidden");
-  document.getElementById("upload-checklist").innerHTML = "";
-  document.getElementById("upload-save-btn").classList.add("hidden");
-}
-
-/* ----------------------------------------------------------
-   📚 게시판 패널 (구 자료실) + 전체 게시판 팝업
-   저장 구조/정렬(최신순)은 LibraryModule.getFilteredPosts()를 그대로 사용한다.
-   ---------------------------------------------------------- */
 function buildPostListHtml(posts) {
   return posts
     .map(
@@ -260,16 +229,17 @@ function bindPostListClicks(listEl) {
 async function renderLibraryList() {
   await LibraryModule.loadPosts();
   const posts = LibraryModule.getFilteredPosts();
+  const latestPosts = posts.slice(0, BOARD_MAIN_VISIBLE_COUNT);
   const listEl = document.getElementById("library-list");
   const emptyEl = document.getElementById("library-empty");
 
-  if (!posts.length) {
+  if (!latestPosts.length) {
     listEl.innerHTML = "";
     emptyEl.classList.remove("hidden");
     return;
   }
   emptyEl.classList.add("hidden");
-  listEl.innerHTML = buildPostListHtml(posts);
+  listEl.innerHTML = buildPostListHtml(latestPosts);
   bindPostListClicks(listEl);
 }
 
@@ -298,10 +268,11 @@ function closeBoardPopup() {
 }
 
 /* ----------------------------------------------------------
-   📝 블로그 저장 패널 (R2 이미지 변환 후 Blogger 임시저장 + 진행 상태)
-   v1.2: 저장 시작 버튼은 바로 저장하지 않고 확인 팝업을 먼저 띄운다.
-   확인 팝업의 [저장하기]가 눌렸을 때만 기존 handleSaveStartClick(runSaveFlow
-   포함)이 실행되며, 그 내부 구현은 v1.1과 동일하다.
+   📝 블로그 저장 패널 (기본 기능: R2 이미지 업로드 / Blogger 임시저장)
+   저장 시작 버튼은 바로 저장하지 않고 확인 팝업을 먼저 띄운다. 확인 팝업의
+   [저장하기]가 눌렸을 때만 handleSaveStartClick(runSaveFlow 포함)이
+   실행되며, 그 내부 구현은 기존과 동일하다(수정하지 않음). 이 흐름 전체는
+   신규 모듈과 무관하게 항상 연결된다.
    ---------------------------------------------------------- */
 function renderSavePanel() {
   const emptyEl = document.getElementById("save-empty");
@@ -375,15 +346,174 @@ async function handleSaveStartClick() {
       `<p>블로그스팟 임시저장 완료</p><p>Blogger 관리자에서 임시글을 확인하세요.</p>${warningHtml}`
     );
   } else {
+    // 오류 문구 개선: 모듈명 + 쉬운 설명을 앞세우고, 구체적인 사유는
+    // BloggerSaveModule.runSaveFlow가 돌려준 그대로 아래에 붙인다.
     const reasonsHtml = (result.reasons || ["알 수 없는 오류"]).map((r) => `<p>${escapeHtml(r)}</p>`).join("");
-    showPopup("⚠️ 임시저장 실패", reasonsHtml);
+    showPopup("⚠️ 임시저장 실패", `<p>[blogger-save-module] Blogger 임시저장에 실패했습니다.</p>${reasonsHtml}`);
   }
 }
 
 /* ----------------------------------------------------------
-   초기화
+   연결 콜백: 신규 모듈(UploadConfirmModule/SettingsModule)과 아래 대체
+   업로드 흐름이 게시판 상태를 바꿔야 할 때 공통으로 호출한다. 실제 저장/삭제는
+   기존 공개 API(LibraryModule/StorageModule)만 사용한다.
+   ---------------------------------------------------------- */
+async function handleUploadConfirmed(post) {
+  try {
+    const res = await LibraryModule.savePost(post);
+    if (res.success) {
+      selectedPostId = post.id;
+      await renderLibraryList();
+      renderSavePanel();
+      showPopup("✅ 게시판 저장 완료", `<p>"${escapeHtml(post.title)}" 글을 게시판에 저장했습니다.</p>`);
+      return true;
+    }
+    showPopup("⚠️ 게시판 저장 실패", `<p>[library-module] 게시판 저장 중 오류가 발생했습니다. 오류 목록에서 자세한 내용을 확인해주세요.</p>`);
+    return false;
+  } catch (error) {
+    showPopup("⚠️ 게시판 저장 실패", `<p>[library-module] 게시판 저장 중 오류가 발생했습니다. 오류 목록에서 자세한 내용을 확인해주세요.</p>`);
+    return false;
+  }
+}
+
+async function handleDataResetConfirmed() {
+  const posts = await StorageModule.getAllPosts();
+  for (const post of posts) {
+    await StorageModule.deletePost(post.id);
+  }
+  selectedPostId = null;
+  await renderLibraryList();
+  renderSavePanel();
+  renderPreviewPanel(null);
+}
+
+/* ----------------------------------------------------------
+   ⛑ 대체(fallback) 업로드 흐름 — 기본 기능의 "최후 보루"
+   ------------------------------------------------------------
+   UploadConfirmModule을 쓸 수 없을 때(파일 자체가 없거나, DOM 요소가
+   없거나, 초기화 중 오류가 났을 때)만 활성화된다. zip-file-input,
+   upload-filename, 공용 popup-overlay처럼 index.html 기본 구조에 항상 있는
+   요소만 사용하므로, 신규 모듈(js 파일/스크립트 태그/팝업 마크업/전용 CSS)을
+   통째로 지워도 "ZIP 업로드 → 확인 → 게시판에 저장"은 계속 동작한다.
+   실제 저장은 handleUploadConfirmed()를 그대로 재사용해 로직이 중복되지 않는다.
+   ---------------------------------------------------------- */
+let fallbackUploadPost = null;
+
+function resetFallbackUploadState() {
+  fallbackUploadPost = null;
+  try {
+    UploadModule.reset();
+  } catch (error) {
+    // 무시: 초기화 실패가 화면 동작을 막지 않는다.
+  }
+  const fileInput = document.getElementById("zip-file-input");
+  const fileNameEl = document.getElementById("upload-filename");
+  if (fileInput) fileInput.value = "";
+  if (fileNameEl) fileNameEl.textContent = "";
+}
+
+async function handleZipSelectedFallback(event) {
+  const file = event.target.files && event.target.files[0];
+  resetFallbackUploadState();
+  if (!file) return;
+
+  const fileNameEl = document.getElementById("upload-filename");
+  if (fileNameEl) fileNameEl.textContent = file.name;
+
+  let result;
+  try {
+    result = await UploadModule.setZipFile(file);
+  } catch (error) {
+    showPopup(
+      "⚠️ 업로드 실패",
+      `<p>[upload-module] 블로그자료 ZIP 구조가 올바르지 않습니다.</p>
+       <p>블로그자료 ZIP만 업로드할 수 있습니다. ZIP 루트에 metadata.json, content.html, images/가 있어야 합니다.</p>
+       <p>상세: ${escapeHtml(error.message || "알 수 없는 오류")}</p>`
+    );
+    return;
+  }
+
+  if (!result.success) {
+    showPopup(
+      "⚠️ 업로드 실패",
+      `<p>[upload-module] 블로그자료 ZIP 구조가 올바르지 않습니다.</p>
+       <p>블로그자료 ZIP만 업로드할 수 있습니다. ZIP 루트에 metadata.json, content.html, images/가 있어야 합니다.</p>
+       <p>상세: ${escapeHtml(result.reason || "알 수 없는 오류")}</p>`
+    );
+    return;
+  }
+
+  let post = null;
+  try {
+    post = UploadModule.buildPost();
+  } catch (error) {
+    post = null;
+  }
+  if (!post) {
+    showPopup("⚠️ 업로드 실패", `<p>업로드 데이터를 구성하지 못했습니다.</p>`);
+    return;
+  }
+
+  fallbackUploadPost = post;
+
+  // 신규 업로드 확인 팝업(체크리스트/미리보기)을 쓸 수 없는 상태이므로, 항상
+  // 존재하는 공용 팝업으로 최소한의 확인만 거친 뒤 저장한다.
+  showPopup(
+    "📦 업로드 확인",
+    `<p>"${escapeHtml(post.title)}" 글을 게시판에 저장할까요?</p>
+     <div class="popup-actions">
+       <button id="fallback-upload-cancel-btn" class="btn btn--block" type="button">취소</button>
+       <button id="fallback-upload-save-btn" class="btn btn--primary btn--block" type="button">게시판에 저장</button>
+     </div>`
+  );
+
+  const cancelBtn = document.getElementById("fallback-upload-cancel-btn");
+  const saveBtn = document.getElementById("fallback-upload-save-btn");
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      resetFallbackUploadState();
+      closePopup();
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", async () => {
+      if (!fallbackUploadPost) return;
+      saveBtn.disabled = true;
+      const target = fallbackUploadPost;
+      let ok = false;
+      try {
+        ok = await handleUploadConfirmed(target);
+      } finally {
+        if (ok) {
+          resetFallbackUploadState();
+        } else {
+          saveBtn.disabled = false;
+        }
+      }
+    });
+  }
+}
+
+let fallbackUploadBound = false; // 중복 연결 방지(업로드 확인 모듈과 동시에 켜지지 않도록)
+
+function bindFallbackUploadFlow() {
+  if (fallbackUploadBound) return;
+  const fileInput = document.getElementById("zip-file-input");
+  if (!fileInput) return;
+  fileInput.addEventListener("change", handleZipSelectedFallback);
+  fallbackUploadBound = true;
+}
+
+/* ----------------------------------------------------------
+   초기화 — 각 모듈을 연결한다.
    ---------------------------------------------------------- */
 document.addEventListener("DOMContentLoaded", async () => {
+  if (window.__gptGongjakSoAppCoreBooted) return; // 중복 초기화 방지
+  window.__gptGongjakSoAppCoreBooted = true;
+
+  // 1) 필수 초기화(저장소/로그인). 이 부분은 기존 v1.2와 동일하다.
   await StorageModule.init();
   AuthModule.bindEvents();
 
@@ -393,8 +523,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderPreviewPanel(null);
   });
   AuthModule.setOnLogout(() => {
-    pendingUploadPost = null;
     selectedPostId = null;
+    resetFallbackUploadState();
+    safeInit("upload-confirm-module", () => {
+      if (typeof UploadConfirmModule !== "undefined") UploadConfirmModule.reset();
+    });
   });
 
   if (AuthModule.isLoggedIn()) {
@@ -405,26 +538,51 @@ document.addEventListener("DOMContentLoaded", async () => {
     AuthModule.showLoginScreen();
   }
 
-  document.getElementById("logout-btn").addEventListener("click", () => AuthModule.logout());
+  // 2) 기본 화면 이벤트 연결(게시판/미리보기/저장 확인/공용 팝업). 신규 모듈과
+  //    무관하게 항상 연결되는 기본 기능이다.
+  try {
+    document.getElementById("open-errors-btn").addEventListener("click", showErrorsPopup);
+    document.getElementById("errors-close-btn").addEventListener("click", closeErrorsPopup);
 
-  document.getElementById("zip-file-input").addEventListener("change", handleZipSelected);
-  document.getElementById("upload-save-btn").addEventListener("click", handleUploadSaveClick);
+    document.getElementById("board-open-btn").addEventListener("click", openBoardPopup);
+    document.getElementById("board-close-btn").addEventListener("click", closeBoardPopup);
+    document.getElementById("preview-close-btn").addEventListener("click", closePreviewPopup);
 
-  // v1.2: 저장 시작 버튼은 바로 저장하지 않고 확인 팝업을 먼저 연다.
-  document.getElementById("save-start-btn").addEventListener("click", openSaveConfirmPopup);
-  document.getElementById("save-confirm-cancel-btn").addEventListener("click", closeSaveConfirmPopup);
-  document.getElementById("save-confirm-close-btn").addEventListener("click", closeSaveConfirmPopup);
-  document.getElementById("save-confirm-ok-btn").addEventListener("click", async () => {
-    closeSaveConfirmPopup();
-    await handleSaveStartClick();
+    document.getElementById("save-start-btn").addEventListener("click", openSaveConfirmPopup);
+    document.getElementById("save-confirm-cancel-btn").addEventListener("click", closeSaveConfirmPopup);
+    document.getElementById("save-confirm-close-btn").addEventListener("click", closeSaveConfirmPopup);
+    document.getElementById("save-confirm-ok-btn").addEventListener("click", async () => {
+      closeSaveConfirmPopup();
+      await handleSaveStartClick();
+    });
+
+    document.getElementById("popup-close-btn").addEventListener("click", closePopup);
+  } catch (error) {
+    // 기본 화면 요소 중 하나가 없어도 아래 신규 모듈 연결/대체 업로드 흐름은
+    // 계속 진행한다.
+  }
+
+  // 3) 신규 모듈 연결 — 각각 독립 try/catch(safeInit)로 감싼다. 한 모듈이
+  //    실패해도 다른 모듈 초기화와 기본 업로드/저장 흐름은 계속 진행된다.
+  let uploadConfirmActive = false;
+  safeInit("upload-confirm-module", () => {
+    if (typeof UploadConfirmModule === "undefined") return;
+    UploadConfirmModule.setOnConfirmSave(handleUploadConfirmed);
+    uploadConfirmActive = typeof UploadConfirmModule.isReady === "function" && UploadConfirmModule.isReady();
   });
 
-  document.getElementById("board-open-btn").addEventListener("click", openBoardPopup);
-  document.getElementById("board-close-btn").addEventListener("click", closeBoardPopup);
-  document.getElementById("preview-close-btn").addEventListener("click", closePreviewPopup);
+  // 업로드 확인 모듈이 정상 연결되지 않았을 때만 대체 흐름을 켠다(이벤트 중복
+  // 연결 방지 — zip-file-input change는 항상 둘 중 하나만 담당한다).
+  if (!uploadConfirmActive) {
+    safeInit("upload-fallback", bindFallbackUploadFlow);
+  }
 
-  document.getElementById("popup-close-btn").addEventListener("click", closePopup);
+  safeInit("settings-module", () => {
+    if (typeof SettingsModule === "undefined") return;
+    SettingsModule.setOnDataReset(handleDataResetConfirmed);
+    SettingsModule.setOnViewAllErrors(showErrorsPopup);
+  });
 
-  document.getElementById("open-errors-btn").addEventListener("click", showErrorsPopup);
-  document.getElementById("errors-close-btn").addEventListener("click", closeErrorsPopup);
+  // prompt-copy-module.js는 완전히 독립적으로 스스로 초기화하므로(자체
+  // DOMContentLoaded 리스너) 여기서 연결할 것이 없다.
 });

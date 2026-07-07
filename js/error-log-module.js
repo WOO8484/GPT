@@ -58,6 +58,13 @@ const ErrorLogModule = (() => {
     return false;
   }
 
+  // v1.3: 설정창 "오류 초기화" 버튼에서 사용. 기존 기록 구조(readErrors/writeErrors)를
+  // 그대로 사용하며, 오류 기록 자체를 비우기만 한다(다른 로직 변경 없음).
+  function clearErrors() {
+    writeErrors([]);
+    return true;
+  }
+
   function getUserMessage(entry) {
     return `[${entry.module}] ${entry.message}`;
   }
@@ -66,6 +73,7 @@ const ErrorLogModule = (() => {
     logError,
     getAllErrors,
     resolveError,
+    clearErrors,
     getUserMessage,
   };
 })();

@@ -1,9 +1,9 @@
 {
   "project": "GPT 공작소",
-  "version": "1.2.0",
-  "displayVersion": "v1.2",
+  "version": "1.3.0",
+  "displayVersion": "v1.3",
   "releaseDate": "2026-07-08",
-  "description": "v1.2: 화면 표시명에서 'Lite'를 제거하고 '자료실'을 '게시판'으로 변경했다(최신순 표시, [전체 게시판] 팝업 제공). 메인 화면의 독립 미리보기 패널을 제거하고 게시판 글 클릭 시 뜨는 미리보기 팝업으로 흡수했다. 블로그 저장 관련 표시명을 한글로 정리하고, 저장 시작 버튼 클릭 시 바로 저장하지 않고 확인 팝업([취소]/[저장하기])을 먼저 띄우도록 했다. 신규 기능으로 블로그 글작성 실행지시서 v6.1 원문을 그대로 복사하는 '블로그 지시서 복사' 단독 모듈을 추가했다(글 생성/GPT·Gemini 호출/Blogger 저장과 무관, data/blog-writing-prompt-v6.1.txt를 fetch로 불러와 복사만 함). 모든 팝업은 기존 popup-panel 구조를 재사용하며 원형 X 닫기 버튼으로 통일했다. Blogger 저장용 본문에서 table→카드 변환 시 새로 들어가던 inline font-size를 제거했다(v1.1 검수사항 반영). 로그인/Worker 인증/R2 이미지 업로드/Blogger 임시저장/게시판(자료실) 저장-불러오기/ZIP 파싱/이미지 경로 치환 등 핵심 로직은 v1.1과 동일하다.",
+  "description": "v1.3: 모바일 기본 화면 배치를 안정화했다(게시판 기본 화면은 최신 글 1개만 표시, 블로그 저장 영역이 남은 공간을 채워 하단 버튼/상태가 잘리지 않도록 재배분, 블로그 지시서 복사 버튼을 상단에서 블로그 저장 영역 아래 보조 버튼으로 이동). 업로드 성공 후 바로 저장하지 않고 upload-confirm-module.js가 제목/날짜/이미지 수/필수 파일 확인/저장 전 미리보기를 보여주는 확인 팝업을 추가했다([취소]/[게시판에 저장]). 상단 로그아웃 버튼 자리를 설정(⚙️) 아이콘으로 바꾸고 settings-module.js를 추가해 계정(로그아웃)/작업 서버 주소·상태 확인/블로그 지시서 관리(TXT 등록·기본 지시서 초기화)/오류 목록(최근 오류·초기화)/데이터 관리(저장된 글 개수·게시판 초기화, 확인 팝업 포함)/버전 정보를 한 팝업에 모았다. prompt-copy-module.js는 localStorage에 사용자 등록 지시서가 있으면 그것을 우선 복사하고 없으면 기본 내장 최신 지시서를 복사하도록 보정했다. 모든 팝업의 닫기 버튼 대비를 강화하고 제목-설명-여백-버튼 간격을 정리했다. 오류 문구를 모듈명 + 쉬운 한글 설명 기준으로 개선했다(예: [upload-module] 블로그자료 ZIP 구조가 올바르지 않습니다). app-core.js는 연결(wiring) 역할만 담당하도록 정리했고, 업로드 확인/설정 기능은 각각 새 전용 모듈(upload-confirm-module.js, settings-module.js)로 분리했다. 로그인/로그아웃 처리/Worker 호출/Worker 주소/R2 이미지 업로드/Blogger 임시저장/ZIP 파싱/블로그자료 필수 파일 점검/게시판 저장-불러오기/브라우저 저장소 구조/미리보기 렌더링/이미지 URL 치환/saveBloggerDraft/runSaveFlow 등 핵심 로직은 v1.2와 동일하게 유지했다.",
   "storagePriority": ["indexedDB", "localStorage"],
   "workerEndpoints": {
     "login": "/auth/login",
@@ -17,10 +17,12 @@
     "storage-module.js",
     "library-module.js",
     "upload-module.js",
+    "upload-confirm-module.js",
     "preview-module.js",
     "r2-image-module.js",
     "blogger-save-module.js",
     "prompt-copy-module.js",
+    "settings-module.js",
     "error-log-module.js",
     "vendor/zip-reader.js"
   ]
