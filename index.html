@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>GPT 공작소 Lite</title>
+  <title>GPT 공작소</title>
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/layout.css" />
   <link rel="stylesheet" href="css/components.css" />
@@ -12,7 +12,7 @@
   <!-- 1. 로그인 모듈 (auth-module.js가 그대로 사용하는 ID이므로 구조를 바꾸지 않는다) -->
   <div id="screen-login" class="login-screen">
     <div class="login-box">
-      <div class="login-title">🔐 GPT 공작소 Lite</div>
+      <div class="login-title">🔐 GPT 공작소</div>
       <input
         id="login-password"
         class="input-text login-password-input"
@@ -23,20 +23,25 @@
       <div id="login-error" class="login-error hidden"></div>
       <button id="login-btn" class="btn btn--primary btn--block" type="button">입장하기</button>
     </div>
-    <div class="login-version">Lite v1.1</div>
+    <div class="login-version">v1.2</div>
   </div>
 
   <!-- 메인 앱: 로그인 성공 전에는 hidden 상태로 유지 -->
   <div id="app-container" class="app-container hidden">
     <header class="app-header">
-      <div class="app-header__title">🛠️ GPT 공작소 Lite</div>
+      <div class="app-header__title">🛠️ GPT 공작소</div>
       <div class="app-header__actions">
         <button id="open-errors-btn" class="header-icon-btn" type="button" aria-label="오류 목록">⚠️</button>
         <button id="logout-btn" class="header-icon-btn" type="button" aria-label="로그아웃">로그아웃</button>
       </div>
     </header>
 
-    <!-- 한 화면 통합 작업대: 업로드 / 자료실 / 미리보기 / Blogger 저장(+상태) -->
+    <!-- v1.2: 지시서 복사 등 보조 기능 버튼 줄. 업로드/게시판/저장 작업대와는 분리된 영역이다. -->
+    <div class="quick-actions">
+      <button id="prompt-copy-open-btn" class="btn btn--block" type="button">📋 블로그 지시서 복사</button>
+    </div>
+
+    <!-- 한 화면 통합 작업대: 업로드 / 게시판 / Blogger 저장(+상태). 미리보기는 팝업으로 흡수했다. -->
     <main class="workbench">
       <section class="panel panel--upload" aria-label="업로드">
         <div class="panel__header">📦 업로드</div>
@@ -45,38 +50,29 @@
           <input id="zip-file-input" type="file" accept=".zip" class="file-input-hidden" />
           <div id="upload-filename" class="upload-filename"></div>
           <ul id="upload-checklist" class="check-list hidden"></ul>
-          <button id="upload-save-btn" class="btn btn--primary btn--block hidden" type="button">📚 자료실에 저장</button>
+          <button id="upload-save-btn" class="btn btn--primary btn--block hidden" type="button">📚 게시판에 저장</button>
         </div>
       </section>
 
-      <section class="panel panel--library" aria-label="자료실">
-        <div class="panel__header">📚 자료실</div>
+      <section class="panel panel--library" aria-label="게시판">
+        <div class="panel__header panel__header--row">
+          <span>📚 게시판</span>
+          <button id="board-open-btn" class="panel-header-btn" type="button">전체 게시판</button>
+        </div>
         <div class="panel__body panel__body--scroll">
           <ul id="library-list" class="library-list"></ul>
           <div id="library-empty" class="archive-item--empty">저장된 글이 없습니다.<br />업로드에서 먼저 등록해주세요.</div>
         </div>
       </section>
 
-      <section class="panel panel--preview" aria-label="미리보기">
-        <div class="panel__header">👁 미리보기</div>
-        <div class="panel__body panel__body--scroll">
-          <div id="preview-empty" class="archive-item--empty">업로드하거나 자료실에서 글을 선택하면<br />여기에 미리보기가 표시됩니다.</div>
-          <div id="preview-content-wrap" class="hidden">
-            <div class="detail-meta" id="preview-meta"></div>
-            <div id="preview-toc" class="detail-toc hidden"></div>
-            <div id="preview-content" class="preview-content"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel panel--save" aria-label="Blogger 저장">
-        <div class="panel__header">📝 Blogger 저장</div>
+      <section class="panel panel--save" aria-label="블로그 저장">
+        <div class="panel__header">📝 블로그 저장</div>
         <div class="panel__body">
-          <div id="save-empty" class="archive-item--empty">자료실에서 글을 선택하세요.</div>
+          <div id="save-empty" class="archive-item--empty">게시판에서 글을 선택하세요.</div>
           <div id="save-target" class="save-target hidden">
             <div id="save-target-title" class="save-target-title"></div>
             <div id="save-target-status" class="save-target-status"></div>
-            <button id="save-start-btn" class="btn btn--primary btn--block" type="button">📝 Blogger 임시저장 시작</button>
+            <button id="save-start-btn" class="btn btn--primary btn--block" type="button">📝 블로그 임시저장 시작</button>
             <ul id="save-progress-list" class="save-progress-list"></ul>
           </div>
         </div>
@@ -84,7 +80,7 @@
     </main>
   </div>
 
-  <!-- 중앙 팝업: 업로드 확인/실패, 자료실 저장 완료, R2 변환 진행, Blogger 완료/실패 -->
+  <!-- 중앙 팝업: 업로드 실패, 게시판 저장 완료, R2 변환 진행, 블로그 저장 완료/실패 -->
   <div id="popup-overlay" class="popup-overlay">
     <div class="popup-panel">
       <div class="popup-panel__header">
@@ -92,6 +88,75 @@
         <button id="popup-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
       </div>
       <div class="popup-panel__scroll" id="popup-body"></div>
+    </div>
+  </div>
+
+  <!-- v1.2: 미리보기 팝업. 메인 화면의 독립 미리보기 패널을 흡수했다.
+       preview-module.js의 renderPreview() 결과를 그대로 표시하는 용도이며
+       ID(preview-empty/preview-content-wrap/preview-meta/preview-toc/preview-content)는
+       기존 app-core.js 렌더링 함수와 그대로 호환되도록 유지했다. -->
+  <div id="popup-preview-overlay" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>👁 미리보기</h2>
+        <button id="preview-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
+        <div id="preview-popup-notice"></div>
+        <div id="preview-empty" class="archive-item--empty">업로드하거나 게시판에서 글을 선택하면<br />여기에 미리보기가 표시됩니다.</div>
+        <div id="preview-content-wrap" class="hidden">
+          <div class="detail-meta" id="preview-meta"></div>
+          <div id="preview-toc" class="detail-toc hidden"></div>
+          <div id="preview-content" class="preview-content"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- v1.2: 전체 게시판 팝업. 저장 구조/정렬 기준은 library-module.js를 그대로 사용한다. -->
+  <div id="popup-board-overlay" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>📚 전체 게시판</h2>
+        <button id="board-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
+        <ul id="board-full-list" class="library-list"></ul>
+        <div id="board-full-empty" class="archive-item--empty hidden">저장된 글이 없습니다.<br />업로드에서 먼저 등록해주세요.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- v1.2: 블로그 저장 확인 팝업. runSaveFlow 등 기존 저장 흐름 앞에 확인 단계만 추가한다. -->
+  <div id="popup-save-confirm-overlay" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>📝 블로그 저장 확인</h2>
+        <button id="save-confirm-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
+        <p class="notice-text">선택한 글을 Blogger 임시글로 저장할까요?</p>
+        <div class="popup-actions">
+          <button id="save-confirm-cancel-btn" class="btn btn--block" type="button">취소</button>
+          <button id="save-confirm-ok-btn" class="btn btn--primary btn--block" type="button">저장하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- v1.2: 블로그 지시서(v6.1) 전체 복사 팝업. 글 생성/GPT·Gemini 호출/Blogger 저장과 무관한 단순 복사 기능. -->
+  <div id="popup-prompt-copy-overlay" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>📋 블로그 지시서 복사</h2>
+        <button id="prompt-copy-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
+        <p class="notice-text">블로그 글작성 실행지시서 v6.1 원문 전체를 복사합니다.<br />복사한 내용을 사용 중인 GPT 등에 붙여넣어 사용하세요.</p>
+        <button id="prompt-copy-all-btn" class="btn btn--primary btn--block" type="button">전체 복사</button>
+        <div id="prompt-copy-result" class="notice-text"></div>
+        <textarea id="prompt-copy-fallback" class="prompt-copy-fallback hidden" readonly rows="10" aria-label="블로그 지시서 v6.1 원문"></textarea>
+      </div>
     </div>
   </div>
 
@@ -116,6 +181,7 @@
   <script src="js/upload-module.js"></script>
   <script src="js/r2-image-module.js"></script>
   <script src="js/blogger-save-module.js"></script>
+  <script src="js/prompt-copy-module.js"></script>
   <script src="js/app-core.js"></script>
 </body>
 </html>
