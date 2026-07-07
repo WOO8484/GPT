@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>GPT 공작소</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+</head>
+<body>
+  <!-- 로그인 화면 (repair1 신규) -->
+  <div id="screen-login" class="login-screen">
+    <div class="login-box">
+      <div class="login-title">GPT 공작소</div>
+      <input
+        id="login-password"
+        class="input-text login-password-input"
+        type="password"
+        placeholder="암호 입력"
+        autocomplete="current-password"
+      />
+      <div id="login-error" class="login-error hidden"></div>
+      <button id="login-btn" class="btn btn--primary btn--block">입장하기</button>
+    </div>
+    <div class="login-version">v0.0.10-final</div>
+  </div>
+
+  <!-- 메인 앱: 로그인 성공 전에는 hidden 상태로 유지된다 -->
+  <div id="app-container" class="app-container hidden">
+    <header class="app-header app-header--dashboard">
+      <div class="app-header__title">GPT 공작소</div>
+      <button id="open-settings-btn" class="settings-gear-btn" aria-label="설정" type="button">⚙</button>
+    </header>
+
+    <main class="dashboard-main">
+      <section class="dashboard-ticker">
+        <div class="dashboard-ticker__head">
+          <span class="dashboard-ticker__label">📰 최근 글</span>
+          <button id="open-archive-from-ticker-btn" class="dashboard-ticker__more" type="button">📚 전체 글 보기</button>
+        </div>
+        <button id="ticker-content" class="dashboard-ticker__body" type="button">
+          <div class="dashboard-ticker__title" id="ticker-title">저장된 글이 없습니다.</div>
+          <div class="dashboard-ticker__meta" id="ticker-meta">자료실에서 첫 글을 등록해보세요.</div>
+        </button>
+      </section>
+
+      <section class="dashboard-desk">
+        <div class="dashboard-desk__title">🛠️ 공작소 작업대</div>
+        <button id="open-register-btn" class="desk-btn" type="button">📦 등록하기</button>
+        <button id="open-archive-btn" class="desk-btn" type="button">📁 자료실</button>
+        <button id="open-blogger-btn" class="desk-btn" type="button">🚀 블로그 등록하기</button>
+        <button id="copy-guideline-btn" class="desk-btn" type="button">📋 GPT 지시서 복사</button>
+        <button id="open-prompt-copy-btn" class="desk-btn" type="button">📋 블로그 지시서 복사</button>
+      </section>
+    </main>
+  </div>
+
+  <!-- 팝업: 등록하기 (repair2: 스크롤 금지, 자동 검증, 요약카드형)
+       0.0.10-final: ZIP 선택 시 패키지 점검까지만 자동 실행되고, Gemini 품질검수는
+       사용자가 [품질검수 하기]를 눌렀을 때만 실행된다(자동 실행 아님). -->
+  <div id="popup-register" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>📦 등록하기</h2>
+        <button id="register-close-x-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__fixed">
+        <div class="register-scroll">
+        <div class="section">
+          <p class="upload-desc">GPT 공작소 자료 패키지 ZIP 파일 1개를 선택하세요. 선택 즉시 패키지 점검이 자동 실행됩니다.</p>
+          <label for="zip-upload-input" class="upload-drop-zone">ZIP 파일 선택</label>
+          <input
+            id="zip-upload-input"
+            class="upload-file-hidden"
+            type="file"
+            accept=".zip,application/zip,application/x-zip-compressed"
+          />
+          <div id="zip-upload-filename" class="upload-filename">선택된 파일 없음</div>
+        </div>
+
+        <div id="register-package-check" class="section hidden">
+          <div id="register-package-check-card" class="card">
+            <div class="card__label">패키지 점검</div>
+            <div class="card__value" id="register-package-status-value">-</div>
+          </div>
+          <div id="register-package-advisories" class="notice-text hidden"></div>
+          <div id="register-package-fail-detail" class="notice-text notice-text--warning hidden"></div>
+          <div class="btn-row hidden" id="register-btn-row-package-fail">
+            <button id="register-package-copy-btn" class="btn btn--primary btn--block">수정요청 복사</button>
+          </div>
+          <div class="btn-row quality-review-actions hidden" id="register-btn-row-package-ok">
+            <button id="register-save-noreview-btn" class="btn btn--primary">자료실 저장</button>
+            <button id="register-blogger-draft-noreview-btn" class="btn">블로그 임시저장</button>
+          </div>
+          <div class="btn-row hidden" id="register-btn-row-package-ok-2">
+            <button id="register-run-review-btn" class="btn btn--block">품질검수 하기</button>
+          </div>
+        </div>
+
+
+        <div id="register-gemini-status" class="card hidden">
+          <div class="card__label">품질 검수</div>
+          <div class="card__value card__value--progress" id="register-gemini-status-value">🛠️ 품질검수 중... 00:00</div>
+          <div class="notice-text" id="register-gemini-stage-text">단계: 패키지 점검 완료</div>
+        </div>
+
+        <div id="register-gemini-result" class="section hidden">
+          <div class="card">
+            <div class="card__label">품질 검수</div>
+            <div class="card__value" id="register-gemini-score">-</div>
+          </div>
+          <div class="notice-text" id="register-gemini-summary"></div>
+          <div class="section">
+            <div class="section-title">문제 항목</div>
+            <ul id="register-gemini-issue-list" class="check-list check-list--capped"></ul>
+          </div>
+          <div class="section">
+            <div class="section-title">개선내역</div>
+            <ul id="register-gemini-improvement-list" class="check-list check-list--capped"></ul>
+          </div>
+
+          <div class="btn-row quality-review-actions hidden" id="register-btn-row-gemini-pass">
+            <button id="register-save-btn" class="btn btn--primary">자료실 저장</button>
+            <button id="register-gemini-copy-btn" class="btn">수정요청 복사</button>
+          </div>
+          <div class="btn-row hidden" id="register-btn-row-gemini-pass-2">
+            <button id="register-preview-btn" class="btn btn--block">미리 보기</button>
+          </div>
+
+          <div class="btn-row quality-review-actions hidden" id="register-btn-row-gemini-warn">
+            <button id="register-gemini-copy-btn-warn" class="btn btn--primary">수정요청 복사</button>
+            <button id="register-preview-btn-warn" class="btn">미리 보기</button>
+          </div>
+          <div class="btn-row hidden" id="register-btn-row-gemini-warn-2">
+            <button id="register-keep-anyway-btn" class="btn btn--block">문제 있어도 보관</button>
+          </div>
+        </div>
+
+        <div id="register-gemini-fail" class="section hidden">
+          <div class="notice-text notice-text--warning" id="register-gemini-fail-reason"></div>
+          <div class="notice-text" id="register-gemini-fail-url"></div>
+          <div class="btn-row hidden" id="register-btn-row-gemini-call-fail">
+            <button id="register-gemini-retry-btn" class="btn btn--primary btn--block">다시 품질검수</button>
+          </div>
+        </div>
+
+        <div class="btn-row quality-review-actions hidden" id="register-common-actions">
+          <button id="register-reupload-btn" class="btn">다시 업로드</button>
+          <button id="register-discard-btn" class="btn btn--danger">폐기</button>
+        </div>
+
+        <div class="section">
+          <div class="notice-text">파일을 선택하면 패키지 점검이 자동 실행됩니다. 품질검수는 자동으로 실행되지 않으며, [품질검수 하기]를 눌렀을 때만 실행됩니다.</div>
+          <div id="register-success-card" class="register-success-card hidden">✅ 저장 완료</div>
+          <div class="btn-row hidden" id="register-btn-row-done">
+            <button id="register-goto-archive-btn" class="btn btn--primary btn--block">자료실에서 보기</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <button id="manual-upload-toggle-btn" class="btn btn--block" type="button">수동 업로드 열기</button>
+        </div>
+
+        <div id="manual-upload-panel" class="manual-upload-panel manual-upload-panel--collapsed">
+          <div class="section">
+            <div class="section-title">metadata.json</div>
+            <label for="upload-metadata-input" class="upload-drop-zone">파일 선택</label>
+            <input id="upload-metadata-input" class="upload-file-hidden" type="file" accept=".json,application/json" />
+            <div id="upload-metadata-filename" class="upload-filename">선택된 파일 없음</div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">content.html</div>
+            <label for="upload-html-input" class="upload-drop-zone">파일 선택</label>
+            <input id="upload-html-input" class="upload-file-hidden" type="file" accept=".html,.htm,text/html" />
+            <div id="upload-html-filename" class="upload-filename">선택된 파일 없음</div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">content.md</div>
+            <label for="upload-markdown-input" class="upload-drop-zone">파일 선택</label>
+            <input
+              id="upload-markdown-input"
+              class="upload-file-hidden"
+              type="file"
+              accept=".md,.markdown,text/markdown,text/plain"
+            />
+            <div id="upload-markdown-filename" class="upload-filename">선택된 파일 없음</div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">content.txt</div>
+            <label for="upload-text-input" class="upload-drop-zone">파일 선택</label>
+            <input id="upload-text-input" class="upload-file-hidden" type="file" accept=".txt,text/plain" />
+            <div id="upload-text-filename" class="upload-filename">선택된 파일 없음</div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">인식 결과</div>
+            <ul id="upload-check-list" class="check-list check-list--capped"></ul>
+          </div>
+
+          <div class="section">
+            <div class="btn-row">
+              <button id="upload-save-btn" class="btn btn--primary">자료실에 저장하기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 등록하기: 검증 통과 후 저장 전 X 클릭 시 확인 팝업 -->
+  <div id="popup-confirm-register-close" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <p class="confirm-text">저장하지 않고 닫을까요?</p>
+      <div class="btn-row">
+        <button id="confirm-register-close-btn" class="btn btn--danger">저장하지 않고 닫기</button>
+        <button id="confirm-register-continue-btn" class="btn">계속 작업</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 문제 항목/개선내역 상세 (fix3 신규, 등록/자료실 상세 품질검수 결과 공용) -->
+  <div id="popup-item-detail" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2><span id="item-detail-icon">⚠️</span> <span id="item-detail-title">상세 내용</span></h2>
+        <button id="item-detail-close-x-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
+        <div id="item-detail-body" class="item-detail-content"></div>
+      </div>
+      <div class="btn-row">
+        <button id="item-detail-copy-btn" class="btn">내용 복사</button>
+        <button id="item-detail-close-btn" class="btn btn--primary">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 공작소 스타일 공통 확인 팝업 (fix3 신규, 검은 시스템 confirm 대체) -->
+  <div id="popup-confirm-action" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <div class="confirm-action-header">
+        <span id="confirm-action-icon" class="confirm-action-icon">🚀</span>
+        <span id="confirm-action-title" class="confirm-action-title">확인</span>
+      </div>
+      <p id="confirm-action-desc" class="confirm-text"></p>
+      <div class="btn-row">
+        <button id="confirm-action-cancel-btn" class="btn">취소</button>
+        <button id="confirm-action-confirm-btn" class="btn btn--primary">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 자료실 (repair2: 목록 내부만 스크롤) -->
+  <div id="popup-archive" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>📁 자료실</h2>
+        <button id="archive-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div id="archive-list-view" class="popup-panel__fixed">
+        <div class="section">
+          <input id="archive-search" class="input-text" type="text" placeholder="제목으로 검색" />
+          <select id="archive-status-filter" class="select-box">
+            <option value="all">전체 상태</option>
+            <option value="등록완료">등록완료</option>
+            <option value="임시저장완료">블로그스팟 임시저장 완료</option>
+            <option value="예약저장됨">예약저장됨</option>
+            <option value="발행완료">발행완료</option>
+            <option value="오류">오류</option>
+            <option value="작성중">작성중</option>
+            <option value="검수중">검수중</option>
+          </select>
+        </div>
+        <ul id="archive-list" class="archive-list-scroll"></ul>
+      </div>
+
+      <div id="archive-detail-view" class="popup-panel__fixed hidden">
+        <h3 id="archive-detail-title">제목</h3>
+
+        <div class="archive-detail-scroll">
+          <div class="detail-row">
+            <span class="detail-row__label">상태</span>
+            <span id="archive-detail-status">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row__label">수정일</span>
+            <span id="archive-detail-updated">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row__label">품질검수</span>
+            <span id="archive-detail-seo">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row__label">이미지</span>
+            <span id="archive-detail-images">-</span>
+          </div>
+
+          <!-- 품질검수 결과: 0.0.8부터 별도 팝업 대신 자료실 상세 내부 카드로 표시 -->
+          <div id="quality-review-panel" class="quality-review-panel hidden">
+            <div id="quality-review-status" class="card hidden">
+              <div class="card__label">품질 검수</div>
+              <div class="card__value card__value--progress" id="quality-review-status-value">🛠️ 품질검수 중... 00:00</div>
+              <div class="notice-text" id="quality-review-stage-text">단계: 요청 준비</div>
+            </div>
+
+            <div id="quality-review-result" class="hidden">
+              <div class="card">
+                <div class="card__label">품질 검수</div>
+                <div class="card__value" id="quality-review-score">-</div>
+              </div>
+              <div class="notice-text" id="quality-review-summary"></div>
+              <div class="section">
+                <div class="section-title">문제 항목</div>
+                <ul id="quality-review-issue-list" class="check-list check-list--capped"></ul>
+              </div>
+              <div class="section">
+                <div class="section-title">개선내역</div>
+                <ul id="quality-review-improvement-list" class="check-list check-list--capped"></ul>
+              </div>
+              <div class="btn-row">
+                <button id="quality-review-copy-btn" class="btn btn--primary btn--block">수정요청 복사</button>
+              </div>
+            </div>
+
+            <div id="quality-review-fail" class="hidden">
+              <div class="notice-text notice-text--warning" id="quality-review-fail-reason">품질검수 요청에 실패했습니다.</div>
+              <div class="notice-text" id="quality-review-fail-url"></div>
+              <div class="btn-row quality-review-actions">
+                <button id="quality-review-retry-btn" class="btn btn--primary">다시 품질검수</button>
+                <button id="quality-review-fail-close-btn" class="btn">닫기</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="archive-detail-preview-btn" class="btn btn--primary">미리 보기</button>
+          <button id="archive-detail-quality-btn" class="btn">품질 검수</button>
+        </div>
+        <div class="btn-row">
+          <button id="archive-detail-delete-btn" class="btn btn--danger btn--block">삭제 하기</button>
+        </div>
+        <button id="archive-detail-back-btn" class="btn btn--block" type="button">목록으로</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 삭제 확인 팝업 -->
+  <div id="popup-confirm-delete" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <p class="confirm-text">이 글을 삭제할까요?<br />삭제 후 복구할 수 없습니다.</p>
+      <div class="btn-row">
+        <button id="confirm-delete-btn" class="btn btn--danger">삭제하기</button>
+        <button id="confirm-delete-cancel-btn" class="btn">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 미리보기 (repair2: Blogspot 기준 렌더링, 내부 스크롤 허용) -->
+  <div id="popup-preview" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>미리 보기</h2>
+        <button id="preview-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
+        <div id="preview-empty-message" class="section hidden">
+          <p class="preview-empty-text">선택된 글이 없습니다.<br />자료실에서 글을 선택한 뒤 미리보기를 열어주세요.</p>
+        </div>
+
+        <div id="preview-content-area">
+          <div class="blogspot-preview-toolbar">
+            <button id="preview-mobile-btn" class="btn nav-btn--active" type="button">모바일 보기</button>
+            <button id="preview-pc-btn" class="btn" type="button">PC 보기</button>
+          </div>
+
+          <div id="preview-body-frame" class="blogspot-body-frame blogspot-body-frame--mobile">
+            <div class="section">
+              <h2 id="preview-title">제목</h2>
+              <div class="detail-row">
+                <span class="detail-row__label">키워드</span>
+                <span id="preview-keyword">-</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-row__label">태그</span>
+                <span id="preview-tags">-</span>
+              </div>
+            </div>
+
+            <div id="preview-thumbnail-area" class="preview-frame hidden">
+              <img id="preview-thumbnail-img" class="preview-thumbnail-img" alt="" />
+            </div>
+
+            <div id="preview-summary-box" class="blogspot-summary-box hidden"></div>
+
+            <div id="preview-toc-box" class="blogspot-toc-box hidden">
+              <div class="blogspot-toc-box__title">목차</div>
+              <div id="preview-toc-list"></div>
+            </div>
+
+            <div id="preview-ad-slot-top" class="preview-ad-slot hidden">
+              <div class="blogspot-ad-box">광고</div>
+              <div class="notice-text">광고칸은 표시용 근사치입니다. 실제 광고 위치와 크기는 블로그스팟 테마와 애드센스 설정에 따라 달라질 수 있습니다.</div>
+            </div>
+
+            <div class="section">
+              <div class="btn-row">
+                <button id="preview-view-html-btn" class="btn nav-btn--active">HTML 본문 보기</button>
+                <button id="preview-view-markdown-btn" class="btn">원문 보기</button>
+                <button id="preview-view-text-btn" class="btn">텍스트 보기</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <div id="preview-html-frame" class="preview-frame">
+                <div id="preview-html-content"></div>
+              </div>
+              <div id="preview-markdown-frame" class="preview-frame hidden">
+                <pre id="preview-markdown-content" class="detail-content"></pre>
+              </div>
+              <div id="preview-text-frame" class="preview-frame hidden">
+                <pre id="preview-text-content" class="detail-content"></pre>
+              </div>
+            </div>
+
+            <div id="preview-ad-slot-bottom" class="preview-ad-slot hidden">
+              <div class="blogspot-ad-box">광고</div>
+              <div class="notice-text">광고칸은 표시용 근사치입니다. 실제 광고 위치와 크기는 블로그스팟 테마와 애드센스 설정에 따라 달라질 수 있습니다.</div>
+            </div>
+
+            <div id="preview-faq-box" class="blogspot-faq-box hidden">
+              <div class="blogspot-faq-box__title">자주 묻는 질문</div>
+              <div id="preview-faq-list"></div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">본문 이미지 목록</div>
+              <ul id="preview-body-image-list" class="check-list check-list--capped"></ul>
+            </div>
+
+            <div id="preview-related-box" class="blogspot-related-box hidden">
+              <div class="blogspot-related-box__title">관련 글</div>
+              <div id="preview-related-list"></div>
+              <div class="notice-text">관련글은 표시용 근사치입니다. 실제 내부링크는 발행 전 교체가 필요할 수 있습니다.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 블로그 등록하기 (repair2: 스크롤 금지, 요약형) -->
+  <div id="popup-blogger" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>🚀 블로그 등록하기</h2>
+        <button id="blogger-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__fixed">
+        <div id="blogger-list-view">
+          <div class="section-title">블로그 등록 가능한 글</div>
+          <ul id="blogger-candidate-list" class="check-list check-list--capped check-list--tall"></ul>
+        </div>
+
+        <div id="blogger-detail-view" class="hidden">
+          <div class="section">
+            <div class="card">
+              <div class="card__value" id="blogger-detail-title">-</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="detail-row">
+              <span class="detail-row__label">블로그스팟 연결 상태</span>
+              <span id="blogger-connection-status">확인 중</span>
+            </div>
+            <div id="blogger-image-warning" class="notice-text notice-text--warning hidden">
+              ⚠️ 현재 이미지는 브라우저 임시 이미지입니다. 블로그스팟 본문에 정상 표시하려면 이미지 URL 변환이 필요합니다. 임시저장은 계속 진행되지만, Blogger 화면에서는 이미지가 보이지 않을 수 있습니다.
+            </div>
+            <div id="blogger-result-card" class="result-card hidden"></div>
+          </div>
+
+          <div class="section">
+            <div class="btn-row">
+              <button id="blogger-draft-btn" class="btn btn--primary btn--block">블로그 임시 저장</button>
+            </div>
+          </div>
+
+          <div class="section">
+            <input id="blogger-schedule-datetime" class="input-text" type="datetime-local" />
+            <div class="btn-row">
+              <button id="blogger-schedule-btn" class="btn btn--block">예약 저장</button>
+            </div>
+            <div class="notice-text">예약 저장은 브라우저에 저장되는 로컬 예약 정보입니다. 자동 발행 기능은 아직 지원하지 않습니다.</div>
+          </div>
+
+          <button id="blogger-detail-back-btn" class="btn btn--block" type="button">목록으로</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 블로그 작업 지시서 복사 (v1.2 신규)
+       기존 popup-blogger/popup-archive와 동일한 popup-panel__header / popup-close-btn 구조를
+       그대로 재사용한다. GPT/Gemini API 호출 없이 data/blog-writing-prompt-v6.1.txt 원문을
+       보여주고 클립보드로 복사하는 정적 텍스트 기능이다. -->
+  <div id="popup-prompt-copy" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>📋 블로그 작업 지시서 복사</h2>
+        <button id="prompt-copy-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__fixed">
+        <div class="notice-text">다른 GPT에 붙여넣어 사용하는 블로그 글작성 실행 지시서(v6.1)입니다.</div>
+        <div class="section">
+          <textarea id="prompt-copy-textarea" class="guideline-textarea" readonly></textarea>
+        </div>
+        <div class="btn-row">
+          <button id="prompt-copy-copy-btn" class="btn btn--primary btn--block">전체 복사</button>
+        </div>
+        <div id="prompt-copy-result" class="notice-text hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 설정 기본 화면 (repair2: 스크롤 없이 메뉴 버튼만) -->
+  <div id="popup-settings" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>⚙ 설정</h2>
+        <button id="settings-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__fixed">
+        <div class="settings-menu-list">
+          <button id="open-settings-guideline-btn" class="btn btn--block" type="button">블로그 지시서 관리</button>
+          <button id="open-settings-error-btn" class="btn btn--block" type="button">오류백과</button>
+          <button id="open-settings-fullcheck-btn" class="btn btn--block" type="button">전체점검</button>
+          <button id="open-settings-backup-btn" class="btn btn--block" type="button">백업 / 복구</button>
+          <button id="open-settings-limitations-btn" class="btn btn--block" type="button">제한사항</button>
+          <button id="open-settings-worker-btn" class="btn btn--block" type="button">Worker 연결</button>
+          <button id="open-settings-version-btn" class="btn btn--block" type="button">버전 정보</button>
+        </div>
+
+        <div class="settings-inline-status">블로그스팟 연결 상태: <span id="settings-blogger-status">확인 중</span></div>
+
+        <div class="settings-danger-group">
+          <button id="settings-reset-btn" class="btn btn--danger btn--block">데이터 초기화</button>
+          <button id="settings-logout-btn" class="btn btn--block">로그아웃</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 설정 하위 팝업: 전체점검 (스크롤 허용) -->
+  <div id="popup-settings-fullcheck" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>전체점검</h2>
+        <button id="settings-fullcheck-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
+        <button id="fullcheck-run-btn" class="btn btn--primary btn--block">전체 점검 실행</button>
+        <div id="fullcheck-ok-card" class="result-card result-card--success hidden">✅ 확인 결과 특이사항 없음</div>
+        <ul id="fullcheck-list" class="check-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 설정 하위 팝업: 백업/복구 (스크롤 없음) -->
+  <div id="popup-settings-backup" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <div class="popup-panel__header">
+        <h2>백업 / 복구</h2>
+        <button id="settings-backup-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="btn-row">
+        <button id="backup-export-btn" class="btn">내보내기</button>
+        <label class="file-input-label" for="backup-import-input">가져오기</label>
+        <input id="backup-import-input" class="file-input-hidden" type="file" accept="application/json" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 설정 하위 팝업: 제한사항 (스크롤 없음, 요약형) -->
+  <div id="popup-settings-limitations" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <div class="popup-panel__header">
+        <h2>제한사항</h2>
+        <button id="settings-limitations-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="notice-text">docs/KNOWN_LIMITATIONS.md 문서를 참고해주세요. (버그가 아닌 설계상 의도된 제한사항입니다)</div>
+    </div>
+  </div>
+
+  <!-- 설정 하위 팝업: Worker 연결 (0.0.9 신규, 스크롤 없음) -->
+  <div id="popup-settings-worker" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <div class="popup-panel__header">
+        <h2>Worker 연결</h2>
+        <button id="settings-worker-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="detail-row">
+        <span class="detail-row__label">Worker 주소</span>
+      </div>
+      <input id="settings-worker-url-input" class="input-text" type="text" placeholder="https://wooow.qudrnr84.workers.dev" />
+      <div class="btn-row">
+        <button id="settings-worker-save-btn" class="btn btn--primary">저장</button>
+        <button id="settings-worker-check-btn" class="btn">연결 확인</button>
+      </div>
+      <div id="settings-worker-result" class="notice-text"></div>
+    </div>
+  </div>
+
+  <!-- 설정 하위 팝업: 버전 정보 (스크롤 없음) -->
+  <div id="popup-settings-version" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <div class="popup-panel__header">
+        <h2>버전 정보</h2>
+        <button id="settings-version-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="detail-row">
+        <span class="detail-row__label">버전</span>
+        <span id="settings-version-value">-</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-row__label">빌드</span>
+        <span id="settings-build-value">-</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-row__label">Worker</span>
+        <span id="settings-version-worker-value">-</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 설정 하위 팝업: 블로그 지시서 관리 (repair2 신규, 스크롤 없음/텍스트 영역만 내부 스크롤) -->
+  <div id="popup-settings-guideline" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2>블로그 지시서 관리</h2>
+        <button id="settings-guideline-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__fixed">
+        <div class="section">
+          <label for="guideline-upload-input" class="upload-drop-zone">지시서 파일 업로드 (.md, .txt)</label>
+          <input id="guideline-upload-input" class="upload-file-hidden" type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" />
+          <div id="guideline-upload-filename" class="upload-filename">선택된 파일 없음</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">현재 지시서</div>
+          <textarea id="guideline-current-text" class="guideline-textarea" readonly></textarea>
+        </div>
+
+        <div class="btn-row">
+          <button id="guideline-reset-btn" class="btn">기본 지시서로 복구</button>
+          <button id="guideline-copy-btn" class="btn btn--primary">복사</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 데이터 초기화 확인 팝업 -->
+  <div id="popup-confirm-reset" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <p class="confirm-text">저장된 모든 글과 오류 이력을 초기화하시겠습니까?<br />초기화한 데이터는 되돌릴 수 없습니다.</p>
+      <div class="btn-row">
+        <button id="confirm-reset-btn" class="btn btn--danger">초기화하기</button>
+        <button id="confirm-reset-cancel-btn" class="btn">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 오류 이력 패널 (오류백과) -->
+  <div id="error-panel" class="error-panel">
+    <div class="error-panel-inner">
+      <div class="popup-panel__header">
+        <h2>오류백과</h2>
+        <button id="error-panel-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <ul id="error-list" class="error-panel__scroll"></ul>
+    </div>
+  </div>
+
+  <!-- fix3-repair: 검은 alert()를 대체하는 공작소 스타일 전역 안내 카드(성공/실패/주의 공용) -->
+  <div id="app-toast" class="app-toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="js/error-log-module.js"></script>
+  <script src="js/auth-module.js"></script>
+  <script src="js/worker-api-module.js"></script>
+  <script src="js/gemini-review-module.js"></script>
+  <script src="js/storage-module.js"></script>
+  <script src="js/archive-module.js"></script>
+  <script src="js/backup-module.js"></script>
+  <script src="js/gpt-upload-module.js"></script>
+  <script src="js/vendor/zip-reader.js"></script>
+  <script src="js/seo-module.js"></script>
+  <script src="js/zip-upload-module.js"></script>
+  <script src="js/preview-module.js"></script>
+  <script src="js/blogger-module.js"></script>
+  <script src="js/schedule-module.js"></script>
+  <script src="js/statistics-module.js"></script>
+  <script src="js/guideline-module.js"></script>
+  <script src="js/prompt-copy-module.js"></script>
+  <script src="js/app-core.js"></script>
+</body>
+</html>

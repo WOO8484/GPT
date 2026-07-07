@@ -1,0 +1,530 @@
+/* components.css - 버튼, 카드, 리스트 등 컴포넌트 스타일 */
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 15px;
+  text-align: center;
+  background-color: #f2f2f2;
+  color: #222222;
+  white-space: normal;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+
+.btn--primary {
+  background-color: #222222;
+  color: #ffffff;
+}
+
+.btn--danger {
+  background-color: #ffe5e5;
+  color: #c53030;
+}
+
+.btn--block {
+  display: flex;
+  width: 100%;
+}
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.btn-row:last-child {
+  margin-bottom: 0;
+}
+
+.btn-row .btn {
+  flex: 1;
+  min-width: 0;
+}
+
+/* repair(0.0.8): 진행 중/중복 클릭 방지를 위해 비활성화된 버튼은 흐리게 회색 처리 */
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.card {
+  border: 1px solid #eeeeee;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card__label {
+  font-size: 13px;
+  color: #888888;
+  margin-bottom: 4px;
+}
+
+.card__value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.input-text,
+.select-box {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #dddddd;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.archive-item {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.archive-item__title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* fix2: 자료실 목록 항목의 상태 배지(제목과 메타 정보 사이에 표시) */
+.archive-item .status-badge {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.archive-item__meta {
+  font-size: 12px;
+  color: #888888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: keep-all;
+}
+
+.archive-item--empty,
+.error-item--empty {
+  text-align: center;
+  color: #999999;
+  padding: 24px 0;
+}
+
+.detail-row {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.detail-row__label {
+  color: #888888;
+  margin-right: 6px;
+}
+
+.detail-content {
+  white-space: pre-wrap;
+  font-size: 14px;
+  border: 1px solid #eeeeee;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+  max-height: 200px;
+  overflow-y: auto;
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+.preview-empty-text {
+  text-align: center;
+  color: #888888;
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 40px 16px;
+}
+
+.error-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 13px;
+}
+
+.file-input-label {
+  display: block;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background-color: #f2f2f2;
+  text-align: center;
+  font-size: 15px;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.preview-frame {
+  max-width: 420px;
+  margin: 0 auto;
+  border: 1px solid #eeeeee;
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.upload-drop-zone {
+  display: block;
+  padding: 32px 16px;
+  border: 2px dashed #cccccc;
+  border-radius: 12px;
+  text-align: center;
+  color: #666666;
+  font-size: 15px;
+}
+
+.upload-file-hidden {
+  display: none;
+}
+
+.upload-filename {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #888888;
+  text-align: center;
+}
+
+.upload-desc {
+  font-size: 13px;
+  color: #666666;
+  margin-bottom: 10px;
+}
+
+.manual-upload-panel--collapsed {
+  display: none;
+}
+
+.check-list {
+  border: 1px solid #eeeeee;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.check-list--capped {
+  max-height: 140px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* repair(0.0.9): 블로그 등록 목록에서 최소 4~5개 항목이 보이도록 이 목록만 높이를 확대한다
+   (다른 check-list--capped 사용 영역인 등록/전체점검/품질검수 목록은 기존 높이를 그대로 유지) */
+.check-list--tall {
+  max-height: 320px;
+}
+
+.check-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+  gap: 8px;
+}
+
+.check-item:last-child {
+  border-bottom: none;
+}
+
+/* repair(0.0.7): 라벨(첫 span)이 좁은 flex 영역에서 한 글자씩 세로로 밀리는 문제 방지.
+   라벨은 한 줄로 유지하고 넘치는 부분만 말줄임표로 처리한다(전체점검/체크리스트 공통). */
+.check-item span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+.check-item__status {
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.check-item__status--ok {
+  color: #2f8f4e;
+}
+
+.check-item__status--missing {
+  color: #999999;
+}
+
+.check-item__status--warn {
+  color: #b7791f;
+}
+
+.check-item__status--error {
+  color: #c53030;
+}
+
+.preview-thumbnail-img {
+  width: 100%;
+  border-radius: 8px;
+  display: block;
+}
+
+.image-item__thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-right: 8px;
+}
+
+.image-item__row {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.image-item__filename {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notice-text {
+  font-size: 12px;
+  color: #888888;
+  margin: 8px 0;
+}
+
+/* fix2: 품질검수 진행 카드는 아이콘+문구+타이머가 한 줄에 들어가야 하므로 기본 card__value(20px)보다
+   작게 표시하고, 줄바꿈 없이 한 줄로 유지한다. */
+.card__value--progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* fix2: 패키지 점검/품질검수 등 상태 표시 공통 배지(아이콘+색상+배경+테두리) */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-badge--ok {
+  color: #2f8f4e;
+}
+
+.status-badge--warn {
+  color: #b7791f;
+}
+
+.status-badge--fail {
+  color: #c53030;
+}
+
+.status-badge--progress {
+  color: #444444;
+}
+
+.status-badge--pending {
+  color: #999999;
+}
+
+/* fix2: 패키지 점검 카드 자체에도 상태별 배경/테두리를 적용한다. */
+.card--status-ok {
+  background-color: #f0f9f2;
+  border-color: #bfe6cc;
+}
+
+.card--status-warn {
+  background-color: #fff8ec;
+  border-color: #f0cf8e;
+}
+
+.card--status-fail {
+  background-color: #fff5f5;
+  border-color: #f0b8b8;
+}
+
+/* fix3: 문제 항목/개선내역은 더 이상 목록 안에서 펼치지 않고 별도 상세 팝업으로 연다.
+   목록 항목은 fix2와 동일하게 1줄 요약 + 말줄임을 유지한다. */
+.check-item--clickable {
+  cursor: pointer;
+}
+
+.check-item--review {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.check-item--review .check-item__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* fix3-repair: 검은 alert()를 대체하는 공작소 스타일 전역 안내 카드.
+   기존 result-card와 같은 톤(흰/연한 배경 + 초록/빨강/주황)을 쓰되, 화면 하단에 고정으로 띄워
+   등록/미리보기/설정 등 어느 팝업이 열려 있어도 같은 방식으로 알릴 수 있게 한다. */
+.app-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 300;
+  width: calc(100% - 40px);
+  max-width: 380px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  white-space: pre-line;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+.app-toast--success {
+  background-color: #f0f9f2;
+  color: #2f8f4e;
+  border: 1px solid #d6f0dd;
+}
+
+.app-toast--fail {
+  background-color: #fff5f5;
+  color: #c53030;
+  border: 1px solid #ffd6d6;
+}
+
+.app-toast--warn {
+  background-color: #fff8ec;
+  color: #b7791f;
+  border: 1px solid #f0cf8e;
+}
+
+.notice-text--warning {
+  color: #c53030;
+}
+
+/* fix3: 문제 항목/개선내역 상세 팝업 본문. 팝업 자체의 popup-panel__scroll이 스크롤을
+   담당하므로 여기서는 별도 max-height/overflow를 주지 않는다(이중 스크롤 방지). */
+.item-detail-content {
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: keep-all;
+}
+
+.item-detail-content__row {
+  margin-bottom: 12px;
+}
+
+.item-detail-content__label {
+  display: block;
+  font-size: 12px;
+  color: #888888;
+  margin-bottom: 2px;
+}
+
+/* fix3: 검은 시스템 confirm을 대체하는 공작소 스타일 공통 확인 팝업의 아이콘+제목 영역 */
+.confirm-action-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.confirm-action-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.confirm-action-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* fix2: 좁은 화면(대략 iPhone SE급 이하)에서 "HTML 본문 보기/원문 보기/텍스트 보기" 3버튼이
+   한 줄에 눌려 텍스트가 버튼 밖으로 튀어나오는 문제를 보정한다. 3열 대신 2열(+세로 배치)로 바꾸고
+   글자 크기/좌우 패딩을 줄인다. */
+@media (max-width: 380px) {
+  #preview-view-html-btn,
+  #preview-view-markdown-btn,
+  #preview-view-text-btn {
+    flex: 1 1 45%;
+    font-size: 13px;
+    padding: 10px 8px;
+  }
+}
+
+/* repair(0.0.8): 저장 완료 안내를 alert()/토스트가 아닌 팝업 내부 작은 카드로 표시 */
+.register-success-card {
+  background-color: #f0f9f2;
+  color: #2f8f4e;
+  border: 1px solid #d6f0dd;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  margin: 8px 0;
+  white-space: nowrap;
+}
+
+/* repair(0.0.9): 블로그 임시저장/예약저장 완료·실패 안내를 alert() 대신 표시하는 공통 카드
+   (register-success-card와 톤은 같지만, 문장이 길어질 수 있어 줄바꿈을 허용한다) */
+.result-card {
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 8px 0;
+  white-space: pre-line;
+}
+
+.result-card--success {
+  background-color: #f0f9f2;
+  color: #2f8f4e;
+  border: 1px solid #d6f0dd;
+}
+
+.result-card--fail {
+  background-color: #fff5f5;
+  color: #c53030;
+  border: 1px solid #ffd6d6;
+}
+
+
+/* fix2: 품질검수 실패 카드 내부 버튼은 일반 btn-row보다 우선해 간격을 분리한다. */
+#quality-review-fail .quality-review-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+  margin-bottom: 18px;
+}
+
+#quality-review-fail .quality-review-actions .btn {
+  width: 100%;
+}
