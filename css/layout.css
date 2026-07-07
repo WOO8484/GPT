@@ -1,0 +1,252 @@
+/* layout.css - 전체 레이아웃 구조 (한 화면 고정, 지정 영역만 내부 스크롤) */
+
+:root {
+  --color-bg: #ffffff;
+  --color-bg-soft: #f6f8fb;
+  --color-text: #1b1f27;
+  --color-text-soft: #6b7280;
+  --color-border: #e5e7eb;
+  --color-primary: #2f6fed;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-bg: #eaf1ff;
+  --color-success: #0f7a52;
+  --color-success-bg: #e4f7ee;
+  --color-danger: #d93025;
+  --color-danger-bg: #fdecea;
+  --color-warn: #b7791f;
+  --color-warn-bg: #fff6e5;
+}
+
+/* ---------- 로그인 화면 ---------- */
+.login-screen {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: var(--color-bg);
+}
+
+.login-box {
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+}
+
+.login-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: var(--color-text);
+}
+
+.login-password-input {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.login-error {
+  color: var(--color-danger);
+  font-size: 13px;
+  margin: -2px 0 10px;
+}
+
+.login-version {
+  position: absolute;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  font-size: 12px;
+  color: var(--color-text-soft);
+}
+
+/* ---------- 앱 컨테이너 (전체 페이지 스크롤 없음) ---------- */
+.app-container {
+  max-width: 480px;
+  margin: 0 auto;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+  overflow: hidden;
+  position: relative;
+}
+
+.app-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-header__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.header-icon-btn {
+  font-size: 13px;
+  color: var(--color-text-soft);
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.header-icon-btn:active {
+  background-color: var(--color-bg-soft);
+}
+
+/* ---------- 탭바 (업로드 / 자료실 / 저장) ---------- */
+.tab-bar {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-soft);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.tab-btn--active {
+  color: var(--color-primary);
+  background-color: var(--color-primary-bg);
+}
+
+/* ---------- 탭 패널 (한 번에 하나만 표시) ---------- */
+.tab-panels {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.tab-panel {
+  display: none;
+  height: 100%;
+  min-height: 0;
+}
+
+.tab-panel--active {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-fixed {
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-fixed--library {
+  gap: 10px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-soft);
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+/* ---------- 내부 스크롤 허용 영역(예외) ----------
+   1) 자료실/게시판 목록 내부
+   2) 본문 미리보기 내부
+   3) 오류 목록 내부                                */
+.library-list-scroll,
+.preview-scroll,
+.popup-panel__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------- 중앙 팝업(모든 팝업 공통) ---------- */
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(20, 24, 33, 0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.popup-overlay--open {
+  display: flex;
+}
+
+.popup-panel {
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  background-color: var(--color-bg);
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(20, 24, 33, 0.25);
+}
+
+.popup-panel--large {
+  max-width: 480px;
+  max-height: 86vh;
+}
+
+.popup-panel__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.popup-panel__header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.popup-close-btn {
+  font-size: 16px;
+  color: var(--color-text-soft);
+  padding: 4px 8px;
+}
+
+/* ---------- 오류 신고 플로팅 버튼 ---------- */
+.error-fab {
+  position: absolute;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--color-warn-bg);
+  color: var(--color-warn);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(20, 24, 33, 0.15);
+  z-index: 20;
+}

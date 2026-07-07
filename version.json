@@ -1,0 +1,27 @@
+{
+  "project": "GPT 공작소 Lite",
+  "version": "1.0.0",
+  "displayVersion": "Lite v1.0",
+  "releaseDate": "2026-07-07",
+  "description": "GPT 공작소 Lite 4모듈(로그인 / 업로드-미리보기 / 자료실 / 저장) 신규 구축. ZIP 업로드 시 metadata.json/content.html을 읽어 자료실에 저장하고, 저장 모듈에서 ZIP 내부 이미지를 Worker(/images/upload)로 R2에 업로드한 뒤 반환된 HTTPS URL로 content의 img src를 교체하여 Blogger(/blogger/draft)에 임시저장한다. Gemini 품질검수, SEO 점검, 후보 판정, 예약 발행, 통계, 백업 기능은 포함하지 않는다.",
+  "storagePriority": ["indexedDB", "localStorage"],
+  "workerEndpoints": {
+    "login": "/auth/login",
+    "bloggerStatus": "/blogger/status",
+    "bloggerDraft": "/blogger/draft",
+    "imagesUpload": "/images/upload"
+  },
+  "modules": [
+    "app-core.js",
+    "auth-module.js",
+    "worker-api-module.js",
+    "storage-module.js",
+    "library-module.js",
+    "upload-module.js",
+    "preview-module.js",
+    "r2-image-module.js",
+    "blogger-save-module.js",
+    "error-log-module.js",
+    "vendor/zip-reader.js"
+  ]
+}
