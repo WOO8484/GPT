@@ -48,17 +48,47 @@ const GeminiReviewModule = (() => {
     const seoResult = post.seoResult || {};
     const imageList = Array.isArray(post.imageList) ? post.imageList : [];
     const thumbnail = imageList.find((img) => img.type === "thumbnail") || null;
+    const bodyText = extractPlainText(post).slice(0, 6000);
+    const metaDescription = post.metaDescription || "";
+    const faqList = Array.isArray(post.faqList) ? post.faqList : [];
+    const imageAltTexts = imageList.map((img) => img.altText || "");
+    const seoScore = typeof seoResult.totalScore === "number" ? seoResult.totalScore : null;
+    const seoIssues = Array.isArray(seoResult.issues) ? seoResult.issues : [];
 
     return {
       mode, // "fast" | "precise" (화면 표기: 빠른 검수 / 정밀 검수)
+      reviewMode: mode,
       title: post.title || "",
-      description: post.metaDescription || "",
-      bodyText: extractPlainText(post).slice(0, 6000),
-      faqList: Array.isArray(post.faqList) ? post.faqList : [],
+      description: metaDescription,
+      metaDescription,
+      bodyText,
+      text: bodyText,
+      content: bodyText,
+      faqList,
+      faq: faqList,
       thumbnailText: thumbnail ? thumbnail.altText || "" : "",
-      imageAltTexts: imageList.map((img) => img.altText || ""),
-      seoScore: typeof seoResult.totalScore === "number" ? seoResult.totalScore : null,
-      seoIssues: Array.isArray(seoResult.issues) ? seoResult.issues : [],
+      imageAltTexts,
+      seoScore,
+      qualityScore: seoScore || 0,
+      seoIssues,
+      issues: seoIssues,
+      post: {
+        title: post.title || "",
+        description: metaDescription,
+        metaDescription,
+        text: bodyText,
+        content: bodyText,
+        faq: faqList,
+        thumbnailText: thumbnail ? thumbnail.altText || "" : "",
+      },
+      metadata: {
+        title: post.title || "",
+        description: metaDescription,
+        metaDescription,
+        seoScore,
+        seoIssues,
+        imageAltTexts,
+      },
     };
   }
 
@@ -67,8 +97,12 @@ const GeminiReviewModule = (() => {
     let data = raw;
     if (raw && typeof raw.result === "string") {
       data = JSON.parse(raw.result);
+    } else if (raw && raw.result && typeof raw.result === "object") {
+      data = raw.result;
     } else if (raw && raw.review && typeof raw.review === "object") {
       data = raw.review;
+    } else if (raw && raw.data && typeof raw.data === "object") {
+      data = raw.data;
     }
 
     if (!data || typeof data !== "object") {

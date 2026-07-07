@@ -573,8 +573,11 @@ const AppCore = (() => {
     const result = await GeminiReviewModule.requestReview(post, null, setQualityReviewStage);
 
     if (!result.success) {
-      document.getElementById("quality-review-fail-reason").textContent =
-        `품질검수 요청에 실패했습니다. (${result.reason || "알 수 없는 오류"})`;
+      const reasonText = result.reason || "알 수 없는 오류";
+      const detailText = reasonText.includes("Gemini 품질검수 응답을 해석하지 못했습니다")
+        ? "Worker가 Gemini 원문 응답을 JSON으로 해석하지 못했습니다. 본문 전달값을 보정했으니 다시 품질검수를 눌러 확인하세요."
+        : `품질검수 요청에 실패했습니다. (${reasonText})`;
+      document.getElementById("quality-review-fail-reason").textContent = detailText;
       document.getElementById("quality-review-fail-url").textContent = result.url
         ? `호출 주소: ${result.url}`
         : "";

@@ -274,3 +274,9 @@ GPT 공작소 자료 패키지 ZIP 파일 1개로 글/이미지 파일을 자동
 - HTML 미리보기
 - 로그인 / 서버 연동 / 외부 API 연동
 - ZIP 백업 실제 구현 (구조만 준비: exportFormat 필드)
+
+## 0.0.9 fix2
+
+- 자료실 상세의 품질검수 실패 버튼 영역과 기본 상세 버튼 영역이 붙어 보이던 모바일 간격 문제를 보정했습니다.
+- Gemini 품질검수 요청 payload에 Worker가 읽는 `text`, `content`, `metaDescription`, `faq`, `post`, `metadata` alias를 추가해 본문이 비어 전달되는 문제를 보정했습니다.
+- Worker 응답이 `result`/`data` 객체로 내려오는 경우도 품질검수 결과로 정상 해석하도록 파서를 보강했습니다.

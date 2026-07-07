@@ -339,3 +339,17 @@
   color: #c53030;
   border: 1px solid #ffd6d6;
 }
+
+
+/* fix2: 품질검수 실패 카드 내부 버튼은 일반 btn-row보다 우선해 간격을 분리한다. */
+#quality-review-fail .quality-review-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+  margin-bottom: 18px;
+}
+
+#quality-review-fail .quality-review-actions .btn {
+  width: 100%;
+}
