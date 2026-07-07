@@ -1,0 +1,34 @@
+{
+  "project": "GPT 공작소",
+  "version": "0.0.10-imgtest",
+  "build": "blogger-image-dataurl-draft-test",
+  "displayVersion": "v0.0.10-imgtest",
+  "phase": "Blogger 이미지 1장 포함 임시저장 최소 실증 테스트",
+  "releaseDate": "2026-07-07",
+  "description": "기존 Cloudflare Worker 로그인, Blogger 연결 상태 확인, 일반 임시저장 흐름은 유지하고, Blogger 등록 상세 팝업에 [이미지 1장 테스트 임시저장] 버튼을 추가했다. 이 테스트 버튼은 선택 글의 imageList 중 첫 번째 dataUrl 이미지를 stripNonHttpImages() 정리 단계 없이 별도 테스트 초안에 직접 삽입해 /blogger/draft로 전송한다. 목적은 Blogger가 dataUrl 이미지를 실제 임시글에서 유지/표시하는지 확인하는 것이다. 일반 [블로그 임시 저장]은 기존과 동일하게 non-http 이미지를 제거하는 방어 로직을 유지한다. 결과 판정은 Blogger 관리자 임시글과 모바일/PC 실제 표시 확인으로 한다.",
+  "storagePriority": [
+    "indexedDB",
+    "localStorage"
+  ],
+  "modules": [
+    "app-core.js",
+    "auth-module.js",
+    "worker-api-module.js",
+    "storage-module.js",
+    "archive-module.js",
+    "backup-module.js",
+    "error-log-module.js",
+    "gpt-upload-module.js",
+    "zip-upload-module.js",
+    "preview-module.js",
+    "seo-module.js",
+    "blogger-module.js",
+    "schedule-module.js",
+    "statistics-module.js",
+    "guideline-module.js",
+    "gemini-review-module.js"
+  ],
+  "unwiredModules": [
+    "image-module.js"
+  ]
+}
