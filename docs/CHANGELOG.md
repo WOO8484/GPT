@@ -1,5 +1,51 @@
 # CHANGELOG
 
+## [0.0.10 fix2] - 2026-07-07 - 실기 UI 잔여 보정(상태 표시 공통화 / 모달·버튼/Blogger 전송 보정)
+
+### 목적
+`GPT_Gongjakso_0.0.10_fix1.zip` 실기 확인 후 남은 UI/검수 표시/모달/Blogger 전송 문제를 보정한다. 0.0.10/0.0.10 fix1의 핵심 흐름(업로드 → 패키지 점검 자동 실행 → Gemini 품질검수 자동 실행 → 사용자 판단 → 저장)은 그대로 유지하며, 전체 재공사가 아니라 실기에서 확인된 항목만 최소 수정한다.
+
+### 상태 표시 공통화
+- **상태 배지 공통 헬퍼 추가(js/app-core.js)**: `applyStatusBadge()`/`classifyStatusKind()`를 추가해 통과·정상·완료류는 ✅ 초록, 주의·보완필요는 ⚠️ 주황, 실패·오류는 ❌ 빨강, 진행중은 🔄, 대기는 ⏳ 회색으로 앱 전체에서 동일하게 표시한다(css/components.css `.status-badge`, `.status-badge--*`).
+- 적용 범위: 패키지 점검 카드(값+카드 배경/테두리), 품질검수 점수/상태(등록 팝업·자료실 상세), 자료실 목록/상세 상태, 블로그 등록 후보 목록 상태, Blogger 임시저장/예약 결과 카드(아이콘 접두어), 전체점검 결과 항목, 설정 Worker 연결확인/저장 결과, 설정·블로그 등록 팝업의 블로그스팟 연결 상태, 품질검수 실패 사유 카드.
+- **패키지 점검 카드 색상 강조(css/components.css)**: 정상/주의/실패에 따라 카드 배경·테두리 색을 다르게 표시하는 `.card--status-ok/--warn/--fail`을 추가했다.
+
+### 품질검수 진행 표시 한 줄화 + Gemini 명칭 노출 최소화
+- **진행 표시 한 줄 축소(css/components.css `.card__value--progress`, index.html, js/app-core.js)**: "Gemini 품질검수 요청 중... 00:09"처럼 길어서 줄바꿈되던 표시를 "🛠️ 품질검수 중... 00:09" 한 줄로 줄였다.
+- **일반 화면 Gemini 명칭 마스킹(js/app-core.js `maskGeminiLabel()`)**: 진행 단계 문구("Gemini 응답 대기" 등)를 "AI 응답 대기"로 치환해 화면에 노출한다. 등록 팝업 안내 문구도 "공작소 품질검수"로 변경했다(index.html). Blogger/예약 저장 조건 안내 문구에서도 "Gemini" 명칭을 제거했다(js/blogger-module.js, js/schedule-module.js). 설정/오류 상세(오류백과, 실패 사유 분류 등)는 기존과 동일하게 Gemini 명칭을 유지한다(변경하지 않음).
+
+### Gemini 품질검수 기준 단계화
+- **점수 단계/지침을 Worker 요청 payload에 포함(js/gemini-review-module.js)**: `reviewGuideline.scoreTiers`(90~100/80~89/60~79/40~59/0~39)와 "무조건 전면 재작성을 요구하지 말고 부분 보완/핵심 수정/사용 금지 수준을 구분해서 제시" 지침 문자열을 payload에 추가했다. 실제 판정/프롬프트 조립은 Worker(백엔드)가 수행하므로, 이번 변경은 참고용 안내 필드 추가에 한정된다(이 프로젝트에는 Worker 코드가 포함되어 있지 않다).
+
+### 문제 항목/개선내역 펼쳐보기
+- **탭하여 전체 보기 추가(js/app-core.js `renderIssueList`/`renderImprovementList`, css/components.css `.check-item--review`, `.check-item--expandable`, `.check-item--expanded`)**: 기본은 1줄 요약(말줄임)으로 보이고, 항목을 탭하면 message/suggestion 전체 내용이 펼쳐진다. 수정요청 복사 문구는 이전과 동일하게 항상 전체 문제 항목/개선내역을 포함한다(`GeminiReviewModule.buildRewriteRequestText()`는 변경하지 않음, 애초에 말줄임 없이 전체 텍스트를 사용하고 있었음을 확인).
+
+### 모달 닫기/스크롤 잠금
+- **X 닫기 버튼 항상 표시(js/app-core.js `setRegisterStage`)**: 기존에는 품질검수 결과 확인(저장 판단 대기) 상태에서 실수 방지를 위해 X 버튼 자체를 숨겼으나, 이 때문에 "닫기 버튼이 보이지 않는다"는 문제가 생겼다. X 버튼은 이제 모든 단계에서 항상 표시하고, 저장 판단 대기 여부는 버튼의 hidden 클래스 대신 별도 상태 변수(`currentRegisterStage`)로 추적해 기존과 동일하게 닫기 전 확인창을 띄운다.
+- **배경 스크롤/터치 잠금(js/app-core.js `openPopup`/`closePopup`/`bindModalScrollLock`, css/layout.css `body.modal-open`)**: 팝업이 열려 있는 동안 `body.modal-open` 클래스를 적용하고, 모달 내부 스크롤 컨테이너가 아닌 영역에서는 `touchmove`를 막아 iPhone Safari에서 배경이 스크롤/러버밴드되는 것을 방지했다. 내부 스크롤 컨테이너에는 `-webkit-overflow-scrolling: touch`를 추가했다.
+
+### 모바일 버튼 텍스트 넘침 보정
+- **버튼 줄바꿈 허용(css/components.css `.btn`)**: `white-space: nowrap` → `normal`로 바꿔 텍스트가 버튼 밖으로 튀어나오지 않고 필요 시 2줄로 감싸지도록 했다.
+- **미리보기 3버튼 좁은 화면 2열화(css/components.css, 380px 이하 미디어쿼리)**: "HTML 본문 보기/원문 보기/텍스트 보기" 버튼이 좁은 화면에서 2열로 배치되도록 폭/글자 크기를 조정했다.
+
+### 광고 영역 조건부 숨김
+- **광고 슬롯 컨테이너 추가(index.html `.preview-ad-slot`, js/app-core.js `renderPreviewAdSlots`)**: 실제 광고 설정/데이터가 아직 없으므로 기본값(`AD_DISPLAY_ENABLED = false`)으로 광고 점선 박스와 안내문을 숨긴다. 이후 실제 광고 연동이 추가되면 이 플래그(또는 조건)만 교체하면 된다.
+
+### Blogger 전송 content 정리
+- **`<style>` 태그 제거(js/preview-module.js `FORBIDDEN_TAGS`)**: `sanitizeHtml()`의 금지 태그에 `style`을 추가했다. Blogger 전송용 content(`BloggerModule.buildBloggerPayload()`)가 이 결과를 그대로 사용하므로, 본문 중간에 섞여 있던 `<style>` 블록이 Blogger 관리자 화면에 CSS 원문 텍스트로 노출되던 문제가 해결된다. 미리보기/원문 보기/텍스트 보기는 각각 다른 데이터(safeHtml/markdownContent/textContent)를 사용하므로 이번 변경의 영향을 받지 않는다.
+- **dataUrl 이미지 안내 문구 보정(index.html)**: "이미지가 브라우저 임시 저장(dataUrl) 형식입니다..." → "현재 이미지는 브라우저 임시 이미지입니다. 블로그스팟 본문에 정상 표시하려면 이미지 URL 변환이 필요합니다. 임시저장은 계속 진행되지만, Blogger 화면에서는 이미지가 보이지 않을 수 있습니다."로 더 쉬운 표현으로 다듬었다.
+
+### 버전/빌드 표시
+- version.json: `build`를 `flow-check-gemini-auto-fix2`, `displayVersion`을 `v0.0.10-fix2`로 갱신.
+- 로그인 화면 버전 표시를 `v0.0.10-fix2`로 갱신(index.html). `AppState.build`도 동일하게 갱신(js/app-core.js). `AppState.version`(0.0.10)과 설정 화면의 "버전" 표시는 이전과 동일하게 유지하고, "빌드" 표시로 fix2 반영 여부를 확인할 수 있게 했다(0.0.10 fix1과 동일한 방식).
+
+### 폐기 버튼 danger 스타일 분리
+- 등록 팝업의 [폐기] 버튼에 `btn--danger` 클래스를 추가해 빨강 계열로 분리했다(index.html). 자료실 상세의 [삭제 하기] 버튼은 기존에도 동일하게 적용되어 있었다.
+
+### 범위 제외 (이번 fix2에서 다루지 않음)
+- OpenAI API 자동 글 생성, Gemini의 ZIP 직접 수정, Blogger 자동 발행 로직 대규모 변경, 자료실 저장소 구조 대규모 변경, 로그인 인증 로직 전체 재작성, GitHub 직접 반영
+- Worker(백엔드)의 실제 Gemini 프롬프트 조립 로직 자체(이 프로젝트에는 Worker 코드가 포함되어 있지 않으며, 프론트는 참고용 가이드 필드만 추가했다)
+
 ## [0.0.10] - 2026-07-07 - 업로드 → 패키지 점검 → Gemini 품질검수 자동 실행 → 사용자 판단 → 저장 흐름 재정리
 
 ### 목적

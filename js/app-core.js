@@ -54,6 +54,59 @@ const AppCore = (() => {
     return "post_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
   }
 
+  // fix2: Gemini 품질검수 상태(통과/보완필요/실패)를 상태 배지 kind로 매핑한다.
+  const REVIEW_STATUS_KIND_MAP = { 통과: "ok", 보완필요: "warn", 실패: "fail" };
+
+  function reviewStatusKind(status) {
+    return REVIEW_STATUS_KIND_MAP[status] || "warn";
+  }
+
+  // fix2: 상태 표시를 앱 전체에서 공통 규칙(아이콘+색상)으로 통일하기 위한 헬퍼.
+  // kind는 "ok" | "warn" | "fail" | "progress" | "pending" 중 하나이며, 명시적으로
+  // 전달하지 않으면 텍스트 내용으로 추정한다(기존 문구/클래스 체계는 그대로 유지).
+  const STATUS_ICON_MAP = { ok: "✅", warn: "⚠️", fail: "❌", progress: "🔄", pending: "⏳" };
+
+  function classifyStatusKind(text) {
+    if (!text) return "pending";
+    if (text.includes("실패") || text.includes("오류") || text.includes("안 됨")) return "fail";
+    if (text.includes("주의") || text.includes("보완")) return "warn";
+    if (
+      text.includes("통과") ||
+      text.includes("정상") ||
+      text.includes("완료") ||
+      text.includes("연결됨")
+    )
+      return "ok";
+    if (
+      text.includes("검수 중") ||
+      text.includes("검수중") ||
+      text.includes("진행 중") ||
+      text.includes("진행중") ||
+      text.includes("확인 중") ||
+      text.includes("요청 중")
+    )
+      return "progress";
+    return "pending";
+  }
+
+  // 상태 배지를 텍스트 엘리먼트에 적용한다(아이콘 접두어 + status-badge 클래스).
+  // kindOverride를 넘기면 텍스트 매칭 대신 그 값을 그대로 사용한다.
+  function applyStatusBadge(el, text, kindOverride) {
+    if (!el) return;
+    const kind = kindOverride || classifyStatusKind(text);
+    el.textContent = `${STATUS_ICON_MAP[kind] || ""} ${text}`.trim();
+    ["ok", "warn", "fail", "progress", "pending"].forEach((k) => {
+      el.classList.remove(`status-badge--${k}`);
+    });
+    el.classList.add("status-badge", `status-badge--${kind}`);
+  }
+
+  // fix2: 등록 팝업/품질검수 진행 단계에서 "Gemini" 명칭을 일반 화면에 그대로 노출하지 않는다.
+  // (설정/오류 상세 화면의 진단용 메시지는 이 함수를 거치지 않으므로 그대로 유지된다.)
+  function maskGeminiLabel(label) {
+    return (label || "").replace(/Gemini/g, "AI");
+  }
+
   function formatDate(isoString) {
     if (!isoString) return "-";
     const d = new Date(isoString);
@@ -63,12 +116,40 @@ const AppCore = (() => {
     )}:${pad(d.getMinutes())}`;
   }
 
+  // fix2: 여러 팝업이 겹쳐 열릴 수 있으므로(예: 설정 위에 확인창) 카운터로 관리하고,
+  // 열린 팝업이 모두 닫혔을 때만 배경 스크롤 잠금을 해제한다.
+  let openPopupCount = 0;
+
   function openPopup(id) {
     document.getElementById(id).classList.add("popup-overlay--open");
+    openPopupCount += 1;
+    document.body.classList.add("modal-open");
   }
 
   function closePopup(id) {
     document.getElementById(id).classList.remove("popup-overlay--open");
+    openPopupCount = Math.max(0, openPopupCount - 1);
+    if (openPopupCount === 0) {
+      document.body.classList.remove("modal-open");
+    }
+  }
+
+  // fix2: 모달이 열려 있는 동안 배경(모달 바깥) 터치 드래그로 뒤 화면이 스크롤/선택되는 것을
+  // 막는다. 팝업 내부의 실제 스크롤 컨테이너(목록/본문/텍스트영역 등)에서는 그대로 스크롤을 허용한다.
+  const MODAL_SCROLLABLE_SELECTOR =
+    ".popup-panel__scroll, .register-scroll, .archive-list-scroll, .archive-detail-scroll, " +
+    ".error-panel__scroll, .check-list--capped, .guideline-textarea, .preview-frame, textarea, input, select";
+
+  function bindModalScrollLock() {
+    document.addEventListener(
+      "touchmove",
+      (e) => {
+        if (!document.body.classList.contains("modal-open")) return;
+        if (e.target.closest(MODAL_SCROLLABLE_SELECTOR)) return;
+        e.preventDefault();
+      },
+      { passive: false }
+    );
   }
 
   function renderCheckListItems(containerId, items) {
@@ -200,14 +281,18 @@ const AppCore = (() => {
       titleEl.className = "archive-item__title";
       titleEl.textContent = post.title || "(제목 없음)";
 
+      const statusEl = document.createElement("div");
+      applyStatusBadge(statusEl, displayStatus(post.status));
+
       const imgCount = Array.isArray(post.imageList) ? post.imageList.length : 0;
       const qualityText = buildQualityDisplayText(post);
 
       const metaEl = document.createElement("div");
       metaEl.className = "archive-item__meta";
-      metaEl.textContent = `${displayStatus(post.status)} · ${formatDate(post.updatedAt)} · ${qualityText} · 이미지 ${imgCount}장`;
+      metaEl.textContent = `${formatDate(post.updatedAt)} · ${qualityText} · 이미지 ${imgCount}장`;
 
       itemEl.appendChild(titleEl);
+      itemEl.appendChild(statusEl);
       itemEl.appendChild(metaEl);
       itemEl.addEventListener("click", () => openArchiveDetail(post.id));
 
@@ -221,9 +306,9 @@ const AppCore = (() => {
     selectedArchivePostId = id;
 
     document.getElementById("archive-detail-title").textContent = post.title || "(제목 없음)";
-    document.getElementById("archive-detail-status").textContent = displayStatus(post.status);
+    applyStatusBadge(document.getElementById("archive-detail-status"), displayStatus(post.status));
     document.getElementById("archive-detail-updated").textContent = formatDate(post.updatedAt);
-    document.getElementById("archive-detail-seo").textContent = buildQualityDisplayText(post);
+    applyStatusBadge(document.getElementById("archive-detail-seo"), buildQualityDisplayText(post));
     const imgCount = Array.isArray(post.imageList) ? post.imageList.length : 0;
     document.getElementById("archive-detail-images").textContent = `${imgCount}장`;
 
@@ -470,8 +555,19 @@ const AppCore = (() => {
     renderPreviewTocBox(rendered.tableOfContents);
     renderPreviewFaqBox(rendered.faqList);
     renderPreviewRelatedBox(currentPreviewPost.id);
+    renderPreviewAdSlots();
     setPreviewWidthMode("mobile");
     showPreviewTab("html");
+  }
+
+  // fix2: 실제 광고 설정/데이터가 아직 없으므로 기본값은 숨김이다. 이후 실제 광고 연동이
+  // 추가되면 이 조건만 실제 설정값으로 바꾸면 된다.
+  const AD_DISPLAY_ENABLED = false;
+
+  function renderPreviewAdSlots() {
+    document.querySelectorAll(".preview-ad-slot").forEach((el) => {
+      el.classList.toggle("hidden", !AD_DISPLAY_ENABLED);
+    });
   }
 
   function openPreviewPopup(post) {
@@ -520,7 +616,7 @@ const AppCore = (() => {
   }
 
   function setStageText(elId, stageLabel) {
-    document.getElementById(elId).textContent = `단계: ${stageLabel}`;
+    document.getElementById(elId).textContent = `단계: ${maskGeminiLabel(stageLabel)}`;
   }
 
   function renderIssueList(listElId, issues) {
@@ -537,7 +633,10 @@ const AppCore = (() => {
 
     issues.forEach((issue) => {
       const li = document.createElement("li");
-      li.className = "check-item";
+      li.className = "check-item check-item--review check-item--expandable";
+
+      const headerEl = document.createElement("div");
+      headerEl.className = "check-item__header";
 
       const labelEl = document.createElement("span");
       labelEl.textContent = `[${issue.type || "기타"}] ${issue.message || ""}`;
@@ -546,13 +645,25 @@ const AppCore = (() => {
       statusEl.className = "check-item__status";
       statusEl.textContent = issue.severity || "-";
 
-      li.appendChild(labelEl);
-      li.appendChild(statusEl);
+      headerEl.appendChild(labelEl);
+      headerEl.appendChild(statusEl);
+
+      // fix2: 기본은 1줄 요약(말줄임)만 보이고, 탭하면 message/suggestion 전체를 펼쳐본다.
+      const detailEl = document.createElement("div");
+      detailEl.className = "check-item__detail hidden";
+      detailEl.textContent = issue.suggestion ? `제안: ${issue.suggestion}` : "제안 내용이 없습니다.";
+
+      li.appendChild(headerEl);
+      li.appendChild(detailEl);
+      li.addEventListener("click", () => {
+        li.classList.toggle("check-item--expanded");
+        detailEl.classList.toggle("hidden");
+      });
+
       listEl.appendChild(li);
     });
   }
 
-  // 작업지시서 6: Gemini 결과에는 개선내역(improvements)도 함께 표시한다.
   function renderImprovementList(listElId, improvements) {
     const listEl = document.getElementById(listElId);
     listEl.innerHTML = "";
@@ -567,10 +678,12 @@ const AppCore = (() => {
 
     improvements.forEach((item, idx) => {
       const li = document.createElement("li");
-      li.className = "check-item";
+      li.className = "check-item check-item--review check-item--expandable";
       const labelEl = document.createElement("span");
       labelEl.textContent = `${idx + 1}. ${item}`;
       li.appendChild(labelEl);
+      // fix2: 개선내역도 문제 항목과 동일하게 탭하면 말줄임 없이 전체 문구를 볼 수 있다.
+      li.addEventListener("click", () => li.classList.toggle("check-item--expanded"));
       listEl.appendChild(li);
     });
   }
@@ -615,13 +728,13 @@ const AppCore = (() => {
     triggerBtn.textContent = "검수 중...";
 
     showQualityReviewState("loading");
-    qualityReviewTimerHandle = startElapsedTimer("quality-review-status-value", "Gemini 품질검수 요청 중...");
+    qualityReviewTimerHandle = startElapsedTimer("quality-review-status-value", "🛠️ 품질검수 중...");
     setQualityReviewStage("요청 준비");
 
     const result = await GeminiReviewModule.requestReview(post, null, setQualityReviewStage);
 
     if (!result.success) {
-      document.getElementById("quality-review-fail-reason").textContent = buildGeminiFailDetailText(result);
+      applyStatusBadge(document.getElementById("quality-review-fail-reason"), buildGeminiFailDetailText(result), "fail");
       document.getElementById("quality-review-fail-url").textContent = result.url
         ? `호출 주소: ${result.url}`
         : "";
@@ -632,7 +745,11 @@ const AppCore = (() => {
     }
 
     const review = result.review;
-    document.getElementById("quality-review-score").textContent = `${review.score}점 (${review.status})`;
+    applyStatusBadge(
+      document.getElementById("quality-review-score"),
+      `${review.score}점 (${review.status})`,
+      reviewStatusKind(review.status)
+    );
     document.getElementById("quality-review-summary").textContent = review.summary || "요약이 없습니다.";
     renderIssueList("quality-review-issue-list", review.issues);
     renderImprovementList("quality-review-improvement-list", review.improvements);
@@ -679,9 +796,13 @@ const AppCore = (() => {
   let registerGeminiTimerHandle = null;
   let lastRegisterRewriteText = "";
   let registerCurrentReview = null;
+  // fix2: X 닫기 버튼을 항상 표시하도록 바꾸면서, "저장 판단 대기 중" 여부는 X 버튼의
+  // hidden 클래스가 아니라 이 변수로 별도 추적한다(닫기 시 확인창 표시 여부에 사용).
+  let currentRegisterStage = "none";
 
   // stage: "none" | "package-fail" | "gemini-loading" | "gemini-pass" | "gemini-warn" | "gemini-call-fail" | "done"
   function setRegisterStage(stage) {
+    currentRegisterStage = stage;
     const ids = [
       "register-package-check",
       "register-btn-row-package-fail",
@@ -697,6 +818,9 @@ const AppCore = (() => {
       "register-btn-row-done",
     ];
     ids.forEach((id) => document.getElementById(id).classList.add("hidden"));
+    // fix2: 결과 내용이 길어지는 상태(gemini-pass/gemini-warn 포함)에서도 X 닫기 버튼은
+    // 항상 보이고 눌러야 한다. 실수로 인한 저장 누락은 아래 isRegisterAwaitingSave() 기반
+    // 확인창으로 방지한다(X 버튼 자체를 숨기지 않는다).
     document.getElementById("register-close-x-btn").classList.remove("hidden");
 
     if (stage === "none") return;
@@ -713,14 +837,11 @@ const AppCore = (() => {
       document.getElementById("register-btn-row-gemini-pass").classList.remove("hidden");
       document.getElementById("register-btn-row-gemini-pass-2").classList.remove("hidden");
       document.getElementById("register-common-actions").classList.remove("hidden");
-      // 저장 판단 대기 중에는 실수로 팝업을 닫아버리는 것을 막기 위해 X를 숨긴다.
-      document.getElementById("register-close-x-btn").classList.add("hidden");
     } else if (stage === "gemini-warn") {
       document.getElementById("register-gemini-result").classList.remove("hidden");
       document.getElementById("register-btn-row-gemini-warn").classList.remove("hidden");
       document.getElementById("register-btn-row-gemini-warn-2").classList.remove("hidden");
       document.getElementById("register-common-actions").classList.remove("hidden");
-      document.getElementById("register-close-x-btn").classList.add("hidden");
     } else if (stage === "gemini-call-fail") {
       document.getElementById("register-gemini-fail").classList.remove("hidden");
       document.getElementById("register-btn-row-gemini-call-fail").classList.remove("hidden");
@@ -732,8 +853,20 @@ const AppCore = (() => {
   }
 
   // 작업지시서 4: 패키지 점검은 SEO 점수가 아니라 정상/주의/실패 상태로만 표시한다.
+  // fix2: 상태를 일반 텍스트가 아니라 아이콘+색상 배지 및 카드 색상으로 명확히 구분한다.
+  const PACKAGE_STATUS_KIND_MAP = { 정상: "ok", 주의: "warn", 실패: "fail" };
+
   function renderRegisterPackageCheck(result) {
-    document.getElementById("register-package-status-value").textContent = `패키지 점검: ${result.packageStatus}`;
+    const kind = PACKAGE_STATUS_KIND_MAP[result.packageStatus] || "pending";
+    applyStatusBadge(
+      document.getElementById("register-package-status-value"),
+      `패키지 점검: ${result.packageStatus}`,
+      kind
+    );
+
+    const cardEl = document.getElementById("register-package-check-card");
+    cardEl.classList.remove("card--status-ok", "card--status-warn", "card--status-fail");
+    cardEl.classList.add(`card--status-${kind}`);
 
     const advisoriesEl = document.getElementById("register-package-advisories");
     const failDetailEl = document.getElementById("register-package-fail-detail");
@@ -805,7 +938,7 @@ const AppCore = (() => {
     if (!post) return;
 
     setRegisterStage("gemini-loading");
-    registerGeminiTimerHandle = startElapsedTimer("register-gemini-status-value", "Gemini 품질검수 요청 중...");
+    registerGeminiTimerHandle = startElapsedTimer("register-gemini-status-value", "🛠️ 품질검수 중...");
     setStageText("register-gemini-stage-text", "패키지 점검 완료");
 
     const result = await GeminiReviewModule.requestReview(post, null, (stageLabel) =>
@@ -816,7 +949,7 @@ const AppCore = (() => {
     registerGeminiTimerHandle = null;
 
     if (!result.success) {
-      document.getElementById("register-gemini-fail-reason").textContent = buildGeminiFailDetailText(result);
+      applyStatusBadge(document.getElementById("register-gemini-fail-reason"), buildGeminiFailDetailText(result), "fail");
       document.getElementById("register-gemini-fail-url").textContent = result.url
         ? `호출 주소: ${result.url}`
         : "";
@@ -826,7 +959,11 @@ const AppCore = (() => {
 
     const review = result.review;
     registerCurrentReview = review;
-    document.getElementById("register-gemini-score").textContent = `${review.score}점 (${review.status})`;
+    applyStatusBadge(
+      document.getElementById("register-gemini-score"),
+      `${review.score}점 (${review.status})`,
+      reviewStatusKind(review.status)
+    );
     document.getElementById("register-gemini-summary").textContent = review.summary || "요약이 없습니다.";
     renderIssueList("register-gemini-issue-list", review.issues);
     renderImprovementList("register-gemini-improvement-list", review.improvements);
@@ -877,8 +1014,10 @@ const AppCore = (() => {
   }
 
   // 저장 판단 대기(Gemini 결과 확인 후 아직 저장/폐기 전) 상태인지 여부
+  // fix2: X 버튼이 항상 보이게 되었으므로, "저장 판단 대기 중"(자료실 저장/문제 있어도 보관을
+  // 아직 누르지 않은 상태) 여부는 X 버튼의 hidden 클래스 대신 현재 stage 값으로 판단한다.
   function isRegisterAwaitingSave() {
-    return document.getElementById("register-close-x-btn").classList.contains("hidden");
+    return currentRegisterStage === "gemini-pass" || currentRegisterStage === "gemini-warn";
   }
 
   function renderUploadCheckList() {
@@ -1078,11 +1217,15 @@ const AppCore = (() => {
       titleEl.className = "archive-item__title";
       titleEl.textContent = post.title || "(제목 없음)";
 
+      const statusEl = document.createElement("div");
+      applyStatusBadge(statusEl, displayStatus(post.status));
+
       const metaEl = document.createElement("div");
       metaEl.className = "archive-item__meta";
-      metaEl.textContent = `${displayStatus(post.status)} · 수정일 ${formatDate(post.updatedAt)}`;
+      metaEl.textContent = `수정일 ${formatDate(post.updatedAt)}`;
 
       itemEl.appendChild(titleEl);
+      itemEl.appendChild(statusEl);
       itemEl.appendChild(metaEl);
       itemEl.addEventListener("click", () => openBloggerDetail(post.id));
 
@@ -1103,7 +1246,8 @@ const AppCore = (() => {
 
   function showBloggerResult(type, message) {
     const el = document.getElementById("blogger-result-card");
-    el.textContent = message;
+    const icon = type === "success" ? "✅ " : "❌ ";
+    el.textContent = icon + message;
     el.classList.remove("hidden", "result-card--success", "result-card--fail");
     el.classList.add(type === "success" ? "result-card--success" : "result-card--fail");
   }
@@ -1132,9 +1276,9 @@ const AppCore = (() => {
     showBloggerDetailView();
 
     const statusEl = document.getElementById("blogger-connection-status");
-    statusEl.textContent = "확인 중";
+    applyStatusBadge(statusEl, "확인 중", "progress");
     const status = await BloggerModule.getConnectionStatus();
-    statusEl.textContent = status.ok ? (status.connected ? "연결됨" : "연결 안 됨") : "확인 실패";
+    applyStatusBadge(statusEl, status.ok ? (status.connected ? "연결됨" : "연결 안 됨") : "확인 실패");
   }
 
   function openBloggerPopup() {
@@ -1247,6 +1391,7 @@ const AppCore = (() => {
       "확인 필요": "check-item__status--warn",
       오류: "check-item__status--error",
     };
+    const VERDICT_KIND_MAP = { 통과: "ok", "확인 필요": "warn", 오류: "fail" };
 
     result.items.forEach((item) => {
       const li = document.createElement("li");
@@ -1257,7 +1402,7 @@ const AppCore = (() => {
 
       const verdictEl = document.createElement("span");
       verdictEl.className = "check-item__status " + (verdictClassMap[item.verdict] || "");
-      verdictEl.textContent = item.verdict;
+      applyStatusBadge(verdictEl, item.verdict, VERDICT_KIND_MAP[item.verdict]);
 
       li.appendChild(labelEl);
       li.appendChild(verdictEl);
@@ -1271,9 +1416,9 @@ const AppCore = (() => {
     document.getElementById("settings-version-worker-value").textContent = getWorkerBaseUrl();
 
     const statusEl = document.getElementById("settings-blogger-status");
-    statusEl.textContent = "확인 중";
+    applyStatusBadge(statusEl, "확인 중", "progress");
     const status = await BloggerModule.getConnectionStatus();
-    statusEl.textContent = status.ok ? (status.connected ? "연결됨" : "연결 안 됨") : "확인 실패";
+    applyStatusBadge(statusEl, status.ok ? (status.connected ? "연결됨" : "연결 안 됨") : "확인 실패");
   }
 
   function openSettingsPopup() {
@@ -1294,6 +1439,8 @@ const AppCore = (() => {
     document.getElementById("open-settings-error-btn").addEventListener("click", () => {
       renderErrorList();
       document.getElementById("error-panel").classList.add("error-panel--open");
+      openPopupCount += 1;
+      document.body.classList.add("modal-open");
     });
 
     document.getElementById("open-settings-fullcheck-btn").addEventListener("click", () => {
@@ -1332,20 +1479,26 @@ const AppCore = (() => {
       const value = input.value.trim();
       const resultEl = document.getElementById("settings-worker-result");
       if (!value) {
-        resultEl.textContent = "Worker 주소를 입력해주세요.";
+        applyStatusBadge(resultEl, "Worker 주소를 입력해주세요.", "warn");
         return;
       }
       const saved = setWorkerBaseUrl(value);
-      resultEl.textContent = saved ? "저장했습니다. 다음 요청부터 이 주소를 사용합니다." : "저장에 실패했습니다.";
+      applyStatusBadge(
+        resultEl,
+        saved ? "저장했습니다. 다음 요청부터 이 주소를 사용합니다." : "저장에 실패했습니다.",
+        saved ? "ok" : "fail"
+      );
     });
     document.getElementById("settings-worker-check-btn").addEventListener("click", async () => {
       const input = document.getElementById("settings-worker-url-input");
       const resultEl = document.getElementById("settings-worker-result");
-      resultEl.textContent = "연결 확인 중...";
+      applyStatusBadge(resultEl, "연결 확인 중...", "progress");
       const health = await WorkerApiModule.checkWorkerHealth(input.value.trim());
-      resultEl.textContent = health.ok
-        ? `연결 정상 (${health.url})`
-        : `연결 실패 (${health.url}) - ${health.reason}`;
+      applyStatusBadge(
+        resultEl,
+        health.ok ? `연결 정상 (${health.url})` : `연결 실패 (${health.url}) - ${health.reason}`,
+        health.ok ? "ok" : "fail"
+      );
     });
 
     document.getElementById("open-settings-version-btn").addEventListener("click", () => {
@@ -1368,6 +1521,10 @@ const AppCore = (() => {
 
     document.getElementById("error-panel-close-btn").addEventListener("click", () => {
       document.getElementById("error-panel").classList.remove("error-panel--open");
+      openPopupCount = Math.max(0, openPopupCount - 1);
+      if (openPopupCount === 0) {
+        document.body.classList.remove("modal-open");
+      }
     });
 
     document.getElementById("settings-reset-btn").addEventListener("click", () => {
@@ -1485,6 +1642,8 @@ const AppCore = (() => {
     stopTicker();
     document.querySelectorAll(".popup-overlay").forEach((el) => el.classList.remove("popup-overlay--open"));
     document.getElementById("error-panel").classList.remove("error-panel--open");
+    openPopupCount = 0;
+    document.body.classList.remove("modal-open");
   }
 
   async function init() {
@@ -1501,6 +1660,7 @@ const AppCore = (() => {
     bindSettingsEvents();
     bindBackupEvents();
     bindGuidelineEvents();
+    bindModalScrollLock();
 
     if (AuthModule.isLoggedIn()) {
       AuthModule.showAppScreen();
@@ -1519,7 +1679,7 @@ const AppCore = (() => {
 
 const AppState = {
   version: "0.0.10",
-  build: "flow-check-gemini-auto-fix1",
+  build: "flow-check-gemini-auto-fix2",
 };
 
 document.addEventListener("DOMContentLoaded", () => {

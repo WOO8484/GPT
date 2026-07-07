@@ -11,7 +11,8 @@
   text-align: center;
   background-color: #f2f2f2;
   color: #222222;
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.3;
   word-break: keep-all;
 }
 
@@ -91,6 +92,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* fix2: 자료실 목록 항목의 상태 배지(제목과 메타 정보 사이에 표시) */
+.archive-item .status-badge {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 2px;
 }
 
 .archive-item__meta {
@@ -208,6 +216,7 @@
 .check-list--capped {
   max-height: 140px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* repair(0.0.9): 블로그 등록 목록에서 최소 4~5개 항목이 보이도록 이 목록만 높이를 확대한다
@@ -298,8 +307,110 @@
   margin: 8px 0;
 }
 
+/* fix2: 품질검수 진행 카드는 아이콘+문구+타이머가 한 줄에 들어가야 하므로 기본 card__value(20px)보다
+   작게 표시하고, 줄바꿈 없이 한 줄로 유지한다. */
+.card__value--progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* fix2: 패키지 점검/품질검수 등 상태 표시 공통 배지(아이콘+색상+배경+테두리) */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-badge--ok {
+  color: #2f8f4e;
+}
+
+.status-badge--warn {
+  color: #b7791f;
+}
+
+.status-badge--fail {
+  color: #c53030;
+}
+
+.status-badge--progress {
+  color: #444444;
+}
+
+.status-badge--pending {
+  color: #999999;
+}
+
+/* fix2: 패키지 점검 카드 자체에도 상태별 배경/테두리를 적용한다. */
+.card--status-ok {
+  background-color: #f0f9f2;
+  border-color: #bfe6cc;
+}
+
+.card--status-warn {
+  background-color: #fff8ec;
+  border-color: #f0cf8e;
+}
+
+.card--status-fail {
+  background-color: #fff5f5;
+  border-color: #f0b8b8;
+}
+
+/* fix2: 문제 항목/개선내역 탭하여 펼쳐보기 */
+.check-item--expandable {
+  cursor: pointer;
+}
+
+.check-item--review {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.check-item--review .check-item__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.check-item__detail {
+  font-size: 13px;
+  color: #555555;
+  white-space: normal;
+  word-break: keep-all;
+  padding-top: 2px;
+}
+
+.check-item--expanded span:first-child,
+.check-item--expanded .check-item__header span:first-child {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
 .notice-text--warning {
   color: #c53030;
+}
+
+/* fix2: 좁은 화면(대략 iPhone SE급 이하)에서 "HTML 본문 보기/원문 보기/텍스트 보기" 3버튼이
+   한 줄에 눌려 텍스트가 버튼 밖으로 튀어나오는 문제를 보정한다. 3열 대신 2열(+세로 배치)로 바꾸고
+   글자 크기/좌우 패딩을 줄인다. */
+@media (max-width: 380px) {
+  #preview-view-html-btn,
+  #preview-view-markdown-btn,
+  #preview-view-text-btn {
+    flex: 1 1 45%;
+    font-size: 13px;
+    padding: 10px 8px;
+  }
 }
 
 /* repair(0.0.8): 저장 완료 안내를 alert()/토스트가 아닌 팝업 내부 작은 카드로 표시 */

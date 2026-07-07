@@ -2,6 +2,29 @@
 
 GPT 공작소 프로젝트의 모듈별 생성 이력을 기록합니다.
 
+## 0.0.10 fix2 - 실기 UI 잔여 보정(상태 표시 공통화 / 모달·버튼/Blogger 전송 보정) - 2026-07-07
+
+새 모듈 없음. `GPT_Gongjakso_0.0.10_fix1.zip` 기준으로 UI/표시/모달/Blogger 전송 로직만 최소 수정했다(로그인 인증, Blogger 저장/발행 핵심 로직, 자료실 저장소 구조, ZIP 파싱, SEO 계산 로직은 수정하지 않음).
+
+| 파일 | 변경 내용 | 상태 |
+|---|---|---|
+| js/app-core.js | 상태 배지 공통 헬퍼(`applyStatusBadge`/`classifyStatusKind`/`maskGeminiLabel`) 추가 및 패키지 점검/품질검수 점수/자료실 목록·상세/블로그 후보 목록/연결 확인/전체점검/실패 사유에 적용. 품질검수 진행 라벨을 "🛠️ 품질검수 중..." 한 줄로 축소. 문제 항목/개선내역 목록에 탭하여 펼쳐보기 추가. 등록 팝업 X 닫기 버튼을 항상 표시하도록 변경(`currentRegisterStage`로 저장 대기 상태 추적). 팝업 오픈/클로즈 시 `body.modal-open` 토글 및 배경 `touchmove` 차단(`bindModalScrollLock`) 추가. 미리보기 광고 슬롯 조건부 숨김(`renderPreviewAdSlots`) 추가 | 부분 수정 |
+| index.html | 로그인 화면 버전 `v0.0.10-fix2`. 품질검수 진행 카드 문구를 "🛠️ 품질검수 중..."으로, 안내 문구를 "공작소 품질검수"로 변경. 패키지 점검 카드에 상태색 적용용 id 추가. 폐기 버튼에 `btn--danger` 적용. 미리보기 광고 박스를 `.preview-ad-slot` 컨테이너로 감싸 기본 숨김 처리. Blogger dataUrl 이미지 안내 문구 보정 | 부분 수정 |
+| css/components.css | `.status-badge`/`.status-badge--*`, `.card--status-*`, `.card__value--progress`, `.check-item--review`/`.check-item--expandable`/`.check-item--expanded`/`.check-item__detail` 추가. `.btn`의 `white-space`를 `nowrap`→`normal`로 변경(2줄 허용). 380px 이하에서 미리보기 3버튼 2열 배치 미디어쿼리 추가. 자료실 목록 상태 배지 크기 지정 | 부분 수정 |
+| css/layout.css | `body.modal-open`(배경 스크롤 잠금) 추가. 팝업/자료실/등록 내부 스크롤 컨테이너에 `-webkit-overflow-scrolling: touch` 추가 | 부분 수정 |
+| js/gemini-review-module.js | `buildRequestPayload()`에 점수 단계 안내(`reviewGuideline.scoreTiers`)와 "전면 재작성 금지" 지침 문자열(`reviewInstruction`) 추가(참고용 필드, 프롬프트 조립 자체는 Worker 담당) | 부분 수정 |
+| js/preview-module.js | `sanitizeHtml()`의 `FORBIDDEN_TAGS`에 `style` 추가(Blogger 전송 본문에 CSS 원문이 텍스트로 노출되던 문제 해결) | 부분 수정 |
+| js/blogger-module.js | 예약/등록 불가 사유 문구에서 "Gemini" 명칭 제거("품질검수를 통과하지 못했습니다.") | 부분 수정 |
+| js/schedule-module.js | 예약 불가 사유 문구에서 "Gemini" 명칭 제거 | 부분 수정 |
+| version.json | build → `flow-check-gemini-auto-fix2`, displayVersion → `v0.0.10-fix2`, description에 fix2 요약 추가 | 부분 수정 |
+
+### 이번 fix2에서 다루지 않은 기존 모듈
+- js/auth-module.js, js/worker-api-module.js, js/storage-module.js, js/archive-module.js, js/backup-module.js, js/seo-module.js, js/error-log-module.js, js/gpt-upload-module.js, js/zip-upload-module.js, js/guideline-module.js, js/image-module.js, js/statistics-module.js, js/vendor/zip-reader.js, css/base.css: 코드 수정 없음.
+
+### 참고
+- Gemini 품질검수 점수 단계/전면 재작성 금지 지침은 프론트가 Worker에 보내는 payload에 참고용 필드로만 추가했다. 실제 Gemini 프롬프트 조립과 점수 판정 로직은 Worker(백엔드, 이 프로젝트에 코드 미포함)가 담당하므로, Worker 쪽에서 이 필드를 실제로 사용하도록 반영해야 화면 동작이 지침대로 바뀐다.
+- 이번 작업은 `GPT_Gongjakso_0.0.10_fix1.zip`을 기준으로 진행했다(0.0.9/0.0.9 fix1/fix2, 0.0.10 원본은 기준으로 사용하지 않음).
+
 ## 0.0.10 - 업로드 → 패키지 점검 → Gemini 품질검수 자동 실행 → 사용자 판단 → 저장 흐름 재정리 - 2026-07-07
 
 새 모듈 없음. 흐름/표시 정리 위주로 6개 파일만 수정했다(로그인 인증, Blogger 저장/발행, 저장소 핵심 구조, ZIP 파싱 자체는 수정하지 않음).

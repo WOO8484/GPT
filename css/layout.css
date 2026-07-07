@@ -77,6 +77,16 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* fix2: 모달이 열려 있는 동안 배경(body)이 터치/드래그로 스크롤되지 않도록 잠근다.
+   html/body는 base.css에서 이미 overflow:hidden이지만, iOS Safari에서는 position을
+   fixed로 함께 고정해야 배경이 밀리는 현상(러버밴드)을 확실히 막을 수 있다. */
+body.modal-open {
+  position: fixed;
+  width: 100%;
+  overflow: hidden;
 }
 
 /* repair2: 스크롤 금지 대상 팝업(등록하기/블로그 등록하기/설정 기본 화면)에 사용.
@@ -292,12 +302,14 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .register-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* repair(0.0.8): 자료실 상세보기는 제목/버튼 영역은 고정하고, 정보+품질검수 카드
@@ -316,6 +328,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 #archive-detail-view > .btn-row,

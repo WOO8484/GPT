@@ -4,12 +4,19 @@
  *
  * 허용 태그: h2, h3, p, ul, ol, li, table, thead, tbody, tr, th, td,
  *            strong, em, blockquote, img 등
- * 금지 태그: script, iframe, object, embed, form, input, button
+ * 금지 태그: script, iframe, object, embed, form, input, button, style
  * 인라인 이벤트(onclick 등) 및 외부 스크립트 실행은 모두 제거한다.
+ * fix2: style 태그를 제거 대상에 추가했다. Blogger 전송용 content는 이 sanitizeHtml()
+ * 결과를 그대로 사용하므로(blogger-module.js), 본문에 섞여 있던 CSS 원문이 Blogger
+ * 관리자 화면에 텍스트로 노출되는 문제를 막기 위함이다.
  */
 
 const PreviewModule = (() => {
-  const FORBIDDEN_TAGS = ["script", "iframe", "object", "embed", "form", "input", "button"];
+  // fix2: "style"을 금지 태그에 추가한다. content.html 중간에 <style>...</style> 블록이
+  // 섞여 있으면(문서 최상단이 아닌 경우) 이 필터를 거치지 않을 때 Blogger 전송 본문에
+  // CSS 원문이 그대로 텍스트로 남아 노출되는 문제가 있었다(BloggerModule.buildBloggerPayload()가
+  // 이 sanitizeHtml() 결과를 그대로 전송용 content로 사용한다).
+  const FORBIDDEN_TAGS = ["script", "iframe", "object", "embed", "form", "input", "button", "style"];
 
   function sanitizeHtml(rawHtml) {
     if (!rawHtml) return "";

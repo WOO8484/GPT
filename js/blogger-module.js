@@ -88,7 +88,7 @@ const BloggerModule = (() => {
     if (!htmlOk) reasons.push("HTML 본문이 없습니다.");
 
     const qualityOk = hasGeminiPass();
-    if (!qualityOk) reasons.push("Gemini 품질검수를 통과하지 못했습니다.");
+    if (!qualityOk) reasons.push("품질검수를 통과하지 못했습니다.");
 
     const normalizedStatus = normalizeStatus(currentPost.status);
     const statusOk = !FORBIDDEN_DRAFT_STATUS.includes(normalizedStatus);

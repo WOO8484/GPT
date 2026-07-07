@@ -43,6 +43,19 @@ const GeminiReviewModule = (() => {
     return "fast";
   }
 
+  // 작업지시서(0.0.10-fix2) 6: Gemini 품질검수 기준을 점수 단계로 명확히 하고,
+  // 무조건 전면 재작성을 요구하지 않도록 Worker(→ Gemini)에 함께 전달할 안내를 구성한다.
+  // 실제 프롬프트 조립은 Worker 쪽에서 이루어지므로, 프론트는 참고용 가이드 필드만 추가한다.
+  const REVIEW_SCORE_TIERS = [
+    { range: "90-100", label: "바로 사용 가능" },
+    { range: "80-89", label: "통과 · 사소 보완 권장" },
+    { range: "60-79", label: "보완필요 · 부분 수정" },
+    { range: "40-59", label: "실패 · 핵심 정보 부족" },
+    { range: "0-39", label: "사용 금지 수준" },
+  ];
+  const REVIEW_INSTRUCTION_TEXT =
+    "무조건 전면 재작성을 요구하지 말고, 부분 보완 / 핵심 수정 / 사용 금지 수준을 구분해서 개선내역을 제시한다.";
+
   // 작업지시서 9: Gemini에 보낼 데이터를 최소화해서 구성한다.
   function buildRequestPayload(post, mode) {
     const seoResult = post.seoResult || {};
@@ -72,6 +85,12 @@ const GeminiReviewModule = (() => {
       qualityScore: seoScore || 0,
       seoIssues,
       issues: seoIssues,
+      reviewGuideline: {
+        scoreTiers: REVIEW_SCORE_TIERS,
+        instruction: REVIEW_INSTRUCTION_TEXT,
+      },
+      scoreTiers: REVIEW_SCORE_TIERS,
+      reviewInstruction: REVIEW_INSTRUCTION_TEXT,
       post: {
         title: post.title || "",
         description: metaDescription,
