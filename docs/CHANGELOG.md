@@ -1,5 +1,82 @@
 # CHANGELOG
 
+## [0.0.10 fix3-repair] - 2026-07-07 - 남은 window.alert() 전체 제거(공작소 스타일 안내 카드로 교체)
+
+### 목적
+`GPT_Gongjakso_0.0.10_fix3.zip`에서 검은 `window.confirm()`은 모두 공작소 스타일 확인 팝업으로 교체했지만, 순수 안내성 `window.alert()`는 일부만 남아 있었다. 이번 보완 작업은 app-core.js에 남아 있던 나머지 `alert()`를 전부 공작소 스타일 안내 카드(전역 토스트) 또는 버튼 텍스트 피드백으로 교체한다. fix3의 다른 기능(상세 팝업, 확인 팝업, 정상 확인 카드 등)은 그대로 유지한다.
+
+### 신규 공통 컴포넌트: 전역 안내 카드(js/app-core.js `showToast()`, index.html `#app-toast`, css/components.css `.app-toast*`)
+- 검은 시스템 alert 대신 화면 하단 중앙에 뜨는 흰/연한 배경 카드. 성공은 초록(`--success`), 실패는 빨강(`--fail`), 확인 필요는 아니지만 사전 조건 미충족 등 주의 안내는 주황(`--warn`)으로 구분한다.
+- 등록/미리보기/설정/백업 등 어느 팝업이 열려 있어도 그 위에 뜨도록 `z-index`를 팝업(100)보다 높은 300으로 지정했다. 약 2.6초 후 자동으로 사라진다.
+
+### alert() → 안내 카드로 교체한 항목
+```text
+미리보기를 열 수 없습니다. (자료실 상세, 등록 팝업 2곳) → 실패 카드
+미리보기를 표시할 수 없습니다. (미리보기 팝업) → 실패 카드
+ZIP 파일을 먼저 선택해주세요. → 주의 카드
+저장에 실패했습니다. (등록 팝업) → 실패 카드
+자료실에 저장되었습니다. / 저장에 실패했습니다(파일 조건 안내) (GPT 업로드) → 성공/실패 카드
+데이터가 초기화되었습니다. / 초기화에 실패했습니다. → 성공/실패 카드
+지시서를 업로드했습니다. / 지시서 저장에 실패했습니다. → 성공/실패 카드
+전체 데이터를 내보냈습니다. / 내보내기에 실패했습니다. → 성공/실패 카드
+N개의 글을 가져왔습니다. / 가져오기에 실패했습니다. → 성공/실패 카드
+```
+
+### alert() → 버튼 텍스트 피드백으로 교체한 항목
+```text
+지시서를 클립보드에 복사했습니다. / 복사에 실패했습니다. (guideline-copy-btn)
+GPT 지시서를 클립보드에 복사했습니다. / 복사에 실패했습니다. (copy-guideline-btn)
+```
+위 2건은 fix3에서 이미 같은 방식으로 바꾼 수정요청/문제 항목/개선내역 복사 버튼(`flashButtonFeedback()`)과 동일한 패턴(버튼 텍스트를 "✅ 복사 완료"/"❌ 복사 실패"로 잠깐 변경)을 그대로 재사용했다.
+
+### 확인 결과
+- app-core.js 전체에서 `window.alert()`/`window.confirm()` 호출이 모두 제거되었다(주석에서만 언급).
+
+### 버전/빌드 표시
+- version.json: `build`를 `flow-check-gemini-auto-fix3-repair`, `displayVersion`을 `v0.0.10-fix3-repair`로 갱신.
+- 로그인 화면 버전 표시를 `v0.0.10-fix3-repair`로 갱신(index.html). `AppState.build`도 동일하게 갱신(js/app-core.js).
+
+### 범위 제외 (이번 fix3-repair에서 다루지 않음)
+- fix3에서 이미 구현한 문제 항목/개선내역 상세 팝업, 검은 confirm() 대체, 전체점검 정상 확인 카드 등은 재작업하지 않았다.
+- js/auth-module.js, worker-api-module.js, storage-module.js, archive-module.js, backup-module.js, seo-module.js, error-log-module.js, gpt-upload-module.js, zip-upload-module.js, guideline-module.js, image-module.js, statistics-module.js, gemini-review-module.js, preview-module.js, blogger-module.js, schedule-module.js, vendor/zip-reader.js, css/base.css, css/layout.css는 이번에도 수정하지 않았다.
+
+## [0.0.10 fix3] - 2026-07-07 - 문제 항목/개선내역 상세 팝업 + 검은 확인창 제거 + 정상 확인 카드 보정
+
+### 목적
+`GPT_Gongjakso_0.0.10_fix2.zip` 실기 확인 후 남은 3가지 문제만 최소 수정한다. 0.0.10-fix2의 업로드/패키지 점검/품질검수/저장 판단 흐름과 상태 배지 공통화, 모달 X 고정, 배경 스크롤 잠금, 버튼 텍스트 넘침 보정, 광고 조건부 숨김, Blogger 전송 시 CSS 노출 방지, dataUrl 안내 문구는 그대로 유지한다.
+
+### 문제 항목/개선내역 상세 팝업(js/app-core.js, index.html, css/components.css)
+- 기존에는 문제 항목/개선내역을 목록 안에서 탭하면 그 자리에서 펼치는 방식(fix2)이었으나, 실기에서 "클릭해도 상세 내용이 잘 보이지 않는다"는 문제가 확인되어 별도의 흰색 상세 팝업(`#popup-item-detail`)으로 교체했다.
+- 목록은 fix2와 동일하게 1줄 요약 + 말줄임을 유지하고, 항목을 클릭하면 상세 팝업이 열린다.
+- 문제 항목 상세: 구분(type)/심각도(severity)/문제 내용(message 전체)/제안(suggestion 전체)을 모두 표시.
+- 개선내역 상세: 개선 번호 + 개선내역 전체 문장을 표시(데이터 구조상 개선내역과 특정 문제 항목을 연결하는 필드가 없어, 실제로 존재하지 않는 관계를 표시하지 않기 위해 "관련 문제 항목" 자동 매칭은 넣지 않았다 — 아래 KNOWN_LIMITATIONS 참고).
+- 상세 팝업에는 상단 아이콘+제목, X 닫기 버튼, [내용 복사]/[닫기] 버튼이 있으며, 복사 시 말줄임 없이 전체 문구가 클립보드에 복사된다.
+- 상세 팝업은 등록하기 팝업 위에 겹쳐 뜰 수 있으며, fix2에서 만든 팝업 배경 잠금 카운터(`openPopup`/`closePopup`)를 그대로 재사용하므로 뒤 배경은 스크롤되지 않고, 상세 팝업을 닫아도 등록하기 팝업 상태는 그대로 유지된다.
+- 수정요청 복사(`GeminiReviewModule.buildRewriteRequestText()`)는 이번에도 변경하지 않았다 — 원래부터 말줄임 없이 전체 문제 항목/개선내역을 포함하고 있었음을 재확인했다.
+
+### 검은 시스템 confirm() 제거 + 공작소 스타일 확인 팝업(js/app-core.js, index.html, css/components.css)
+- 신규 공통 컴포넌트 `#popup-confirm-action` + `showConfirmAction()`/`bindConfirmActionEvents()`를 추가했다(아이콘+제목+설명+취소/확인 버튼, 위험한 동작은 확인 버튼을 빨강 계열로 표시).
+- 아래 4곳의 검은 `window.confirm()`을 이 팝업으로 교체했다: 블로그 임시저장, 예약 저장, 지시서 기본 복구, 전체 데이터 가져오기(덮어쓰기 경고).
+- 기존에는 확인창 자체가 없었던 [폐기](등록 팝업)와 [문제 있어도 보관] 버튼에도 동일한 확인 팝업을 새로 추가했다(작업지시서 6.1에 명시된 적용 대상).
+- 수정요청/문제 항목/개선내역의 [내용 복사] 버튼들의 성공·실패 알림을 검은 `alert()` 대신 버튼 텍스트를 잠깐 바꿔 보여주는 방식(`flashButtonFeedback()`)으로 바꿨다(품질검수/등록 팝업의 기존 수정요청 복사 버튼 3곳 + 신규 상세 팝업 복사 버튼).
+- 위 목록에 포함되지 않은 다른 `alert()`(ZIP 미선택, 저장 실패, 지시서 업로드/복사, 백업 내보내기/가져오기 결과 등 순수 안내성 알림)는 이번 작업지시서의 문제 목록·6.1 적용 대상에 해당하지 않아 손대지 않았다 — 필요하면 별도로 알려달라.
+
+### 정상 확인 카드(index.html, js/app-core.js)
+- 설정 → 전체점검에서 모든 항목이 "통과"이면 목록 위에 `✅ 확인 결과 특이사항 없음` 카드(기존 `.result-card--success` 스타일 재사용)를 표시한다. 문제가 하나라도 있으면 카드를 숨기고 기존처럼 항목별 배지만 보여준다.
+- Worker 연결 확인/패키지 점검/품질검수 통과/Blogger 연결/임시저장·예약 저장 완료는 fix2에서 이미 초록 아이콘 배지 또는 초록 결과 카드로 표시되고 있어 이번에는 추가로 손대지 않았다.
+
+### 모달 중첩/배경 스크롤(신규 컴포넌트 재사용)
+- 새 상세 팝업/확인 팝업 모두 fix2의 `.popup-overlay`/`.popup-panel` 구조와 `openPopup()`/`closePopup()` 배경 잠금 카운터, `bindModalScrollLock()`의 `touchmove` 차단 로직을 그대로 재사용했다. 별도의 새 모달 프레임워크를 만들지 않았으므로 iPhone Safari 배경 터치/드래그 방지 동작도 fix2와 동일하게 적용된다.
+
+### 버전/빌드 표시
+- version.json: `build`를 `flow-check-gemini-auto-fix3`, `displayVersion`을 `v0.0.10-fix3`로 갱신.
+- 로그인 화면 버전 표시를 `v0.0.10-fix3`로 갱신(index.html). `AppState.build`도 동일하게 갱신(js/app-core.js). `AppState.version`(0.0.10)과 설정 화면 "버전" 표시는 fix1/fix2와 동일한 방식으로 유지하고, "빌드" 표시로 fix3 반영 여부를 확인한다.
+
+### 범위 제외 (이번 fix3에서 다루지 않음)
+- OpenAI API 자동 글 생성, Gemini의 ZIP 직접 수정, Blogger API 핵심 로직 대규모 변경, 자료실 저장소 구조 대규모 변경, 로그인 인증 로직 전체 재작성, 새 브랜드/메뉴 추가, GitHub 직접 반영
+- 6.1에 명시되지 않은 나머지 `alert()` 안내 문구(순수 정보성 알림) 전면 교체
+- 개선내역-문제 항목 자동 매칭 표시(데이터 구조상 근거 없는 관계를 만들지 않기 위해 보류)
+
 ## [0.0.10 fix2] - 2026-07-07 - 실기 UI 잔여 보정(상태 표시 공통화 / 모달·버튼/Blogger 전송 보정)
 
 ### 목적

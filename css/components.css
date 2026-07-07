@@ -362,8 +362,9 @@
   border-color: #f0b8b8;
 }
 
-/* fix2: 문제 항목/개선내역 탭하여 펼쳐보기 */
-.check-item--expandable {
+/* fix3: 문제 항목/개선내역은 더 이상 목록 안에서 펼치지 않고 별도 상세 팝업으로 연다.
+   목록 항목은 fix2와 동일하게 1줄 요약 + 말줄임을 유지한다. */
+.check-item--clickable {
   cursor: pointer;
 }
 
@@ -381,23 +382,86 @@
   width: 100%;
 }
 
-.check-item__detail {
-  font-size: 13px;
-  color: #555555;
-  white-space: normal;
-  word-break: keep-all;
-  padding-top: 2px;
+/* fix3-repair: 검은 alert()를 대체하는 공작소 스타일 전역 안내 카드.
+   기존 result-card와 같은 톤(흰/연한 배경 + 초록/빨강/주황)을 쓰되, 화면 하단에 고정으로 띄워
+   등록/미리보기/설정 등 어느 팝업이 열려 있어도 같은 방식으로 알릴 수 있게 한다. */
+.app-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 300;
+  width: calc(100% - 40px);
+  max-width: 380px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  white-space: pre-line;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 }
 
-.check-item--expanded span:first-child,
-.check-item--expanded .check-item__header span:first-child {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: unset;
+.app-toast--success {
+  background-color: #f0f9f2;
+  color: #2f8f4e;
+  border: 1px solid #d6f0dd;
+}
+
+.app-toast--fail {
+  background-color: #fff5f5;
+  color: #c53030;
+  border: 1px solid #ffd6d6;
+}
+
+.app-toast--warn {
+  background-color: #fff8ec;
+  color: #b7791f;
+  border: 1px solid #f0cf8e;
 }
 
 .notice-text--warning {
   color: #c53030;
+}
+
+/* fix3: 문제 항목/개선내역 상세 팝업 본문. 팝업 자체의 popup-panel__scroll이 스크롤을
+   담당하므로 여기서는 별도 max-height/overflow를 주지 않는다(이중 스크롤 방지). */
+.item-detail-content {
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: keep-all;
+}
+
+.item-detail-content__row {
+  margin-bottom: 12px;
+}
+
+.item-detail-content__label {
+  display: block;
+  font-size: 12px;
+  color: #888888;
+  margin-bottom: 2px;
+}
+
+/* fix3: 검은 시스템 confirm을 대체하는 공작소 스타일 공통 확인 팝업의 아이콘+제목 영역 */
+.confirm-action-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.confirm-action-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.confirm-action-title {
+  font-size: 17px;
+  font-weight: 700;
 }
 
 /* fix2: 좁은 화면(대략 iPhone SE급 이하)에서 "HTML 본문 보기/원문 보기/텍스트 보기" 3버튼이

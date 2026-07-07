@@ -2,6 +2,43 @@
 
 GPT 공작소 프로젝트의 모듈별 생성 이력을 기록합니다.
 
+## 0.0.10 fix3-repair - 남은 window.alert() 전체 제거(공작소 스타일 안내 카드로 교체) - 2026-07-07
+
+새 모듈 없음. `GPT_Gongjakso_0.0.10_fix3.zip` 기준으로 남아 있던 `window.alert()` 안내 문구만 최소 수정했다(로그인 인증, Blogger 저장/발행 핵심 로직, 자료실 저장소 구조, fix3에서 만든 상세/확인 팝업 로직은 수정하지 않음).
+
+| 파일 | 변경 내용 | 상태 |
+|---|---|---|
+| js/app-core.js | 전역 안내 카드 헬퍼 `showToast()` 추가(성공/실패/주의 3종). 미리보기 실패(3곳)/ZIP 미선택/등록 저장 실패/자료실 저장 완료·실패/데이터 초기화 완료·실패/지시서 업로드 완료·실패/백업 내보내기 완료·실패/데이터 가져오기 완료·실패의 `alert()`를 `showToast()`로 교체. 지시서 복사 2건(`guideline-copy-btn`, `copy-guideline-btn`)은 기존 `flashButtonFeedback()` 패턴으로 교체 | 부분 수정 |
+| index.html | 로그인 화면 버전 `v0.0.10-fix3-repair`. 전역 안내 카드 엘리먼트 `#app-toast` 추가(body 최상위, 모든 팝업 위에 뜨도록 위치) | 부분 수정 |
+| css/components.css | `.app-toast`/`.app-toast--success`/`.app-toast--fail`/`.app-toast--warn` 추가(흰/연한 배경 + 초록/빨강/주황, z-index 300으로 팝업 위에 표시) | 부분 수정 |
+| version.json | build → `flow-check-gemini-auto-fix3-repair`, displayVersion → `v0.0.10-fix3-repair`, description에 fix3-repair 요약 추가 | 부분 수정 |
+
+### 이번 fix3-repair에서 다루지 않은 기존 모듈/파일
+- js/auth-module.js, js/worker-api-module.js, js/storage-module.js, js/archive-module.js, js/backup-module.js, js/seo-module.js, js/error-log-module.js, js/gpt-upload-module.js, js/zip-upload-module.js, js/guideline-module.js, js/image-module.js, js/statistics-module.js, js/gemini-review-module.js, js/preview-module.js, js/blogger-module.js, js/schedule-module.js, js/vendor/zip-reader.js, css/base.css, css/layout.css: 코드 수정 없음(fix3 상태 그대로).
+- fix3에서 만든 문제 항목/개선내역 상세 팝업, 공통 확인 팝업(`showConfirmAction`), 전체점검 정상 확인 카드 로직도 재작업하지 않았다.
+
+### 참고
+- 이번 작업은 `GPT_Gongjakso_0.0.10_fix3.zip`을 기준으로 진행했다.
+- `showToast()`는 fix3의 `showConfirmAction()`/`openItemDetailPopup()`과 마찬가지로 새 모달 프레임워크 없이 기존 `.hidden` 유틸리티 클래스와 CSS `z-index` 계층만으로 구현했다.
+
+## 0.0.10 fix3 - 문제 항목/개선내역 상세 팝업 + 검은 확인창 제거 + 정상 확인 카드 보정 - 2026-07-07
+
+새 모듈 없음. `GPT_Gongjakso_0.0.10_fix2.zip` 기준으로 UI/확인 흐름만 최소 수정했다(로그인 인증, Blogger 저장/발행 핵심 로직, 자료실 저장소 구조는 수정하지 않음).
+
+| 파일 | 변경 내용 | 상태 |
+|---|---|---|
+| js/app-core.js | 문제 항목/개선내역 클릭 동작을 인라인 펼치기(fix2)에서 별도 상세 팝업(`openItemDetailPopup`)으로 교체. 공통 확인 팝업 헬퍼(`showConfirmAction`/`bindConfirmActionEvents`) 추가 및 블로그 임시저장/예약 저장/지시서 기본 복구/백업 가져오기의 `confirm()` 4곳 교체, 폐기·문제 있어도 보관 버튼에 확인 팝업 신규 추가. 수정요청/문제 항목/개선내역 복사 버튼의 `alert()` 피드백을 `flashButtonFeedback()`(버튼 텍스트 일시 변경)으로 교체. 전체점검 전항목 통과 시 정상 확인 카드 표시 로직 추가 | 부분 수정 |
+| index.html | 로그인 화면 버전 `v0.0.10-fix3`. 신규 팝업 `#popup-item-detail`(문제 항목/개선내역 상세), `#popup-confirm-action`(공통 확인 팝업) 마크업 추가. 전체점검 팝업에 `#fullcheck-ok-card`(정상 확인 카드) 추가 | 부분 수정 |
+| css/components.css | 인라인 펼치기 관련 규칙(`.check-item--expandable`, `.check-item--expanded`, `.check-item__detail`)을 상세 팝업 관련 규칙(`.check-item--clickable`, `.item-detail-content*`, `.confirm-action-header` 등)으로 교체 | 부분 수정 |
+| version.json | build → `flow-check-gemini-auto-fix3`, displayVersion → `v0.0.10-fix3`, description에 fix3 요약 추가 | 부분 수정 |
+
+### 이번 fix3에서 다루지 않은 기존 모듈/파일
+- js/auth-module.js, js/worker-api-module.js, js/storage-module.js, js/archive-module.js, js/backup-module.js, js/seo-module.js, js/error-log-module.js, js/gpt-upload-module.js, js/zip-upload-module.js, js/guideline-module.js, js/image-module.js, js/statistics-module.js, js/gemini-review-module.js, js/preview-module.js, js/blogger-module.js, js/schedule-module.js, js/vendor/zip-reader.js, css/base.css, css/layout.css: 코드 수정 없음(fix2 상태 그대로).
+
+### 참고
+- 이번 작업은 `GPT_Gongjakso_0.0.10_fix2.zip`을 기준으로 진행했다(0.0.10 원본, 0.0.10 fix1은 기준으로 사용하지 않음).
+- 새 상세/확인 팝업은 별도의 모달 프레임워크를 만들지 않고 fix2의 `.popup-overlay`/`.popup-panel` 구조와 `openPopup()`/`closePopup()` 배경 잠금 카운터, `bindModalScrollLock()`을 그대로 재사용한다.
+
 ## 0.0.10 fix2 - 실기 UI 잔여 보정(상태 표시 공통화 / 모달·버튼/Blogger 전송 보정) - 2026-07-07
 
 새 모듈 없음. `GPT_Gongjakso_0.0.10_fix1.zip` 기준으로 UI/표시/모달/Blogger 전송 로직만 최소 수정했다(로그인 인증, Blogger 저장/발행 핵심 로직, 자료실 저장소 구조, ZIP 파싱, SEO 계산 로직은 수정하지 않음).

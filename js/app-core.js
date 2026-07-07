@@ -152,6 +152,115 @@ const AppCore = (() => {
     );
   }
 
+  // fix3: 검은 시스템 confirm()을 대체하는 공작소 스타일 공통 확인 팝업.
+  // 블로그 임시저장/예약 저장/폐기/문제 있어도 보관 등 "사용자 확인이 필요한 액션"에서 공용으로 사용한다.
+  let pendingConfirmActionCallback = null;
+
+  function showConfirmAction({ icon = "❓", title = "확인", desc = "", confirmText = "확인", danger = false, onConfirm }) {
+    document.getElementById("confirm-action-icon").textContent = icon;
+    document.getElementById("confirm-action-title").textContent = title;
+    document.getElementById("confirm-action-desc").textContent = desc;
+    const confirmBtn = document.getElementById("confirm-action-confirm-btn");
+    confirmBtn.textContent = confirmText;
+    confirmBtn.classList.remove("btn--primary", "btn--danger");
+    confirmBtn.classList.add(danger ? "btn--danger" : "btn--primary");
+    pendingConfirmActionCallback = typeof onConfirm === "function" ? onConfirm : null;
+    openPopup("popup-confirm-action");
+  }
+
+  function bindConfirmActionEvents() {
+    document.getElementById("confirm-action-cancel-btn").addEventListener("click", () => {
+      pendingConfirmActionCallback = null;
+      closePopup("popup-confirm-action");
+    });
+    document.getElementById("confirm-action-confirm-btn").addEventListener("click", () => {
+      const callback = pendingConfirmActionCallback;
+      pendingConfirmActionCallback = null;
+      closePopup("popup-confirm-action");
+      if (callback) callback();
+    });
+  }
+
+  // fix3: 문제 항목/개선내역 클릭 시 여는 상세 팝업(등록 팝업/자료실 상세 품질검수 결과 공용).
+  // 등록하기 팝업 위에 겹쳐 열릴 수 있으므로 openPopup/closePopup의 배경 잠금 카운터를 그대로 사용한다.
+  let currentItemDetailCopyText = "";
+
+  function openItemDetailPopup({ icon = "⚠️", title = "상세 내용", rows = [], copyText = "" }) {
+    document.getElementById("item-detail-icon").textContent = icon;
+    document.getElementById("item-detail-title").textContent = title;
+
+    const bodyEl = document.getElementById("item-detail-body");
+    bodyEl.innerHTML = "";
+    rows.forEach((row) => {
+      const rowEl = document.createElement("div");
+      rowEl.className = "item-detail-content__row";
+      if (row.label) {
+        const labelEl = document.createElement("span");
+        labelEl.className = "item-detail-content__label";
+        labelEl.textContent = row.label;
+        rowEl.appendChild(labelEl);
+      }
+      const valueEl = document.createElement("span");
+      valueEl.textContent = row.value || "";
+      rowEl.appendChild(valueEl);
+      bodyEl.appendChild(rowEl);
+    });
+
+    currentItemDetailCopyText = copyText;
+    openPopup("popup-item-detail");
+  }
+
+  // fix3-repair: 클립보드 복사 성공/실패를 검은 alert() 대신 버튼 텍스트를 잠깐 바꿔서 알려준다.
+  function flashButtonFeedback(btn, feedbackText) {
+    if (!btn) return;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = feedbackText;
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.disabled = false;
+    }, 1400);
+  }
+
+  // fix3-repair: 버튼과 무관하게 화면 어디서든(등록/미리보기/설정/백업 등) 뜰 수 있는
+  // 검은 alert() 대체용 공작소 스타일 안내 카드. type: "success" | "fail" | "warn"
+  let appToastTimer = null;
+
+  function showToast(message, type) {
+    const el = document.getElementById("app-toast");
+    if (!el) return;
+    if (appToastTimer) {
+      clearTimeout(appToastTimer);
+      appToastTimer = null;
+    }
+    const iconMap = { success: "✅", fail: "❌", warn: "⚠️" };
+    el.textContent = `${iconMap[type] || iconMap.success} ${message}`;
+    el.classList.remove("app-toast--success", "app-toast--fail", "app-toast--warn", "hidden");
+    el.classList.add(`app-toast--${type || "success"}`);
+    appToastTimer = setTimeout(() => {
+      el.classList.add("hidden");
+      appToastTimer = null;
+    }, 2600);
+  }
+
+  function bindItemDetailEvents() {
+    document.getElementById("item-detail-close-x-btn").addEventListener("click", () => {
+      closePopup("popup-item-detail");
+    });
+    document.getElementById("item-detail-close-btn").addEventListener("click", () => {
+      closePopup("popup-item-detail");
+    });
+    document.getElementById("item-detail-copy-btn").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      try {
+        await navigator.clipboard.writeText(currentItemDetailCopyText);
+        flashButtonFeedback(btn, "✅ 복사 완료");
+      } catch (error) {
+        flashButtonFeedback(btn, "❌ 복사 실패");
+      }
+    });
+  }
+
   function renderCheckListItems(containerId, items) {
     const listEl = document.getElementById(containerId);
     listEl.innerHTML = "";
@@ -347,7 +456,7 @@ const AppCore = (() => {
     document.getElementById("archive-detail-preview-btn").addEventListener("click", () => {
       const post = ArchiveModule.getPostById(selectedArchivePostId);
       if (!post) {
-        alert("미리보기를 열 수 없습니다.");
+        showToast("미리보기를 열 수 없습니다.", "fail");
         return;
       }
       openPreviewPopup(post);
@@ -522,7 +631,7 @@ const AppCore = (() => {
 
     const rendered = PreviewModule.renderPreview(currentPreviewPost);
     if (!rendered) {
-      alert("미리보기를 표시할 수 없습니다.");
+      showToast("미리보기를 표시할 수 없습니다.", "fail");
       return;
     }
 
@@ -633,7 +742,7 @@ const AppCore = (() => {
 
     issues.forEach((issue) => {
       const li = document.createElement("li");
-      li.className = "check-item check-item--review check-item--expandable";
+      li.className = "check-item check-item--review check-item--clickable";
 
       const headerEl = document.createElement("div");
       headerEl.className = "check-item__header";
@@ -647,17 +756,26 @@ const AppCore = (() => {
 
       headerEl.appendChild(labelEl);
       headerEl.appendChild(statusEl);
-
-      // fix2: 기본은 1줄 요약(말줄임)만 보이고, 탭하면 message/suggestion 전체를 펼쳐본다.
-      const detailEl = document.createElement("div");
-      detailEl.className = "check-item__detail hidden";
-      detailEl.textContent = issue.suggestion ? `제안: ${issue.suggestion}` : "제안 내용이 없습니다.";
-
       li.appendChild(headerEl);
-      li.appendChild(detailEl);
+
+      // fix3: 목록은 1줄 요약(말줄임)만 유지하고, 클릭하면 별도 상세 팝업에서
+      // type/severity/message/suggestion 전체를 보여준다(수정요청 복사와는 별개 기능).
       li.addEventListener("click", () => {
-        li.classList.toggle("check-item--expanded");
-        detailEl.classList.toggle("hidden");
+        const type = issue.type || "기타";
+        const severity = issue.severity || "-";
+        const message = issue.message || "";
+        const suggestion = issue.suggestion || "제안 내용이 없습니다.";
+        openItemDetailPopup({
+          icon: "⚠️",
+          title: "문제 항목 상세",
+          rows: [
+            { label: "구분", value: type },
+            { label: "심각도", value: severity },
+            { label: "문제 내용", value: message },
+            { label: "제안", value: suggestion },
+          ],
+          copyText: `[${type} / ${severity}]\n문제 내용: ${message}\n제안: ${suggestion}`,
+        });
       });
 
       listEl.appendChild(li);
@@ -678,12 +796,21 @@ const AppCore = (() => {
 
     improvements.forEach((item, idx) => {
       const li = document.createElement("li");
-      li.className = "check-item check-item--review check-item--expandable";
+      li.className = "check-item check-item--review check-item--clickable";
       const labelEl = document.createElement("span");
       labelEl.textContent = `${idx + 1}. ${item}`;
       li.appendChild(labelEl);
-      // fix2: 개선내역도 문제 항목과 동일하게 탭하면 말줄임 없이 전체 문구를 볼 수 있다.
-      li.addEventListener("click", () => li.classList.toggle("check-item--expanded"));
+
+      // fix3: 개선내역도 문제 항목과 동일하게 클릭 시 상세 팝업에서 전체 문장을 확인한다.
+      li.addEventListener("click", () => {
+        openItemDetailPopup({
+          icon: "💡",
+          title: `개선내역 ${idx + 1}`,
+          rows: [{ label: `개선 ${idx + 1}`, value: item }],
+          copyText: `${idx + 1}. ${item}`,
+        });
+      });
+
       listEl.appendChild(li);
     });
   }
@@ -774,12 +901,13 @@ const AppCore = (() => {
       resetQualityReviewPanel();
     });
 
-    document.getElementById("quality-review-copy-btn").addEventListener("click", async () => {
+    document.getElementById("quality-review-copy-btn").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
       try {
         await navigator.clipboard.writeText(lastQualityReviewRewriteText);
-        alert("수정요청 문구를 클립보드에 복사했습니다.");
+        flashButtonFeedback(btn, "✅ 복사 완료");
       } catch (error) {
-        alert("복사에 실패했습니다.");
+        flashButtonFeedback(btn, "❌ 복사 실패");
       }
     });
   }
@@ -917,7 +1045,7 @@ const AppCore = (() => {
   function runRegisterPackageCheck() {
     const result = ZipUploadModule.runValidation();
     if (!result.success) {
-      alert("ZIP 파일을 먼저 선택해주세요.");
+      showToast("ZIP 파일을 먼저 선택해주세요.", "warn");
       return;
     }
 
@@ -982,7 +1110,7 @@ const AppCore = (() => {
       setRegisterStage("done");
     } else {
       btn.disabled = false;
-      alert("저장에 실패했습니다.");
+      showToast("저장에 실패했습니다.", "fail");
     }
   }
 
@@ -1061,23 +1189,25 @@ const AppCore = (() => {
       }
     });
 
-    document.getElementById("register-package-copy-btn").addEventListener("click", async () => {
+    document.getElementById("register-package-copy-btn").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
       try {
         await navigator.clipboard.writeText(lastRegisterRewriteText);
-        alert("수정요청 문구를 클립보드에 복사했습니다.");
+        flashButtonFeedback(btn, "✅ 복사 완료");
       } catch (error) {
-        alert("복사에 실패했습니다.");
+        flashButtonFeedback(btn, "❌ 복사 실패");
       }
     });
 
     [document.getElementById("register-gemini-copy-btn"), document.getElementById("register-gemini-copy-btn-warn")].forEach(
       (btn) => {
-        btn.addEventListener("click", async () => {
+        btn.addEventListener("click", async (e) => {
+          const clickedBtn = e.currentTarget;
           try {
             await navigator.clipboard.writeText(lastRegisterRewriteText);
-            alert("수정요청 문구를 클립보드에 복사했습니다.");
+            flashButtonFeedback(clickedBtn, "✅ 복사 완료");
           } catch (error) {
-            alert("복사에 실패했습니다.");
+            flashButtonFeedback(clickedBtn, "❌ 복사 실패");
           }
         });
       }
@@ -1088,7 +1218,7 @@ const AppCore = (() => {
         btn.addEventListener("click", () => {
           const post = ZipUploadModule.getValidatedPost();
           if (!post) {
-            alert("미리보기를 열 수 없습니다.");
+            showToast("미리보기를 열 수 없습니다.", "fail");
             return;
           }
           openPreviewPopup(post);
@@ -1106,7 +1236,16 @@ const AppCore = (() => {
     });
 
     document.getElementById("register-discard-btn").addEventListener("click", () => {
-      resetRegisterPopupUI();
+      showConfirmAction({
+        icon: "🗑️",
+        title: "폐기 확인",
+        desc: "지금까지 확인한 패키지 점검/품질검수 결과를 폐기할까요?\n폐기하면 자료실에 저장되지 않습니다.",
+        confirmText: "폐기",
+        danger: true,
+        onConfirm: () => {
+          resetRegisterPopupUI();
+        },
+      });
     });
 
     document.getElementById("register-save-btn").addEventListener("click", (e) => {
@@ -1114,7 +1253,17 @@ const AppCore = (() => {
     });
 
     document.getElementById("register-keep-anyway-btn").addEventListener("click", (e) => {
-      handleRegisterSave(e.currentTarget);
+      const btn = e.currentTarget;
+      showConfirmAction({
+        icon: "⚠️",
+        title: "문제 있어도 보관",
+        desc: "품질검수에서 확인된 문제가 남아있는 상태로 자료실에 보관하시겠습니까?",
+        confirmText: "보관",
+        danger: true,
+        onConfirm: () => {
+          handleRegisterSave(btn);
+        },
+      });
     });
 
     document.getElementById("register-goto-archive-btn").addEventListener("click", () => {
@@ -1164,9 +1313,9 @@ const AppCore = (() => {
         });
         renderUploadCheckList();
 
-        alert("자료실에 저장되었습니다.");
+        showToast("자료실에 저장되었습니다.", "success");
       } else {
-        alert("저장에 실패했습니다. HTML/Markdown/TXT 중 하나 이상의 파일이 필요합니다.");
+        showToast("저장에 실패했습니다. HTML/Markdown/TXT 중 하나 이상의 파일이 필요합니다.", "fail");
       }
     });
   }
@@ -1295,53 +1444,65 @@ const AppCore = (() => {
       renderBloggerCandidateList();
     });
 
-    document.getElementById("blogger-draft-btn").addEventListener("click", async (e) => {
-      const ok = confirm("블로그에 임시 저장하시겠습니까?");
-      if (!ok) return;
-
+    document.getElementById("blogger-draft-btn").addEventListener("click", (e) => {
       const btn = e.currentTarget;
-      btn.disabled = true;
-      resetBloggerResultCard();
-      try {
-        const result = await BloggerModule.saveDraftToBlogger();
-        if (result.success) {
-          showBloggerResult(
-            "success",
-            "블로그스팟 임시저장 완료\nBlogger 관리자 화면에서 초안으로 확인할 수 있습니다."
-          );
-          await refreshDashboard();
-        } else {
-          showBloggerResult(
-            "fail",
-            "블로그 등록 실패\n사유: " + (result.reasons ? result.reasons.join(", ") : "알 수 없는 오류")
-          );
-        }
-      } finally {
-        btn.disabled = false;
-      }
+      showConfirmAction({
+        icon: "🚀",
+        title: "블로그 임시저장 확인",
+        desc: "블로그스팟에 초안으로 저장하시겠습니까?\n저장 후 Blogger 관리자 화면의 임시글에서 확인할 수 있습니다.",
+        confirmText: "임시저장",
+        danger: false,
+        onConfirm: async () => {
+          btn.disabled = true;
+          resetBloggerResultCard();
+          try {
+            const result = await BloggerModule.saveDraftToBlogger();
+            if (result.success) {
+              showBloggerResult(
+                "success",
+                "블로그스팟 임시저장 완료\nBlogger 관리자 화면에서 초안으로 확인할 수 있습니다."
+              );
+              await refreshDashboard();
+            } else {
+              showBloggerResult(
+                "fail",
+                "블로그 등록 실패\n사유: " + (result.reasons ? result.reasons.join(", ") : "알 수 없는 오류")
+              );
+            }
+          } finally {
+            btn.disabled = false;
+          }
+        },
+      });
     });
 
-    document.getElementById("blogger-schedule-btn").addEventListener("click", async () => {
+    document.getElementById("blogger-schedule-btn").addEventListener("click", () => {
       const value = document.getElementById("blogger-schedule-datetime").value;
       if (!value) {
         showBloggerResult("fail", "예약 일시를 입력해주세요.");
         return;
       }
-      const ok = confirm("입력한 일시로 예약 저장하시겠습니까?");
-      if (!ok) return;
-
-      resetBloggerResultCard();
-      const result = await ScheduleModule.saveSchedule(value);
-      if (result.success) {
-        const [datePart, timePart] = value.split("T");
-        showBloggerResult(
-          "success",
-          `예약 저장 완료\n예약 날짜: ${datePart}\n예약 시간: ${timePart || "-"}`
-        );
-        await refreshDashboard();
-      } else {
-        showBloggerResult("fail", "예약 저장 실패\n사유: " + result.reasons.join(", "));
-      }
+      showConfirmAction({
+        icon: "🚀",
+        title: "예약 저장 확인",
+        desc: "입력한 일시로 예약 저장하시겠습니까?",
+        confirmText: "예약 저장",
+        danger: false,
+        onConfirm: async () => {
+          resetBloggerResultCard();
+          const result = await ScheduleModule.saveSchedule(value);
+          if (result.success) {
+            const [datePart, timePart] = value.split("T");
+            showBloggerResult(
+              "success",
+              `예약 저장 완료\n예약 날짜: ${datePart}\n예약 시간: ${timePart || "-"}`
+            );
+            await refreshDashboard();
+          } else {
+            showBloggerResult("fail", "예약 저장 실패\n사유: " + result.reasons.join(", "));
+          }
+        },
+      });
     });
   }
 
@@ -1376,7 +1537,9 @@ const AppCore = (() => {
   async function renderFullCheckList() {
     const result = await StatisticsModule.runFullCheck();
     const listEl = document.getElementById("fullcheck-list");
+    const okCardEl = document.getElementById("fullcheck-ok-card");
     listEl.innerHTML = "";
+    okCardEl.classList.add("hidden");
 
     if (!result.success) {
       const errorEl = document.createElement("li");
@@ -1392,6 +1555,10 @@ const AppCore = (() => {
       오류: "check-item__status--error",
     };
     const VERDICT_KIND_MAP = { 통과: "ok", "확인 필요": "warn", 오류: "fail" };
+
+    // fix3: 전체 항목이 모두 "통과"이면 앱 톤의 정상 확인 카드를 목록 위에 보여준다.
+    const hasIssue = result.items.some((item) => item.verdict !== "통과");
+    okCardEl.classList.toggle("hidden", hasIssue);
 
     result.items.forEach((item) => {
       const li = document.createElement("li");
@@ -1445,6 +1612,7 @@ const AppCore = (() => {
 
     document.getElementById("open-settings-fullcheck-btn").addEventListener("click", () => {
       document.getElementById("fullcheck-list").innerHTML = "";
+      document.getElementById("fullcheck-ok-card").classList.add("hidden");
       openPopup("popup-settings-fullcheck");
     });
     document.getElementById("settings-fullcheck-close-btn").addEventListener("click", () => {
@@ -1540,9 +1708,9 @@ const AppCore = (() => {
         await StorageModule.replaceAllPosts([]);
         await refreshDashboard();
         closePopup("popup-confirm-reset");
-        alert("데이터가 초기화되었습니다.");
+        showToast("데이터가 초기화되었습니다.", "success");
       } catch (error) {
-        alert("초기화에 실패했습니다.");
+        showToast("초기화에 실패했습니다.", "fail");
       }
     });
 
@@ -1567,29 +1735,38 @@ const AppCore = (() => {
         const text = String(event.target.result || "");
         if (GuidelineModule.saveGuidelineText(text)) {
           document.getElementById("guideline-current-text").value = text;
-          alert("지시서를 업로드했습니다.");
+          showToast("지시서를 업로드했습니다.", "success");
         } else {
-          alert("지시서 저장에 실패했습니다.");
+          showToast("지시서 저장에 실패했습니다.", "fail");
         }
       };
       reader.readAsText(file);
     });
 
     document.getElementById("guideline-reset-btn").addEventListener("click", () => {
-      const ok = confirm("기본 지시서로 복구하시겠습니까?");
-      if (!ok) return;
-      GuidelineModule.resetToDefault();
-      document.getElementById("guideline-current-text").value = GuidelineModule.getGuidelineText();
+      showConfirmAction({
+        icon: "⚠️",
+        title: "기본 지시서 복구",
+        desc: "기본 지시서로 복구하시겠습니까?\n현재 작성된 지시서 내용은 사라집니다.",
+        confirmText: "복구",
+        danger: true,
+        onConfirm: () => {
+          GuidelineModule.resetToDefault();
+          document.getElementById("guideline-current-text").value = GuidelineModule.getGuidelineText();
+        },
+      });
     });
 
-    document.getElementById("guideline-copy-btn").addEventListener("click", async () => {
+    document.getElementById("guideline-copy-btn").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
       const result = await GuidelineModule.copyToClipboard();
-      alert(result.success ? "지시서를 클립보드에 복사했습니다." : "복사에 실패했습니다.");
+      flashButtonFeedback(btn, result.success ? "✅ 복사 완료" : "❌ 복사 실패");
     });
 
-    document.getElementById("copy-guideline-btn").addEventListener("click", async () => {
+    document.getElementById("copy-guideline-btn").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
       const result = await GuidelineModule.copyToClipboard();
-      alert(result.success ? "GPT 지시서를 클립보드에 복사했습니다." : "복사에 실패했습니다.");
+      flashButtonFeedback(btn, result.success ? "✅ 복사 완료" : "❌ 복사 실패");
     });
   }
 
@@ -1598,9 +1775,9 @@ const AppCore = (() => {
       const result = await BackupModule.exportAllData();
       if (result) {
         BackupModule.triggerDownload(result.filename, result.json);
-        alert("전체 데이터를 내보냈습니다.");
+        showToast("전체 데이터를 내보냈습니다.", "success");
       } else {
-        alert("내보내기에 실패했습니다.");
+        showToast("내보내기에 실패했습니다.", "fail");
       }
     });
 
@@ -1608,23 +1785,26 @@ const AppCore = (() => {
       const file = e.target.files[0];
       if (!file) return;
 
-      const ok = confirm("전체 데이터를 가져오면 현재 저장된 데이터가 덮어써질 수 있습니다. 계속하시겠습니까?");
-      if (!ok) {
-        e.target.value = "";
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const result = await BackupModule.importAllData(event.target.result);
-        if (result.success) {
-          alert(`${result.count}개의 글을 가져왔습니다.`);
-          await refreshDashboard();
-        } else {
-          alert("가져오기에 실패했습니다: " + result.error);
-        }
-      };
-      reader.readAsText(file);
+      showConfirmAction({
+        icon: "⚠️",
+        title: "데이터 가져오기 확인",
+        desc: "전체 데이터를 가져오면 현재 저장된 데이터가 덮어써질 수 있습니다.\n계속하시겠습니까?",
+        confirmText: "가져오기",
+        danger: true,
+        onConfirm: () => {
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            const result = await BackupModule.importAllData(event.target.result);
+            if (result.success) {
+              showToast(`${result.count}개의 글을 가져왔습니다.`, "success");
+              await refreshDashboard();
+            } else {
+              showToast("가져오기에 실패했습니다: " + result.error, "fail");
+            }
+          };
+          reader.readAsText(file);
+        },
+      });
       e.target.value = "";
     });
   }
@@ -1661,6 +1841,8 @@ const AppCore = (() => {
     bindBackupEvents();
     bindGuidelineEvents();
     bindModalScrollLock();
+    bindConfirmActionEvents();
+    bindItemDetailEvents();
 
     if (AuthModule.isLoggedIn()) {
       AuthModule.showAppScreen();
@@ -1679,7 +1861,7 @@ const AppCore = (() => {
 
 const AppState = {
   version: "0.0.10",
-  build: "flow-check-gemini-auto-fix2",
+  build: "flow-check-gemini-auto-fix3-repair",
 };
 
 document.addEventListener("DOMContentLoaded", () => {

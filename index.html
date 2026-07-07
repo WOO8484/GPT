@@ -23,7 +23,7 @@
       <div id="login-error" class="login-error hidden"></div>
       <button id="login-btn" class="btn btn--primary btn--block">입장하기</button>
     </div>
-    <div class="login-version">v0.0.10-fix2</div>
+    <div class="login-version">v0.0.10-fix3-repair</div>
   </div>
 
   <!-- 메인 앱: 로그인 성공 전에는 hidden 상태로 유지된다 -->
@@ -208,6 +208,38 @@
       <div class="btn-row">
         <button id="confirm-register-close-btn" class="btn btn--danger">저장하지 않고 닫기</button>
         <button id="confirm-register-continue-btn" class="btn">계속 작업</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 문제 항목/개선내역 상세 (fix3 신규, 등록/자료실 상세 품질검수 결과 공용) -->
+  <div id="popup-item-detail" class="popup-overlay">
+    <div class="popup-panel">
+      <div class="popup-panel__header">
+        <h2><span id="item-detail-icon">⚠️</span> <span id="item-detail-title">상세 내용</span></h2>
+        <button id="item-detail-close-x-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll">
+        <div id="item-detail-body" class="item-detail-content"></div>
+      </div>
+      <div class="btn-row">
+        <button id="item-detail-copy-btn" class="btn">내용 복사</button>
+        <button id="item-detail-close-btn" class="btn btn--primary">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팝업: 공작소 스타일 공통 확인 팝업 (fix3 신규, 검은 시스템 confirm 대체) -->
+  <div id="popup-confirm-action" class="popup-overlay">
+    <div class="popup-panel popup-panel--small">
+      <div class="confirm-action-header">
+        <span id="confirm-action-icon" class="confirm-action-icon">🚀</span>
+        <span id="confirm-action-title" class="confirm-action-title">확인</span>
+      </div>
+      <p id="confirm-action-desc" class="confirm-text"></p>
+      <div class="btn-row">
+        <button id="confirm-action-cancel-btn" class="btn">취소</button>
+        <button id="confirm-action-confirm-btn" class="btn btn--primary">확인</button>
       </div>
     </div>
   </div>
@@ -499,6 +531,7 @@
       </div>
       <div class="popup-panel__scroll">
         <button id="fullcheck-run-btn" class="btn btn--primary btn--block">전체 점검 실행</button>
+        <div id="fullcheck-ok-card" class="result-card result-card--success hidden">✅ 확인 결과 특이사항 없음</div>
         <ul id="fullcheck-list" class="check-list"></ul>
       </div>
     </div>
@@ -619,6 +652,9 @@
       <ul id="error-list" class="error-panel__scroll"></ul>
     </div>
   </div>
+
+  <!-- fix3-repair: 검은 alert()를 대체하는 공작소 스타일 전역 안내 카드(성공/실패/주의 공용) -->
+  <div id="app-toast" class="app-toast hidden" role="status" aria-live="polite"></div>
 
   <script src="js/error-log-module.js"></script>
   <script src="js/auth-module.js"></script>

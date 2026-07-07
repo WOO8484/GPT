@@ -124,6 +124,7 @@ body.modal-open {
   line-height: 1.6;
   margin-bottom: 16px;
   text-align: center;
+  white-space: pre-line;
 }
 
 /* repair1: 로그인 화면 */
