@@ -32,6 +32,9 @@
       <div class="app-header__title">🤖 GPT 공작소</div>
       <div class="app-header__actions">
         <button id="open-errors-btn" class="header-icon-btn" type="button" aria-label="오류 목록">⚠️</button>
+        <!-- v1.6.2: 하단 큰 "블로그 지시서 복사" 버튼을 상단 아이콘으로 이동.
+             id/기능은 prompt-copy-module.js가 그대로 참조하므로 위치만 옮긴다. -->
+        <button id="prompt-copy-open-btn" class="header-icon-btn" type="button" aria-label="블로그 지시서 복사">📋</button>
         <button id="settings-open-btn" class="header-icon-btn" type="button" aria-label="설정">⚙️</button>
       </div>
     </header>
@@ -70,13 +73,20 @@
             <!-- v1.5(A-2): 제목/상태/저장 버튼/보조 도구는 항상 고정 노출되는 영역이다.
                  스크롤 대상이 아니므로 모바일에서도 하단이 잘리지 않는다. -->
             <div class="save-target-fixed">
-              <div id="save-target-title" class="save-target-title"></div>
-              <div id="save-target-status" class="save-target-status"></div>
+              <!-- v1.6.2(9장): 글 미선택 상태에서도 항상 보이는 기본 문구.
+                   글이 선택되면 app-core.js(수정 금지)가 그대로 덮어쓴다. -->
+              <div id="save-target-title" class="save-target-title">선택된 글 없음</div>
+              <div id="save-target-status" class="save-target-status">현재 상태: 글 미선택</div>
               <!-- v1.4: post-status-module.js 전용 표시 영역(선택 기능). 요소가 있으면
-                   해당 모듈이 채우고, 없거나 모듈이 죽어도 나머지 저장 흐름은 그대로 동작한다. -->
+                   해당 모듈이 채우고, 없거나 모듈이 죽어도 나머지 저장 흐름은 그대로 동작한다.
+                   v1.6.2(9장): 이 모듈이 만드는 "현재 상태: ... · 날짜" 표기가 신규 상태
+                   표기 규칙과 맞지 않아 CSS로 숨김 처리했다(css/components.css 참고).
+                   모듈 자체(js/post-status-module.js)는 수정 금지 대상이라 그대로 둔다. -->
               <div id="post-status-line" class="post-status-line"></div>
 
-              <button id="save-start-btn" class="btn btn--primary btn--block" type="button">📝 블로그 임시저장 시작</button>
+              <!-- v1.6.2(9장): 글 미선택 상태에서는 기본적으로 비활성화. 글 선택 시
+                   app-core.js가 disabled=false로 풀어준다(기존 로직, 수정 없음). -->
+              <button id="save-start-btn" class="btn btn--primary btn--block" type="button" disabled>📝 블로그 임시저장 시작</button>
               <!-- v1.4: retry-module.js 전용(선택 기능). 임시저장 실패 글에서만 노출된다. -->
               <button id="retry-save-btn" class="btn btn--block hidden" type="button">🔁 다시 저장</button>
 
@@ -88,19 +98,28 @@
               </div>
             </div>
 
+            <!-- v1.6.2: 네이버 수동 복사 영역(신규, 단독 기능). 네이버는 자동 저장이
+                 아니며, 선택된 글의 제목/본문/이미지 URL/태그를 클립보드로 복사하는
+                 수동 보조 도구다. js/naver-copy-module.js가 단독으로 관리하고 기존
+                 Blogger 저장 흐름에는 전혀 개입하지 않는다. -->
+            <div id="naver-copy-section" class="naver-copy-section">
+              <div class="naver-copy-section__header">🟢 네이버</div>
+              <div id="naver-copy-status" class="naver-copy-status">현재 상태: 게시글 선택 필요</div>
+              <div class="naver-copy-grid">
+                <button id="naver-copy-title-btn" class="btn btn--ghost btn--compact" type="button">제목 복사</button>
+                <button id="naver-copy-body-btn" class="btn btn--ghost btn--compact" type="button">본문 복사</button>
+                <button id="naver-copy-image-btn" class="btn btn--ghost btn--compact" type="button">이미지 URL 복사</button>
+                <button id="naver-copy-tag-btn" class="btn btn--ghost btn--compact" type="button">태그 복사</button>
+              </div>
+              <div id="naver-copy-result" class="notice-text naver-copy-result"></div>
+            </div>
+
             <ul id="save-progress-list" class="save-progress-list"></ul>
           </div>
         </div>
       </section>
     </main>
 
-    <!-- v1.6(9장): 블로그 지시서 복사 버튼은 블로그 저장 카드와 완전히 분리된
-         화면 하단 독립 영역이다. 저장 버튼/최종 미리보기/패키지 진단 버튼과
-         섞이지 않는다. prompt-copy-module.js는 이 버튼 id만 그대로 참조하므로
-         위치 이동 외에 다른 코드 변경은 필요 없다. -->
-    <div class="bottom-actions">
-      <button id="prompt-copy-open-btn" class="btn btn--ghost btn--block" type="button">📋 블로그 지시서 복사</button>
-    </div>
   </div>
 
   <!-- 중앙 팝업: 게시판 저장 완료/실패, R2 변환 진행, 블로그 저장 완료/실패 -->
@@ -483,5 +502,10 @@
   <script src="js/retry-module.js"></script>
 
   <script src="js/app-core.js"></script>
+
+  <!-- v1.6.2: 네이버 수동 복사 단독 모듈. app-core.js 이후, GptCoreAPI가 이미
+       준비된 상태에서 로드한다. 이 모듈이 없거나 실패해도 기존 업로드/게시판/
+       Blogger 저장 흐름에는 전혀 영향이 없다. -->
+  <script src="js/naver-copy-module.js"></script>
 </body>
 </html>

@@ -182,6 +182,20 @@
   min-height: 0;
 }
 
+/* v1.6.2(9장): 블로그 임시저장 시작/최종 미리보기/패키지 진단 버튼은 글 선택
+   여부와 무관하게 항상 표시한다. app-core.js의 선택 상태 토글 로직(수정 금지
+   대상)은 그대로 두고, CSS 우선순위로만 표시를 강제한다. base.css의
+   .hidden{display:none !important;}보다 더 구체적인 선택자로 덮어쓴다. */
+#save-target.hidden {
+  display: flex !important;
+}
+
+/* 위와 짝을 이루는 "게시판에서 글을 선택하세요" 안내는 더 이상 필요 없다
+   (블로그스팟 영역이 항상 보이며 "현재 상태: 글 미선택"으로 같은 안내를 한다). */
+#save-empty {
+  display: none !important;
+}
+
 .save-target-fixed {
   flex-shrink: 0;
 }
@@ -194,15 +208,24 @@
   gap: 10px;
 }
 
-/* 블로그 지시서 복사 버튼은 블로그 저장 영역과 분리된 화면 하단 독립 영역이다.
-   app-container(flex column)의 마지막 고정 크기 자식으로 항상 최하단에
-   고정 노출되며, 저장 버튼/최종 미리보기/패키지 진단 버튼과 시각적으로
-   섞이지 않는다. 굵은 구분선 없이 workbench 좌우 여백과 통일된 padding만
-   둬서 카드처럼 보이지 않게 한다. 안전지역(iOS 홈 인디케이터) 여백도 둔다. */
-.bottom-actions {
+/* v1.6.2: 하단 큰 "블로그 지시서 복사" 버튼 영역을 상단 아이콘으로 옮기면서
+   bottom-actions는 더 이상 사용하지 않는다(index.html에서 해당 div 제거). */
+
+/* v1.6.2: 네이버 수동 복사 영역(단독 기능). 블로그스팟 저장 버튼 영역(제목/상태/
+   저장 버튼/보조 도구) 바로 아래, save-progress-list 위에 위치한다. 항상 고정
+   크기만 차지해(flex-shrink:0) 모바일에서 하단이 밀리지 않게 한다. */
+.naver-copy-section {
   flex-shrink: 0;
-  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
-  background-color: var(--color-bg);
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.naver-copy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 /* v1.4: 저장 패널 안 보조 버튼(최종 미리보기/패키지 진단)을 가로로 나란히 배치.

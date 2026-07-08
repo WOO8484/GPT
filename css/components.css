@@ -269,12 +269,16 @@
   overflow: hidden;
 }
 
+/* v1.6.2(13장): 날짜/상태 배지가 한 줄 강제(nowrap)+말줄임(ellipsis)으로
+   잘려 보이던 문제를 보정한다. 폭이 좁으면 줄바꿈으로 전체 내용을 다
+   보여주고(잘림 없음), 카드 높이는 내용에 따라 자동으로 늘어난다. */
 .library-item__meta {
   font-size: 12px;
   color: var(--color-text-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
 }
 
 .archive-item--empty {
@@ -297,10 +301,41 @@
 
 /* v1.6.2: 블로그 저장 영역의 "글을 선택하세요" 안내는 panel--save가 남은
    공간을 크게 차지하더라도 화면 중앙에 크게 뜨지 않도록 작게, 상단에
-   가깝게 표시한다(카드창 제거 후 큰 빈칸으로 보이는 문제 방지). */
+   가깝게 표시한다(카드창 제거 후 큰 빈칸으로 보이는 문제 방지).
+   v1.6.2(9장): 이 안내 영역 자체는 css/layout.css에서 항상 숨김 처리했다
+   (블로그스팟 저장 영역이 항상 보이며 같은 안내를 대신 하기 때문). */
 #save-empty {
   padding: 16px 0;
   text-align: left;
+}
+
+/* v1.6.2(9장): post-status-module.js(수정 금지 대상)가 만드는
+   "현재 상태: ... · 날짜" 형식 문구는 신규 상태 표기 규칙과 맞지 않아
+   화면에서 숨긴다. 모듈 자체의 기록/계산 로직에는 영향이 없다(표시만 숨김). */
+#post-status-line {
+  display: none;
+}
+
+/* ---------- 네이버 수동 복사(v1.6.2, 단독 기능) ---------- */
+.naver-copy-section__header {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.naver-copy-status {
+  font-size: 12px;
+  color: var(--color-text-soft);
+  margin-top: 2px;
+}
+
+.naver-copy-grid .btn {
+  font-size: 12.5px;
+}
+
+.naver-copy-result {
+  margin-top: 6px;
+  min-height: 16px;
 }
 
 /* ---------- 상세/미리보기 공통 ---------- */
