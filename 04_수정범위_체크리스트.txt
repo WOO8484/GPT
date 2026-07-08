@@ -1,0 +1,22 @@
+# 수정 범위 체크리스트
+
+허용 파일:
+[ ] index.html
+[ ] css/layout.css
+[ ] css/components.css
+[ ] version.json
+
+금지:
+[ ] js 전체 수정 금지
+[ ] 버튼 id 변경 금지
+[ ] input id 변경 금지
+[ ] 기능 추가 금지
+[ ] 기능 삭제 금지
+
+핵심 목표:
+[ ] 메인 카드창 제거
+[ ] 섹션형 배치
+[ ] panel 높이 덧댐 CSS 삭제
+[ ] 블로그 저장 미선택 상태 compact
+[ ] 게시판 글 잘림 방지
+[ ] 전체 화면 고정
