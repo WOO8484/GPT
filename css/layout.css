@@ -299,21 +299,6 @@
   min-height: 230px;
 }
 
-/* v1.6.3 신규: 네이버 카드(panel--naver). 기존 업로드/게시판 카드와 같은
-   최소 높이 기준(108px)을 재사용해 화면 안에서 안정적으로 보이게 하고,
-   글이 선택되면 이미지 목록만큼만 살짝 늘어나되 화면 밖으로 밀려나지
-   않도록 상한(max-height)을 둔다. 색상/버튼 스타일/카드 스타일은 새로
-   만들지 않고 기존 panel/btn--ghost/archive-item--empty를 그대로 쓴다. */
-.panel--naver {
-  flex: 0 0 auto;
-  min-height: 108px;
-  max-height: 220px;
-}
-.panel--naver .panel__body {
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 /* PC: 좌(업로드/게시판) - 우(블로그 저장) 2열 패널형 */
 @media (min-width: 860px) {
   .app-container {
@@ -323,11 +308,10 @@
   .workbench {
     display: grid;
     grid-template-columns: 300px minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
       "upload  save"
-      "library save"
-      "naver   save";
+      "library save";
   }
 
   .panel--upload {
@@ -338,10 +322,6 @@
   }
   .panel--save {
     grid-area: save;
-  }
-  .panel--naver {
-    grid-area: naver;
-    max-height: 240px;
   }
 }
 
