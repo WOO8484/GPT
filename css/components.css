@@ -650,3 +650,45 @@
   display: none;
   margin: 0;
 }
+
+/* ---------- v1.6.3 신규: 네이버 카드(읽기 전용 복사 보조) ----------
+   기존 .save-tool-row(보조 버튼 가로 배치)와 .error-list-compact(작은
+   카드형 미니 목록) 패턴을 그대로 재사용한다. 새 색상/새 버튼 스타일/
+   새 카드 스타일은 만들지 않았다. */
+.naver-tool-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.naver-tool-row .btn {
+  flex: 1;
+  min-width: 92px;
+  font-size: 12.5px;
+  min-height: 40px;
+  padding: 8px 6px;
+}
+
+.naver-copy-result {
+  min-height: 18px;
+}
+
+.naver-image-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.naver-image-item {
+  font-size: 12.5px;
+  color: var(--color-text-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.naver-image-item--empty {
+  color: var(--color-text-soft);
+}
+

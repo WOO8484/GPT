@@ -1,0 +1,209 @@
+GPT 공작소 v1.6.3 변경 요약
+
+작업 기준: GPT_공작소_v1_6_3_메인페이지_네이버모듈_Claude_작업지시서.md
+기준 ZIP: GPT공작소 v1 6 2 레이아웃 전면재작성 루트업로드용.zip
+작업 범위: 아래 2가지로 제한
+  1. 메인페이지 신규 구성
+  2. 네이버 업로드 보조 모듈 신규 구성
+※ 기존 기능 정리/리팩토링/삭제/주석 정리는 진행하지 않았습니다.
+
+------------------------------------------------------------
+1. 수정/추가 파일
+------------------------------------------------------------
+[수정]
+- index.html
+  · 상단 헤더 오른쪽에 prompt-copy-open-btn(📋)을 추가하고, 화면 하단
+    독립 영역(.bottom-actions)에 있던 동일 ID 버튼 마크업은 제거했습니다.
+    (DOM 안에 prompt-copy-open-btn은 항상 1개만 존재합니다. ID/클래스는
+    그대로이므로 prompt-copy-module.js는 수정하지 않았습니다.)
+  · 게시판 카드 표시 문구를 "게시판"→"최근 자료", "전체 게시판"→"자료
+    불러오기"로 변경했습니다. board-open-btn, popup-board-overlay,
+    board-full-list, board-full-empty, board-close-btn 등 ID와 클릭
+    동작(openBoardPopup)은 기존과 동일합니다.
+  · 블로그 저장 카드 표시 문구를 "블로그 저장"→"블로그스팟"으로
+    명확화했습니다. save-empty/save-target/save-target-title/
+    save-target-status/post-status-line/save-start-btn/retry-save-btn/
+    blogger-preview-open-btn/package-diagnosis-open-btn/save-progress-list
+    등 ID와 버튼/동작/저장 흐름은 전혀 수정하지 않았습니다.
+  · 네이버 카드(panel--naver) 섹션을 블로그스팟 카드 바로 아래에 신규
+    추가했습니다. 기존 블로그스팟/Blogger 기능과는 완전히 독립된
+    섹션입니다.
+  · <script src="js/naver-export-module.js"> 태그를 app-core.js 뒤에
+    추가했습니다(신규 스크립트 태그 1개만 추가).
+  · 그 외 기존 팝업 DOM(popup-overlay, popup-upload-confirm-overlay,
+    popup-preview-overlay, popup-board-overlay, popup-save-confirm-overlay,
+    popup-prompt-copy-overlay, popup-blogger-final-preview-overlay,
+    popup-package-diagnosis-overlay, popup-settings-overlay,
+    popup-errors-overlay)와 script 태그 목록, 그 내부 구조는 전혀
+    수정하지 않았습니다.
+
+- css/layout.css
+  · 파일 끝부분과 PC(min-width:860px) 미디어쿼리 안에 네이버 카드
+    전용 최소 규칙(.panel--naver 등)만 "추가"했습니다. 기존 규칙은
+    한 줄도 수정하지 않았습니다(diff 결과 순수 추가만 확인됨).
+
+- css/components.css
+  · 파일 맨 끝에 네이버 카드 전용 최소 스타일(.naver-tool-row,
+    .naver-copy-result, .naver-image-list, .naver-image-item 등)만
+    "추가"했습니다. 기존 규칙은 한 줄도 수정하지 않았습니다(diff 결과
+    순수 추가만 확인됨). 새 색상/새 버튼 스타일/새 카드 스타일은
+    만들지 않았고, 기존 .save-tool-row·.error-list-compact·
+    .notice-text·.btn--ghost·.archive-item--empty 패턴을 그대로
+    재사용했습니다.
+
+- version.json
+  · 버전 표기(1.6.1→1.6.3)와 description, modules 목록에
+    naver-export-module.js 항목만 추가했습니다. 기존 필드 구조
+    (storagePriority/workerEndpoints/protectedCoreModules 등)는
+    그대로 유지했습니다.
+
+[신규 추가]
+- js/naver-export-module.js
+  · 네이버 업로드 보조 모듈(읽기 전용). 상세는 3장 참고.
+  · 신규 파일은 이 1개뿐입니다(main-page-v2-module.js 등 별도 연결
+    모듈은 만들지 않았습니다 — 네이버 모듈 스스로 DOMContentLoaded에서
+    초기화하는 방식으로 prompt-copy-module.js와 동일한 패턴을
+    사용했습니다).
+
+[수정하지 않음 — 원본과 100% 동일 확인(diff 결과 완전 일치)]
+- css/base.css
+- data/blog-writing-prompt-v6.2.txt
+- js/app-core.js
+- js/auth-module.js (로그인 기능, 절대 보호 대상)
+- js/upload-module.js (ZIP 업로드 파싱 로직, 절대 보호 대상)
+- js/library-module.js (절대 보호 대상)
+- js/storage-module.js (절대 보호 대상)
+- js/preview-module.js (기존 미리보기 로직, 절대 보호 대상)
+- js/r2-image-module.js (R2 이미지 처리, 절대 보호 대상)
+- js/worker-api-module.js (절대 보호 대상)
+- js/blogger-save-module.js (Blogger 저장 로직, 절대 보호 대상)
+- js/vendor/zip-reader.js (절대 보호 대상)
+- js/prompt-copy-module.js (지시서 복사 기능)
+- js/upload-confirm-module.js
+- js/settings-module.js (기존 설정 팝업 기능)
+- js/error-log-module.js (기존 오류 목록/오류 사전 기능)
+- js/blogger-final-preview-module.js (기존 최종 미리보기)
+- js/package-diagnosis-module.js (기존 패키지 진단)
+- js/post-status-module.js
+- js/backup-module.js
+- js/error-dictionary-module.js
+- js/worker-status-module.js
+- js/save-history-module.js
+- js/retry-module.js
+
+------------------------------------------------------------
+2. 유지한 기존 기능(수정/삭제 없음)
+------------------------------------------------------------
+- 로그인(auth-module.js, screen-login/login-password/login-btn/login-error)
+- ZIP 업로드/파싱(upload-module.js, zip-file-input/upload-filename)
+- 업로드 확인 팝업(upload-confirm-module.js)
+- 게시판 저장/불러오기(library-module.js, storage-module.js)
+- 미리보기(preview-module.js)
+- R2 이미지 처리(r2-image-module.js)
+- Blogger 임시저장(blogger-save-module.js, save-start-btn 등)
+- 다시 저장(retry-module.js)
+- 최종 HTML 미리보기(blogger-final-preview-module.js)
+- 패키지 진단(package-diagnosis-module.js)
+- 설정(settings-module.js: 계정/작업 서버/지시서 관리/오류 목록/데이터 관리)
+- 오류 목록/오류 백과사전(error-log-module.js, error-dictionary-module.js)
+- 저장 이력(save-history-module.js)
+- 백업/복원(backup-module.js)
+- Worker 상세 상태 점검(worker-status-module.js)
+- 블로그 지시서 복사(prompt-copy-module.js) — 위치만 이동, 내부 로직 그대로
+
+------------------------------------------------------------
+3. 추가 기능
+------------------------------------------------------------
+- 상단 헤더 지시서 복사 아이콘: 📋(지시서 복사) ⚠️(오류 목록) ⚙️(설정)
+  순서로 배치. 텍스트 없이 아이콘만 표시하고 aria-label로 접근성 확보.
+- 최근 자료 카드 문구 정리: "게시판"→"최근 자료", "전체 게시판"→
+  "자료 불러오기". 표시 로직(최신 글 1개, LibraryModule 사용)은 기존과
+  동일합니다.
+- 블로그스팟 카드 명칭 명확화: "블로그 저장"→"블로그스팟".
+- 네이버 카드 신규 추가(js/naver-export-module.js):
+  · getNaverTitle / getNaverBody / getNaverTags (읽기 전용 함수)
+  · copyTitle / copyBody / copyTags (클립보드 복사 + 카드 내 안내 문구)
+  · renderNaverImageList (이미지 순서 목록 표시, 자동 삽입 없음)
+  · 제목 복사 우선순위: 선택된 글 title → metadata.title → 본문 첫
+    제목(h1/h2/h3) → 파일명 기반 제목
+  · 본문 복사 우선순위: content.txt → content.md(마크다운 기호 정리) →
+    content.html(태그 제거 후 텍스트 변환, 이미지 위치는
+    "[사진 N 삽입 위치]"로 표시). 본문 하단에 해시태그를 기본 포함.
+  · 태그 복사 우선순위: metadata.tags → metadata.keywords → 본문 하단
+    #태그 추출. "#태그1 #태그2" 형식으로 복사.
+  · 네이버 자동 로그인/자동 발행/네이버 앱 제어/에디터 자동 입력은
+    1차 범위가 아니므로 구현하지 않았습니다.
+
+------------------------------------------------------------
+4. 삭제/폐기 파일
+------------------------------------------------------------
+- 없음
+
+------------------------------------------------------------
+5. 검수 결과
+------------------------------------------------------------
+[정적 검증 — 통과]
+[x] index.html 태그 균형(div/section/main/header/body/html/ul) 전체 일치
+[x] DOM 전체 ID 중복 없음(총 136개 ID, 모두 고유) — 파이썬 정밀 검증
+[x] prompt-copy-open-btn ID가 DOM 안에 정확히 1개만 존재
+[x] 신규/필수 ID(zip-file-input, library-list, save-target,
+    board-open-btn, save-start-btn 등 지시서 7장 명시 ID 전체) 모두 존재
+[x] 필수 팝업 DOM 10종(popup-overlay 등, 지시서 11장 명시) 전부 유지
+[x] js/naver-export-module.js 문법 검증(node --check) 통과
+[x] version.json JSON 문법 유효성 검증 통과
+[x] 절대 보호 모듈 22개 + css/base.css + 지시서 txt: 원본과 diff 결과
+    100% 동일(1바이트도 변경 없음)
+[x] css/layout.css, css/components.css: diff 결과 "추가"만 확인,
+    기존 규칙 변경 없음
+
+[동적 스모크 테스트 — jsdom 기반, 71개 항목 전부 통과]
+[x] 로그인 화면 정상 노출, 로그인 후 app-container 노출
+[x] ZIP 업로드 파이프라인과 동일한 구조의 테스트 post 데이터를
+    LibraryModule.savePost로 저장 → 정상 성공
+[x] 자료 불러오기 팝업(board-open-btn 클릭)에 테스트 글 정상 렌더링
+[x] library-item 클릭 시 save-target-title/save-target-status에
+    선택한 글 정보 정상 반영(기존 app-core.js 로직 그대로 동작)
+[x] 최종 미리보기/패키지 진단 버튼 등 기존 ID 그대로 유지되어 클릭
+    가능한 상태 확인
+[x] 설정 팝업, 오류 목록 팝업, 지시서 복사 팝업(상단 아이콘 클릭)
+    모두 정상 오픈
+[x] 글 미선택 시 네이버 카드가 안내 문구(naver-empty) 표시
+[x] 글 선택 시 네이버 카드가 자동으로 naver-target 노출(post-selected
+    생애주기 이벤트로 GptCoreAPI를 통해 연결됨)
+[x] 제목 복사: post.title 우선순위 정상 반영, clipboard.writeText 호출
+    확인, 안내 문구("네이버 제목이 복사되었습니다.") 정상 표시
+[x] 전체 본문 복사: 이미지 위치가 "[사진 N 삽입 위치]"로 정상 치환,
+    소제목 텍스트 보존, 하단 해시태그 라인 정상 포함
+[x] 태그 복사: metadata.tags 기준 "#태그1 #태그2 #태그3" 형식 정상 복사
+[x] 이미지 순서 보기: 대표 이미지(thumbnail)가 본문 이미지(body-01)보다
+    먼저 표시됨(role 우선순위 정상 적용)
+[x] 네이버 복사 기능 사용 전/후 post.saveStatus, r2ImageMap,
+    bloggerDraftResult 값이 전혀 변경되지 않음(Blogger 저장 상태 불변
+    확인 — 8-7 안전 원칙 검증 완료)
+
+[코드 리뷰로 확인 — 실제 브라우저 수동 조작 필요]
+[ ] iPhone Safari / Android Chrome / PC Chrome 실기 화면 확인
+    (본 작업 환경은 jsdom 기반 자동 스모크 테스트까지만 수행했습니다.
+    실제 기기별 시각적 확인은 업로드 후 사용자가 직접 진행해주세요.)
+[ ] 실제 Worker 서버 연동 상태에서 R2 이미지 업로드/Blogger 임시저장
+    성공 여부(본 환경은 네트워크가 worker 서버에 연결되어 있지 않아
+    실제 API 응답을 받는 종단 간 테스트는 수행하지 못했습니다. 다만
+    blogger-save-module.js/r2-image-module.js/worker-api-module.js는
+    원본과 1바이트도 다르지 않으므로 기존과 동일하게 동작할 것으로
+    예상됩니다.)
+
+------------------------------------------------------------
+참고: 남은 주의사항
+------------------------------------------------------------
+- 이번 작업은 index.html의 카드 배치/문구, css/layout.css·
+  css/components.css의 "추가" 규칙, js/naver-export-module.js 신규
+  파일로만 한정했습니다. 요청하신 2가지 범위(메인페이지 재구성, 네이버
+  모듈 추가) 외의 리팩토링/정리/삭제는 진행하지 않았습니다.
+- 네이버 카드는 읽기 전용 보조 기능입니다. 문제가 발생하면
+  index.html에서 <section class="panel panel--naver">...</section>
+  블록과 <script src="js/naver-export-module.js"> 태그, 그리고
+  css/layout.css·css/components.css 끝부분의 네이버 전용 규칙만
+  제거하면 기존 시스템(로그인/업로드/게시판/블로그스팟 저장)은 100%
+  그대로 복구됩니다.
+- 실제 서비스 배포 전, 위 "코드 리뷰로 확인" 항목(실기 화면, 실제
+  Worker 서버 연동)은 사용자 환경에서 직접 최종 확인을 권장합니다.
