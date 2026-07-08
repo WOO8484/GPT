@@ -401,6 +401,7 @@
 /* ---------- 안내 문구 ---------- */
 .notice-text {
   font-size: 13px;
+  line-height: 1.6;
   color: var(--color-text-soft);
   margin-top: 8px;
 }
@@ -414,8 +415,11 @@
   margin-bottom: 10px;
 }
 
+/* v1.5(A-4): 경고성 안내문 아래 버튼/입력 요소와의 간격을 넉넉하게 둬서
+   백업/복원 팝업처럼 문구가 긴 경우에도 답답해 보이지 않게 한다. */
 .notice-text--warning {
   color: var(--color-warn);
+  margin-bottom: 10px;
 }
 
 /* ---------- 오류 목록 ---------- */

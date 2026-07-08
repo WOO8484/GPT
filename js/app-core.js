@@ -152,20 +152,24 @@ function closePopup() {
 function renderErrorsPopup() {
   const errors = ErrorLogModule.getAllErrors().slice().reverse();
   const list = document.getElementById("errors-list");
+  // v1.5(A-6 추가 후보): 오류 상세 원인/조치는 오류 백과사전(선택 기능)에서 확인할
+  // 수 있음을 안내하고, 오래된 오류는 정리해도 된다는 점을 함께 알린다.
+  const hintHtml = `<p class="notice-text">오류의 원인/조치 방법은 설정 → 오류 목록 → 🩹 오류 백과사전에서 확인할 수 있습니다. 문제를 해결했다면 오래된 오류는 설정에서 초기화해도 됩니다.</p>`;
   if (!errors.length) {
-    list.innerHTML = `<div class="archive-item--empty">기록된 오류가 없습니다.</div>`;
+    list.innerHTML = `<div class="archive-item--empty">기록된 오류가 없습니다.</div>${hintHtml}`;
     return;
   }
-  list.innerHTML = errors
-    .map(
-      (e) => `
+  list.innerHTML =
+    errors
+      .map(
+        (e) => `
       <div class="error-item">
         <div class="error-item__title">[${escapeHtml(e.module)}] ${escapeHtml(e.message)}</div>
         ${e.detail ? `<div class="error-item__detail">${escapeHtml(e.detail)}</div>` : ""}
         <div class="error-item__meta">${formatDate(e.createdAt)}</div>
       </div>`
-    )
-    .join("");
+      )
+      .join("") + hintHtml;
 }
 
 function showErrorsPopup() {
@@ -365,18 +369,38 @@ async function handleSaveStartClick() {
   btn.disabled = true;
   progressListEl.innerHTML = "";
 
+  // v1.5(A-3): 진행 팝업 자체 높이가 로그 줄 수에 따라 계속 커지지 않도록,
+  // "현재 단계 요약"(한 줄, 매번 덮어씀)과 "상세 진행 로그"(누적, 고정 높이
+  // 내부 스크롤)를 분리했다. 저장 패널 안의 #save-progress-list(팝업을 닫은
+  // 뒤에도 남는 이력)는 기존과 동일하게 계속 누적 표시한다.
   const progressLines = [];
-  const renderProgress = () => {
-    const html = progressLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("");
-    progressListEl.innerHTML = html;
-    updatePopupBody(`<ul class="save-progress-list">${html}</ul>`);
+  let currentSummary = "저장 준비 중";
+
+  const renderPanelProgress = () => {
+    progressListEl.innerHTML = progressLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("");
   };
 
-  showPopup("🔄 R2 이미지 변환 진행", `<ul class="save-progress-list"></ul>`);
+  const renderPopupProgress = () => {
+    const logHtml = progressLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("");
+    updatePopupBody(
+      `<div class="save-progress-summary" id="save-progress-summary">${escapeHtml(currentSummary)}</div>
+       <ul class="save-progress-log" id="save-progress-log">${logHtml}</ul>`
+    );
+    const logEl = document.getElementById("save-progress-log");
+    if (logEl) logEl.scrollTop = logEl.scrollHeight; // 항상 최신 로그가 보이게 스크롤
+  };
+
+  showPopup(
+    "🔄 블로그 저장 진행 중",
+    `<div class="save-progress-summary" id="save-progress-summary">${escapeHtml(currentSummary)}</div>
+     <ul class="save-progress-log" id="save-progress-log"></ul>`
+  );
 
   const onProgress = (step, total, message) => {
+    currentSummary = `현재 단계: ${message} (${step}/${total})`;
     progressLines.push(`${step}/${total} ${message}`);
-    renderProgress();
+    renderPanelProgress();
+    renderPopupProgress();
   };
 
   let result;
@@ -478,6 +502,23 @@ function resetFallbackUploadState() {
   if (fileNameEl) fileNameEl.textContent = "";
 }
 
+// v1.5(A-6): 업로드 오류 문구 개선. 사용자에게는 [upload-module] 같은 내부
+// 모듈명을 노출하지 않고 쉬운 설명 + 필수 구성 목록으로 안내한다(오류 목록에
+// 남는 내부 로그의 모듈명 표기는 건드리지 않는다).
+function buildFriendlyUploadErrorHtml(reason) {
+  return `
+    <p class="notice-text notice-text--warning">블로그자료 ZIP 구조가 올바르지 않습니다.</p>
+    <p class="notice-text">프로그램 ZIP, Claude 작업 ZIP, 일반 압축파일은 업로드 대상이 아닙니다.<br/>GPT 공작소 블로그자료 ZIP을 업로드하세요.</p>
+    <div class="popup-subheading">필수 구성</div>
+    <ul class="check-list">
+      <li class="check-item"><span>metadata.json</span></li>
+      <li class="check-item"><span>content.html</span></li>
+      <li class="check-item"><span>images 폴더</span></li>
+    </ul>
+    <p class="notice-text">상세: ${escapeHtml(reason || "알 수 없는 오류")}</p>
+  `;
+}
+
 async function handleZipSelectedFallback(event) {
   const file = event.target.files && event.target.files[0];
   resetFallbackUploadState();
@@ -490,22 +531,12 @@ async function handleZipSelectedFallback(event) {
   try {
     result = await UploadModule.setZipFile(file);
   } catch (error) {
-    showPopup(
-      "⚠️ 업로드 실패",
-      `<p>[upload-module] 블로그자료 ZIP 구조가 올바르지 않습니다.</p>
-       <p>블로그자료 ZIP만 업로드할 수 있습니다. ZIP 루트에 metadata.json, content.html, images/가 있어야 합니다.</p>
-       <p>상세: ${escapeHtml(error.message || "알 수 없는 오류")}</p>`
-    );
+    showPopup("⚠️ 업로드 실패", buildFriendlyUploadErrorHtml(error.message));
     return;
   }
 
   if (!result.success) {
-    showPopup(
-      "⚠️ 업로드 실패",
-      `<p>[upload-module] 블로그자료 ZIP 구조가 올바르지 않습니다.</p>
-       <p>블로그자료 ZIP만 업로드할 수 있습니다. ZIP 루트에 metadata.json, content.html, images/가 있어야 합니다.</p>
-       <p>상세: ${escapeHtml(result.reason || "알 수 없는 오류")}</p>`
-    );
+    showPopup("⚠️ 업로드 실패", buildFriendlyUploadErrorHtml(result.reason));
     return;
   }
 

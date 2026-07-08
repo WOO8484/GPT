@@ -8,7 +8,7 @@
  *
  * v1.3 보정(작업지침서 10장): 복사 우선순위를 아래와 같이 적용한다.
  *   1. localStorage에 사용자 등록 지시서가 있으면 그것을 복사
- *   2. 없으면 기본 내장 최신 지시서(data/blog-writing-prompt-v6.1.txt)를 fetch로
+ *   2. 없으면 기본 내장 최신 지시서(data/blog-writing-prompt-v6.2.txt)를 fetch로
  *      불러와 복사
  * 사용자 등록/초기화는 settings-module.js가 담당하고, 이 모듈은 동일한
  * localStorage 키 계약만 읽는다(등록 로직은 여기서 새로 만들지 않는다):
@@ -24,7 +24,7 @@
  */
 
 const PromptCopyModule = (() => {
-  const PROMPT_URL = "data/blog-writing-prompt-v6.1.txt";
+  const PROMPT_URL = "data/blog-writing-prompt-v6.2.txt";
   const LS_KEY_TEXT = "gptWorkshop.blogPrompt.customText";
   const LS_KEY_NAME = "gptWorkshop.blogPrompt.customName";
 

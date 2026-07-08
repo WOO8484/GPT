@@ -4,7 +4,9 @@
  * 역할:
  * - Worker 연결 가능 여부 표시
  * - 로그인 상태 표시
- * - R2 업로드 API 접근 가능 여부 표시(추정, 실제 업로드는 하지 않음)
+ * - R2 업로드 API 접근 가능 여부 표시(실제 업로드는 하지 않고, 로그인/연결
+ *   상태를 근거로 안내만 한다 — v1.5: "추정" 같은 개발자식 표현 대신
+ *   "실제 저장 과정에서 최종 확인됩니다" 형태의 사용자 친화 문구 사용)
  * - Blogger API는 실제 저장 전까지 제한적으로만 표시
  *
  * 금지 사항 준수:
@@ -80,17 +82,17 @@ const WorkerStatusModule = (() => {
 
     const r2Guess = loggedIn && reachable;
     items.push({
-      label: "R2 업로드 API(추정)",
+      label: "R2 이미지 업로드",
       status: r2Guess ? "ok" : "warn",
       detail: r2Guess
-        ? "로그인 상태 + Worker 연결이 확인되었습니다(실제 업로드는 저장 시에만 실행됩니다)"
-        : "로그인 또는 Worker 연결을 먼저 확인해주세요",
+        ? "로그인과 Worker 연결이 확인되었습니다. R2 업로드는 실제 저장 과정에서 최종 확인됩니다."
+        : "로그인 또는 Worker 연결을 먼저 확인해주세요. R2 업로드는 실제 저장 과정에서 최종 확인됩니다.",
     });
 
     items.push({
-      label: "Blogger API",
+      label: "Blogger 임시저장",
       status: "warn",
-      detail: "실제 임시저장을 실행하기 전까지는 확인하지 않습니다(제한적 표시)",
+      detail: "Blogger 저장 가능 여부는 실제 임시저장 과정에서 최종 확인됩니다.",
     });
 
     return items;

@@ -1,9 +1,9 @@
 {
   "project": "GPT 공작소",
-  "version": "1.4.0",
-  "displayVersion": "v1.4",
+  "version": "1.5.0",
+  "displayVersion": "v1.5",
   "releaseDate": "2026-07-08",
-  "description": "v1.4: v1.3 안정본을 기준으로 한 대통합 모듈형 고도화. 절대 보호 대상인 '블로그자료 업로드 → 게시판 저장 → 글 선택 → R2 이미지 업로드 → Blogger 임시저장' 기본 흐름과 그 핵심 모듈(auth/upload/library/storage/preview/r2-image/worker-api/blogger-save/zip-reader) 내부 로직은 전혀 수정하지 않았다. 신규 기능 8개를 전부 선택형 모듈로 분리해 추가했다: (1) blogger-final-preview-module - Blogger 저장 전 최종 HTML 예상 미리보기, R2 URL 치환 상태·광고 placeholder·Blogger-safe HTML 상태 확인(읽기 전용, 실제 저장/업로드 없음). (2) package-diagnosis-module - 블로그자료 ZIP 구조 진단(metadata.json/content.html/content.md·txt/images/이미지 5장/href=\"#\"/table·script·style/공식 출처, 점수 아닌 정상·주의·수정 필요 3단계). (3) post-status-module - 게시글 생애주기 상태 표시(별도 localStorage, library-module 구조 미변경). (4) backup-module - 게시판 데이터 JSON 내보내기/불러오기, 사용자 등록 지시서 포함, 복원 전 확인 팝업. (5) error-dictionary-module - 에러코드(E-UPLOAD-001 등) 백과사전 + 오류 로그 복사. (6) worker-status-module - Worker 연결/로그인/R2 API 추정 상태(실제 업로드·저장 없이 점검). (7) save-history-module - Blogger 임시저장 시도 이력(최근 50건, 별도 localStorage). (8) retry-module - 단순 다시 저장(기존 저장 흐름 1회 재호출, 중복 클릭 방지, R2/Blogger 개별 재시도 없음). app-core.js에 GptCoreAPI(신규 모듈 전용 공개 표면)와 생애주기 이벤트 통지(post-selected/upload-confirmed/board-saved/board-save-failed/blogger-save-result/data-reset)를 추가해 8개 신규 모듈을 각각 독립 safeInit(try/catch)로 연결했다. 각 모듈은 필요한 DOM이 없으면 예외 없이 조용히 종료하고 isReady()로 상태를 알린다. 신규 모듈(js 파일+script 태그+app-core.js 연결부+팝업 마크업+전용 CSS)을 통째로 제거해도 기본 흐름은 그대로 복구된다(jsdom 기반 자동 시뮬레이션 테스트로 검증). settings-module.js/upload-confirm-module.js/prompt-copy-module.js는 코드 변경 없이 v1.3과 100% 동일하며, index.html에 새 버튼(설정 팝업 안)만 추가되었다.",
+  "description": "v1.5: v1.4 대통합 버전의 안정화 작업(새 기능 대추가 아님). PART A(모바일 GUI 안정화): 게시판 레이아웃 기준을 '빈 상태'가 아니라 '글 1개 등록된 상태'로 재조정하고 panel--library에 높이 상한(128px)을 둬서 블로그 저장 영역이 밀리지 않게 했다. 블로그 저장 패널 내부를 save-target-fixed(제목/상태/버튼/보조도구, 항상 고정 노출)와 save-progress-list(내부 스크롤)로 분리해 저장 버튼이 스크롤에 가려 잘려 보이는 문제를 해결했다. 블로그 저장 진행 팝업을 '현재 단계 요약(고정 한 줄)'과 '상세 로그(고정 높이 160px, 내부 스크롤)' 구조로 재작성해 팝업이 로그 줄 수에 따라 계속 커지는 문제를 없앴다. 백업/복원 팝업의 긴 안내문을 짧은 줄로 나누고 여백을 넓혔다. Worker 상태 상세 점검의 R2/Blogger 문구에서 '추정' 같은 개발자식 표현을 '실제 저장 과정에서 최종 확인됩니다' 형태로 바꿨다. 업로드 오류 팝업 문구에서 [upload-module] 같은 내부 모듈명 접두어를 없애고 '필수 구성' 목록으로 안내를 명확히 했다(내부 오류 목록의 모듈명 표기는 유지). 오류 목록 팝업에 오류 백과사전 안내와 오래된 오류 정리 안내를 추가했다. README에서 게시판 정렬/검색을 '제외 또는 보류'로 명확히 하고, 로고/브랜딩 개선은 v1.6 후보로만 남겼다(실제 아이콘 변경은 이번에 적용하지 않음). PART B(블로그자료 생성 기준 v6.2): data/blog-writing-prompt-v6.1.txt를 v6.2로 교체 — content.html 본문 최상단 H1 제목 중복 금지(Blogger 테마가 제목을 자동 표시), 대표 이미지가 content.html의 첫 번째 img이며 도입문보다 앞(최종 업데이트 날짜 다음)에 오도록 배치, 문단은 2~3문장 이하로 구성, 포스트잇/신청전확인카드/주의사항박스/공식링크박스 같은 Blogger-safe 박스형 구성 요소(인라인 style만 사용, script/style 태그 금지) 표준 구조 추가. prompt-copy-module.js가 이 v6.2 파일을 기본 지시서로 제공하도록 갱신했다. package-diagnosis-module.js에 v6.2 구조 진단 5항목(제목 H1 중복 / 대표 이미지 위치 / 첫 img=대표이미지 / 문단 길이 / 박스형 구성 요소)을 추가했다 — 품질점수/SEO점수가 아닌 정상/주의/수정 필요 3단계로만 표시. blogger-final-preview-module.js 안내문에 패키지 진단 연결 문구를 추가했다. PART C(안전 연결 유지): v1.4의 GptCoreAPI/safeInit/생애주기 이벤트/8개 신규 모듈 안전 연결 구조는 그대로 유지했으며, jsdom 기반 회귀 테스트로 재검증했다. 핵심 보호 모듈 9개(auth/upload/library/storage/preview/r2-image/worker-api/blogger-save/zip-reader) 및 css/base.css는 v1.4와 100% 동일하다. settings-module.js/upload-confirm-module.js는 v1.4와 코드 동일(index.html 마크업/문구만 조정).",
   "storagePriority": ["indexedDB", "localStorage"],
   "workerEndpoints": {
     "login": "/auth/login",
@@ -54,5 +54,7 @@
     "worker-api-module.js",
     "blogger-save-module.js",
     "vendor/zip-reader.js"
-  ]
+  ],
+  "blogWritingPromptVersion": "v6.2",
+  "blogWritingPromptFile": "data/blog-writing-prompt-v6.2.txt"
 }

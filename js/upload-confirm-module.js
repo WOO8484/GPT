@@ -84,25 +84,46 @@ const UploadConfirmModule = (() => {
     };
   }
 
-  // 오류 문구 개선(작업지침서 12장): 모듈명 + 쉬운 한글 설명을 기본으로 하고,
-  // 실제 원인은 "상세"로 덧붙인다. upload-module.js 내부 메시지는 수정하지 않는다.
+  // 오류 문구 개선(v1.5 A-6): 사용자에게 보이는 팝업 제목에서 [upload-module] 같은
+  // 내부 모듈명 접두어를 없애고, "필수 구성"을 목록으로 명확히 보여준다.
+  // upload-module.js 내부 메시지 자체는 수정하지 않고 "상세"로만 그대로 덧붙인다.
   function buildFriendlyUploadError(reason) {
     return {
-      title: "[upload-module] 블로그자료 ZIP 구조가 올바르지 않습니다.",
-      lines: [
-        "블로그자료 ZIP만 업로드할 수 있습니다.",
-        "프로그램 ZIP, Claude 전달용 ZIP, 일반 압축파일은 업로드 대상이 아닙니다.",
-        "ZIP 루트에 metadata.json, content.html, images/가 있어야 합니다.",
-        "상세: " + (reason || "알 수 없는 오류"),
+      title: "블로그자료 ZIP 구조가 올바르지 않습니다.",
+      introLines: [
+        "프로그램 ZIP, Claude 작업 ZIP, 일반 압축파일은 업로드 대상이 아닙니다.",
+        "GPT 공작소 블로그자료 ZIP을 업로드하세요.",
       ],
+      requiredItems: ["metadata.json", "content.html", "images 폴더"],
+      detail: reason || "알 수 없는 오류",
     };
   }
 
+  // title/lines(구 형태)와 title/introLines/requiredItems/detail(v1.5 형태) 모두
+  // 지원한다 — 내부 렌더링 실패처럼 여전히 모듈명을 남기고 싶은 경우 lines를
+  // 그대로 사용할 수 있다.
   function showErrorState(friendly) {
     const { errorBox, errorTitle, errorDetail, body } = els();
     if (!errorBox || !errorTitle || !errorDetail || !body) return;
-    errorTitle.textContent = friendly.title;
-    errorDetail.innerHTML = friendly.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+    errorTitle.textContent = friendly.title || "";
+
+    let html = "";
+    if (Array.isArray(friendly.lines)) {
+      html += friendly.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+    }
+    if (Array.isArray(friendly.introLines)) {
+      html += friendly.introLines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+    }
+    if (Array.isArray(friendly.requiredItems) && friendly.requiredItems.length) {
+      html +=
+        `<div class="popup-subheading">필수 구성</div><ul class="check-list">` +
+        friendly.requiredItems.map((item) => `<li class="check-item"><span>${escapeHtml(item)}</span></li>`).join("") +
+        `</ul>`;
+    }
+    if (friendly.detail) {
+      html += `<p class="notice-text">상세: ${escapeHtml(friendly.detail)}</p>`;
+    }
+    errorDetail.innerHTML = html;
     errorBox.classList.remove("hidden");
     body.classList.add("hidden");
   }

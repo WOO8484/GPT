@@ -65,9 +65,11 @@
       <section class="panel panel--save" aria-label="블로그 저장">
         <div class="panel__header">📝 블로그 저장</div>
         <div class="panel__body">
-          <div class="save-body-scroll">
-            <div id="save-empty" class="archive-item--empty">게시판에서 글을 선택하세요.</div>
-            <div id="save-target" class="save-target hidden">
+          <div id="save-empty" class="archive-item--empty">게시판에서 글을 선택하세요.</div>
+          <div id="save-target" class="save-target hidden">
+            <!-- v1.5(A-2): 제목/상태/저장 버튼/보조 도구는 항상 고정 노출되는 영역이다.
+                 스크롤 대상이 아니므로 모바일에서도 하단이 잘리지 않는다. -->
+            <div class="save-target-fixed">
               <div id="save-target-title" class="save-target-title"></div>
               <div id="save-target-status" class="save-target-status"></div>
               <!-- v1.4: post-status-module.js 전용 표시 영역(선택 기능). 요소가 있으면
@@ -84,9 +86,9 @@
                 <button id="blogger-preview-open-btn" class="btn btn--ghost" type="button">🔍 최종 미리보기</button>
                 <button id="package-diagnosis-open-btn" class="btn btn--ghost" type="button">🩺 패키지 진단</button>
               </div>
-
-              <ul id="save-progress-list" class="save-progress-list"></ul>
             </div>
+
+            <ul id="save-progress-list" class="save-progress-list"></ul>
           </div>
           <button id="prompt-copy-open-btn" class="btn btn--ghost btn--block" type="button">📋 블로그 지시서 복사</button>
         </div>
@@ -211,6 +213,7 @@
       </div>
       <div class="popup-panel__scroll">
         <p class="notice-text">Blogger 저장 시 반영되는 모습을 미리 보여주는 화면입니다. 이 화면에서는 실제 저장이나 이미지 업로드가 일어나지 않습니다.</p>
+        <p class="notice-text">제목 중복, 대표 이미지 위치, 문단 길이, 박스형 구성 같은 v6.2 구조 점검은 [🩺 패키지 진단]에서 확인할 수 있습니다.</p>
         <div id="blogger-preview-empty" class="archive-item--empty">게시판에서 글을 선택한 뒤 다시 열어주세요.</div>
         <div id="blogger-preview-body" class="hidden">
           <div class="popup-subheading">이미지 R2 URL 상태</div>
@@ -348,7 +351,7 @@
         <div id="backup-export-result" class="notice-text"></div>
 
         <div class="popup-subheading">불러오기(복원)</div>
-        <p class="notice-text notice-text--warning">복원하면 같은 id의 기존 글이 덮어써질 수 있습니다. 먼저 위 [JSON으로 내보내기]로 현재 데이터를 백업해두는 것을 권장합니다.</p>
+        <p class="notice-text notice-text--warning">복원하면 같은 id의 기존 글이 덮어써질 수 있습니다.<br />먼저 위 [JSON으로 내보내기]로 현재 데이터를 백업해두세요.</p>
         <label for="backup-import-file-input" class="file-input-label settings-file-label">📄 백업 JSON 선택</label>
         <input id="backup-import-file-input" type="file" accept=".json" class="file-input-hidden" />
         <div id="backup-import-result" class="notice-text"></div>

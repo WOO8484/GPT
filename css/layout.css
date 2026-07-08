@@ -114,7 +114,10 @@
    모바일: 세로 카드형(위→아래). PC(min-width:860px): 좌/중/우 3열 패널형.
    v1.3: 게시판 기본 화면은 최신 글 1개만 표시하도록 정리해 높이를 줄이고,
    블로그 저장 영역이 남은 공간을 차지하도록 재배분했다(하단 버튼/상태 잘림 방지).
-   블로그 지시서 복사 버튼은 블로그 저장 영역 안 보조 버튼으로 옮겼다. */
+   블로그 지시서 복사 버튼은 블로그 저장 영역 안 보조 버튼으로 옮겼다.
+   v1.5: 레이아웃 기준을 "게시판이 빈 상태"가 아니라 "글이 1개 등록된 상태"로
+   다시 잡았다(A-1). 게시판 카드가 생겨도 높이가 예측 불가능하게 늘어나지
+   않도록 panel--library에 상한(max-height)을 뒀다. */
 .workbench {
   flex: 1;
   min-height: 0;
@@ -156,7 +159,7 @@
 .panel__body {
   flex: 1;
   min-height: 0;
-  padding: 12px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -169,13 +172,26 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* v1.3: 블로그 저장 패널 내부. save-body-scroll(선택 글 상태/저장 버튼/진행 목록)만
-   내부 스크롤되고, 그 아래 블로그 지시서 복사 보조 버튼은 항상 고정 노출된다. */
-.save-body-scroll {
+/* v1.5(A-1/A-2): 블로그 저장 패널 내부 구조를 다시 잡았다.
+   - save-target-fixed(선택 글 제목/상태/저장 버튼/보조 도구)는 항상 고정 크기로
+     전부 보이며, 스크롤 대상이 아니다(버튼이 스크롤에 가려 "잘려 보이는" 문제의
+     핵심 원인이었다).
+   - save-progress-list만 남은 공간을 차지하며 내부 스크롤된다(A-3 진행 로그와
+     동일한 원칙: 고정 영역 + 내부 스크롤 로그).
+   - 블로그 지시서 복사 버튼은 이 구조 밖(panel__body 맨 아래)에서 항상 고정 노출된다. */
+.save-target {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+}
+
+.save-target-fixed {
+  flex-shrink: 0;
+}
+
+#save-empty {
+  flex-shrink: 0;
 }
 
 .panel--save .panel__body {
@@ -187,7 +203,8 @@
 }
 
 /* v1.4: 저장 패널 안 보조 버튼(최종 미리보기/패키지 진단)을 가로로 나란히 배치.
-   메인 저장 버튼보다 눈에 덜 띄도록 btn--ghost와 함께 사용한다. */
+   메인 저장 버튼보다 눈에 덜 띄도록 btn--ghost와 함께 사용한다.
+   v1.5(A-2): 모바일 폭이 좁아도 2개 버튼이 겹치지 않도록 최소 폭을 보장한다. */
 .save-tool-row {
   display: flex;
   gap: 8px;
@@ -198,9 +215,9 @@
 .save-tool-row .btn {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: 12.5px;
   min-height: 40px;
-  padding: 8px 10px;
+  padding: 8px 6px;
 }
 
 /* v1.4: "다시 저장" 버튼(retry-module.js). 기본 저장 버튼 바로 아래, 위쪽에 살짝
@@ -211,18 +228,20 @@
 }
 
 /* 모바일: 업로드/게시판은 내용만큼만 높이를 차지하고(고정 크기), 블로그 저장이
-   남은 공간을 모두 채운다. v1.3: 게시판 기본 화면이 최신 글 1개만 표시하므로
-   더 이상 큰 비율을 배분할 필요가 없다 - 이 재배분이 "블로그 저장 버튼/상태
-   영역이 완전히 보이지 않는" 문제의 핵심 수정이다. */
+   남은 공간을 모두 채운다.
+   v1.5(A-1): "게시판이 비어 있을 때"가 아니라 "글이 1개 등록되어 있을 때"를
+   기준으로 잡았다. panel--library는 글 1개(카드 1장) 기준 높이로 상한을 두어,
+   글이 등록되어도 블로그 저장 영역이 예측 불가능하게 밀리지 않는다. */
 .panel--upload {
   flex: 0 0 auto;
 }
 .panel--library {
   flex: 0 0 auto;
+  max-height: 128px;
 }
 .panel--save {
   flex: 1 1 0;
-  min-height: 220px;
+  min-height: 260px;
 }
 
 /* PC: 좌(업로드/게시판) - 우(블로그 저장) 2열 패널형 */
@@ -343,4 +362,36 @@
   font-weight: 700;
   color: var(--color-text-soft);
   margin: 16px 0 8px;
+}
+
+/* v1.5(A-3): 블로그 저장 진행 팝업 전용 구조. 팝업 자체 높이가 텍스트 줄 수에 따라
+   계속 커지지 않도록, "현재 단계 요약"은 고정된 한 줄로 상단에 두고, 상세 로그만
+   고정 높이(160px) 안에서 내부 스크롤되게 한다. */
+.save-progress-summary {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  padding: 10px 12px;
+  border-radius: 10px;
+  background-color: var(--color-bg-soft);
+  margin-bottom: 10px;
+}
+
+.save-progress-log {
+  height: 160px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  font-size: 12.5px;
+  color: var(--color-text-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.save-progress-log li {
+  padding: 2px 0;
 }
