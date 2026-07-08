@@ -211,29 +211,37 @@
   background-color: var(--color-warn-bg);
 }
 
-/* ---------- 상태 뱃지 ---------- */
+/* ---------- 상태 뱃지 ----------
+   v1.6.2 패치2: 기존보다 더 직관적으로 눈에 띄도록 크기/두께를 키우고
+   테두리를 추가했다(게시판 목록 배지, 블로그스팟/네이버 저장 헤더
+   배지가 모두 이 클래스를 공유한다 — 값 변경 시 양쪽에 동일 적용됨,
+   중복 정의 아님). */
 .status-badge {
   display: inline-block;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 6px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
   margin-left: 6px;
 }
 
 .status-badge--ok {
   color: var(--color-success);
   background-color: var(--color-success-bg);
+  border-color: var(--color-success);
 }
 
 .status-badge--fail {
   color: var(--color-danger);
   background-color: var(--color-danger-bg);
+  border-color: var(--color-danger);
 }
 
 .status-badge--pending {
   color: var(--color-text-soft);
   background-color: var(--color-bg-soft);
+  border-color: var(--color-border);
 }
 
 /* ---------- 게시판 목록(클래스명은 기존 구조를 유지하기 위해 library-* 그대로 사용) ---------- */
@@ -428,8 +436,12 @@
   margin-bottom: 6px;
 }
 
+/* v1.6.2 패치2: 상태 배지가 panel__header 우측으로 이동했다(패널 헤더는
+   panel__header--row로 flex 정렬되므로 별도 margin 없이 배지 자체
+   크기만 유지하면 된다). 글 미선택 상태에서는 내용이 비어 있어
+   화면에 아무 것도 표시되지 않는다(기존 로직과 동일, 위치만 변경). */
 .save-target-status {
-  margin-bottom: 14px;
+  flex-shrink: 0;
 }
 
 .save-progress-list {

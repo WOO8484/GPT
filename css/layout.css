@@ -262,17 +262,28 @@
   flex-shrink: 0;
 }
 
-/* ---------- 카드별 높이 기준 (v1.6.2: 세로 1열 4단 고정) ----------
+/* ---------- 카드별 높이 기준 (v1.6.2 패치2: 세로 1열 4단, 비율 차등) ----------
    업로드 / 게시판 / 블로그 저장 / 네이버 저장 4개 패널은 같은 카드
-   디자인, 같은 너비(100%), 같은 높이 기준(flex:1 1 0, 동일 비율)으로
-   배치한다. 화면 높이가 부족해도 가로 배치나 2×2 배치로 바뀌지 않고
-   세로 1열을 유지하며, 각 패널 내부(.panel__body--scroll,
+   디자인과 같은 너비(100%)를 쓰지만, 높이 비율은 더 이상 동일(1 1 0)하지
+   않다. 블로그스팟 저장 카드는 제목/상태/저장 버튼/보조 버튼/진행 로그까지
+   담아야 해서 콘텐츠 양이 가장 많고, 네이버 저장 카드는 향후 동일한
+   구성으로 채워질 예정이라 같은 비율을 준다. 업로드는 버튼 하나뿐이라
+   비율을 줄인다. 화면 높이가 부족해도 가로 배치나 2×2 배치로 바뀌지
+   않고 세로 1열을 유지하며, 각 패널 내부(.panel__body--scroll,
    #save-progress-list 등)만 스크롤된다. */
-.panel--upload,
-.panel--library,
+.panel--upload {
+  flex: 0.8 1 0;
+  min-height: 108px;
+}
+
+.panel--library {
+  flex: 1 1 0;
+  min-height: 108px;
+}
+
 .panel--save,
 .panel--naver {
-  flex: 1 1 0;
+  flex: 1.6 1 0;
   min-height: 108px;
 }
 
@@ -284,6 +295,7 @@
 
 .panel--upload .panel__body {
   justify-content: center;
+  align-items: center;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
