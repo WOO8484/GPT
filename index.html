@@ -32,15 +32,18 @@
       <div class="app-header__title">🤖 GPT 공작소</div>
       <div class="app-header__actions">
         <button id="open-errors-btn" class="header-icon-btn" type="button" aria-label="오류 목록">⚠️</button>
+        <button id="prompt-copy-open-btn" class="header-icon-btn" type="button" aria-label="블로그 지시서 복사">📋</button>
         <button id="settings-open-btn" class="header-icon-btn" type="button" aria-label="설정">⚙️</button>
       </div>
     </header>
 
-    <!-- v1.4: 기본 화면 흐름은 v1.3과 동일하게 유지한다 = 업로드 → 게시판(최신 1개)
-         → 블로그 저장 → 블로그 지시서 복사. 신규 기능(최종 미리보기/패키지 진단/
-         다시 저장)은 블로그 저장 영역 안 보조 버튼으로, 그 외(백업/복원, 오류
-         백과사전, Worker 상세 상태, 저장 이력)는 설정 팝업 안으로 배치해
-         기본 화면 길이를 늘리지 않는다. -->
+    <!-- v1.6.2: 메인 화면은 세로 1열 4단(업로드 → 게시판 → 블로그 저장 →
+         네이버 저장)으로 배치한다. 블로그 지시서 복사는 헤더 아이콘(📋)으로
+         이동했다(prompt-copy-module.js는 버튼 id만 참조하므로 위치 이동 외에
+         다른 코드 변경은 없다). 신규 기능(최종 미리보기/패키지 진단/다시 저장)
+         은 블로그 저장 영역 안 보조 버튼으로, 그 외(백업/복원, 오류 백과사전,
+         Worker 상세 상태, 저장 이력)는 설정 팝업 안으로 배치해 기본 화면
+         길이를 늘리지 않는다. -->
     <main class="workbench">
       <section class="panel panel--upload" aria-label="업로드">
         <div class="panel__header">📦 업로드</div>
@@ -92,15 +95,17 @@
           </div>
         </div>
       </section>
-    </main>
 
-    <!-- v1.6(9장): 블로그 지시서 복사 버튼은 블로그 저장 카드와 완전히 분리된
-         화면 하단 독립 영역이다. 저장 버튼/최종 미리보기/패키지 진단 버튼과
-         섞이지 않는다. prompt-copy-module.js는 이 버튼 id만 그대로 참조하므로
-         위치 이동 외에 다른 코드 변경은 필요 없다. -->
-    <div class="bottom-actions">
-      <button id="prompt-copy-open-btn" class="btn btn--ghost btn--block" type="button">📋 블로그 지시서 복사</button>
-    </div>
+      <!-- v1.6.2: 네이버 저장 패널(디자인만, 신규 기능 아님). 실제 저장 기능은
+           아직 없으며, 다른 3개 패널과 동일한 카드 스타일/너비/높이 기준을
+           따르는 빈 틀로만 배치한다. -->
+      <section class="panel panel--naver" aria-label="네이버 저장">
+        <div class="panel__header">🟩 네이버 저장</div>
+        <div class="panel__body">
+          <div class="archive-item--empty">준비 중입니다.</div>
+        </div>
+      </section>
+    </main>
   </div>
 
   <!-- 중앙 팝업: 게시판 저장 완료/실패, R2 변환 진행, 블로그 저장 완료/실패 -->

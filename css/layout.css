@@ -123,9 +123,11 @@
   gap: 4px;
 }
 
-/* ---------- 작업대: 업로드 / 게시판 / 블로그 저장을 한 화면에 통합 ----------
-   전체 페이지는 스크롤되지 않는다. 패널 내부(.panel__body--scroll)만 스크롤된다.
-   모바일: 세로 카드형(위→아래). PC(min-width:860px): 좌/중/우 패널형. */
+/* ---------- 작업대: 업로드 / 게시판 / 블로그 저장 / 네이버 저장 ----------
+   v1.6.2: 항상 세로 1열 4단(위→아래)으로 고정 배치한다(가로 배치, 2×2
+   배치 금지). 전체 페이지(workbench 자체)는 스크롤되지 않으며, 각 패널
+   내부(.panel__body--scroll 등)만 스크롤된다. 4개 패널은 같은 너비
+   (100%)와 같은 높이 기준(flex:1, 동일 비율)으로 배치한다. */
 .workbench {
   flex: 1;
   min-height: 0;
@@ -184,8 +186,8 @@
    save-target-fixed(제목/상태/저장 버튼/보조 도구)는 항상 고정 크기로 전부
    보이며 스크롤 대상이 아니다(버튼이 스크롤에 가려 잘려 보이는 문제의 핵심
    원인이었다). save-progress-list만 남은 공간을 차지하며 내부 스크롤된다.
-   블로그 지시서 복사 버튼은 이 구조 밖(app-container 최하단)에서 항상
-   고정 노출된다.
+   (v1.6.2: 블로그 지시서 복사 버튼은 헤더 아이콘(📋)으로 이동했다. 아래
+   .bottom-actions 규칙은 더 이상 사용되지 않는다 — 상세는 파일 하단 참고.)
    ※ .save-target 정의는 이 파일 한 곳에만 둔다(과거 components.css에도
    같은 selector가 중복 정의돼 있던 것을 정리함 — 값 충돌은 없었지만
    유지보수 시 혼동을 주는 중복이었다). */
@@ -217,12 +219,11 @@
   gap: 10px;
 }
 
-/* 블로그 지시서 복사 버튼: 블로그 저장 카드에서 분리된 화면 하단 독립
-   영역. app-container(flex column)의 마지막 고정 크기 자식으로 항상
-   최하단에 고정 노출되며, 저장 카드/최종 미리보기/패키지 진단 버튼과
-   시각적으로 섞이지 않는다. 위쪽 구분선은 두지 않는다(굵은 줄로 시선을
-   끌지 않기 위함). 위쪽 여백도 없다 — workbench가 이미 자체 하단
-   padding(10px)을 갖고 있어 그것만으로 다른 카드 간격과 동일하게 맞춘다. */
+/* v1.6.2: 블로그 지시서 복사 버튼이 헤더 아이콘(📋)으로 이동하면서
+   index.html에서 .bottom-actions 마크업 자체를 제거했다. 이 규칙은 더
+   이상 어떤 요소에도 매치되지 않는다(요청 범위가 배치 구조 수정이라
+   여기서는 규칙 자체를 삭제하지 않고 미사용 상태로만 남겨둔다 — 필요
+   시 정리 여부를 사용자에게 확인 후 삭제 가능). */
 .bottom-actions {
   flex-shrink: 0;
   padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px));
@@ -254,75 +255,37 @@
   flex-shrink: 0;
 }
 
-/* ---------- 카드별 높이 기준 ----------
-   모바일: 업로드/게시판은 내용만큼만 높이를 차지하고(고정에 가까운 크기),
-   블로그 저장은 상태(글 미선택/선택)에 따라 높이 기준이 달라진다.
-
-   - 업로드 카드: min-height 108px = 헤더(34) + 본문 padding(20) + ZIP 선택
-     버튼(52) + 테두리(2). 내용이 짧아도 이 높이를 채우고 중앙 정렬된다
-     (panel--upload .panel__body { justify-content:center }).
-   - 게시판 카드: min-height 108px(업로드와 동일한 바닥선, 빈 상태 기준) ~
-     max-height 120px(글 1개 카드 기준 상한). 제목이 2줄까지 길어지는
-     경우는 panel__body--scroll의 내부 스크롤로 흡수된다(잘림이 아니라
-     스크롤).
-   - 블로그 저장 카드: "글 미선택"과 "글 선택"은 서로 다른 높이를 쓴다.
-     같은 min-height를 모든 상태에 그대로 적용하는 것(예: 미선택 상태에도
-     작업 카드 높이를 강제하는 것)이 "저장 카드가 화면 대부분을 차지함"
-     실패의 직접적인 원인이었다.
-     · 기본값(=글 미선택): flex:0 0 auto + min-height 108px. 업로드/게시판과
-       같은 바닥선을 써서 화면 상단부 3장이 균형 있게 보이고, 안내 문구
-       하나만 있는 카드가 남는 공간을 억지로 채우지 않는다.
-     · #save-target가 보이는 상태(:has 선택자로 감지, 즉 글 선택 상태):
-       flex:1 1 0 + min-height 230px로 확장한다. save-target-fixed 실측
-       예산(제목 26 + 상태뱃지 34 + 저장버튼 48 + 보조버튼행 60 + 패널
-       헤더/패딩 등)에 맞춘 값이며, 저장/최종 미리보기/패키지 진단 버튼이
-       항상 온전히 보이고 하단이 잘리지 않는다. 로그가 길어지면
-       save-progress-list만 내부 스크롤된다. */
-.panel--upload {
-  flex: 0 0 auto;
-  min-height: 108px;
-}
-.panel--upload .panel__body {
-  justify-content: center;
-}
-.panel--library {
-  flex: 0 0 auto;
-  min-height: 108px;
-  max-height: 120px;
-}
-.panel--save {
-  flex: 0 0 auto;
-  min-height: 108px;
-}
-.panel--save:has(#save-target:not(.hidden)) {
+/* ---------- 카드별 높이 기준 (v1.6.2: 세로 1열 4단 고정) ----------
+   업로드 / 게시판 / 블로그 저장 / 네이버 저장 4개 패널은 같은 카드
+   디자인, 같은 너비(100%), 같은 높이 기준(flex:1 1 0, 동일 비율)으로
+   배치한다. 화면 높이가 부족해도 가로 배치나 2×2 배치로 바뀌지 않고
+   세로 1열을 유지하며, 각 패널 내부(.panel__body--scroll,
+   #save-progress-list 등)만 스크롤된다. */
+.panel--upload,
+.panel--library,
+.panel--save,
+.panel--naver {
   flex: 1 1 0;
+  min-height: 108px;
+}
+
+/* 블로그 저장 카드는 글 선택 시(save-target-fixed의 제목/상태/저장버튼/
+   보조버튼행이 모두 노출) 다른 3장과 같은 flex:1이어도 버튼이 잘리지
+   않도록 최소 높이를 확보한다. 남는 공간은 save-progress-list 내부
+   스크롤로 흡수된다. */
+.panel--save:has(#save-target:not(.hidden)) {
   min-height: 230px;
 }
 
-/* PC: 좌(업로드/게시판) - 우(블로그 저장) 2열 패널형 */
-@media (min-width: 860px) {
-  .app-container {
-    max-width: 900px;
-  }
+.panel--upload .panel__body {
+  justify-content: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
-  .workbench {
-    display: grid;
-    grid-template-columns: 300px minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas:
-      "upload  save"
-      "library save";
-  }
-
-  .panel--upload {
-    grid-area: upload;
-  }
-  .panel--library {
-    grid-area: library;
-  }
-  .panel--save {
-    grid-area: save;
-  }
+.panel--naver .panel__body {
+  justify-content: center;
+  align-items: center;
 }
 
 /* ---------- 중앙 팝업(모든 팝업 공통) ---------- */
