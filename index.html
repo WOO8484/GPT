@@ -45,7 +45,7 @@
       <section class="panel panel--upload" aria-label="업로드">
         <div class="panel__header">📦 업로드</div>
         <div class="panel__body">
-          <label for="zip-file-input" class="file-input-label">📦 블로그자료 ZIP 선택</label>
+          <label for="zip-file-input" class="file-input-label">📦 블로그 자료 ZIP 선택</label>
           <input id="zip-file-input" type="file" accept=".zip" class="file-input-hidden" />
           <div id="upload-filename" class="upload-filename"></div>
         </div>
@@ -298,12 +298,16 @@
         <div class="settings-section">
           <div class="popup-subheading">오류 목록</div>
           <ul id="settings-error-list" class="error-list-compact"></ul>
-          <div class="popup-actions popup-actions--row">
-            <button id="settings-errors-view-btn" class="btn btn--block" type="button">전체 오류 목록</button>
-            <button id="settings-errors-clear-btn" class="btn btn--block" type="button">오류 초기화</button>
+          <div class="popup-actions popup-actions--row settings-error-actions">
+            <button id="settings-errors-view-btn" class="btn btn--block btn--compact" type="button">전체 목록</button>
+            <button id="settings-errors-clear-btn" class="btn btn--block btn--compact" type="button">초기화</button>
           </div>
-          <!-- v1.4: error-dictionary-module.js 진입점(선택 기능) -->
-          <button id="settings-error-dictionary-btn" class="btn btn--block" type="button">🩹 오류 백과사전 / 로그 복사</button>
+          <!-- v1.4: error-dictionary-module.js 진입점(선택 기능). v1.6 레이아웃
+               실기보정(11-3): "오류 백과사전 / 로그 복사"는 이 버튼이 실제로
+               하는 단일 동작(백과사전 팝업 열기)과 맞지 않게 길고 복잡해
+               보여 "오류 백과사전"으로 축약했다(로그 복사는 그 팝업 안의
+               버튼으로 계속 제공됨 - 기능 변경 없음, 문구만 정리). -->
+          <button id="settings-error-dictionary-btn" class="btn btn--block btn--compact" type="button">🩹 오류 백과사전</button>
         </div>
 
         <div class="settings-section">

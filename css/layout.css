@@ -201,11 +201,15 @@
 /* v1.6(9장): 블로그 지시서 복사 버튼을 블로그 저장 카드에서 분리해 화면 하단
    독립 영역에 배치한다. app-container(flex column)의 마지막 고정 크기
    자식으로 항상 최하단에 고정 노출되며, 저장 카드/최종 미리보기/패키지 진단
-   버튼과 시각적으로 섞이지 않는다. 안전지역(iOS 홈 인디케이터) 여백도 둔다. */
+   버튼과 시각적으로 섞이지 않는다. 안전지역(iOS 홈 인디케이터) 여백도 둔다.
+   v1.6 레이아웃 실기보정(10장): 위쪽 구분선을 제거했다(카드처럼 독립적으로
+   보이되 굵은 줄로 시선을 끌지 않게). 상단 padding도 없앴다 — workbench가
+   이미 자체 하단 padding(10px)을 갖고 있어서, 여기 top padding까지 더하면
+   카드 사이 간격(10px)의 두 배(20px)로 보여 간격이 들쭉날쭉했다. 이제
+   위쪽은 workbench의 10px padding만으로 다른 카드 간격과 동일하게 맞춘다. */
 .bottom-actions {
   flex-shrink: 0;
-  padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--color-border);
+  padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px));
   background-color: var(--color-bg);
 }
 
@@ -239,19 +243,33 @@
    v1.5(A-1): "게시판이 비어 있을 때"가 아니라 "글이 1개 등록되어 있을 때"를
    기준으로 잡았다. panel--library는 글 1개(카드 1장) 기준 높이로 상한을 두어,
    글이 등록되어도 블로그 저장 영역이 예측 불가능하게 밀리지 않는다.
-   v1.6(11장): 블로그 지시서 복사 버튼이 저장 카드 밖으로 빠지면서 저장 카드
-   내부 공간에 여유가 생겨, 저장 버튼/최종 미리보기/패키지 진단 버튼이 항상
-   온전히 보이도록 min-height를 유지한다. */
+   v1.6 레이아웃 실기보정(6장/7장/12장): iPhone 실기(특히 iPhone SE급 소형
+   화면)에서 100dvh 예산 안에 모든 카드가 들어가도록 min-height를 "내용이
+   실제로 필요로 하는 최소값" 기준으로 다시 계산했다(불필요한 여유값 제거).
+   - 업로드 카드: min-height 108px = 헤더(34) + 본문 padding(20) + ZIP 선택
+     버튼(52) + 테두리(2). 내용이 짧아도 이 높이를 채우고 중앙 정렬된다
+     (panel--upload .panel__body { justify-content:center }).
+   - 게시판 카드: min-height 108px(업로드와 동일한 바닥선, 빈 상태 기준) ~
+     max-height 120px(글 1개 카드 기준 상한). 제목이 2줄까지 길어지는 경우는
+     panel__body--scroll의 기존 내부 스크롤로 흡수된다(잘림이 아니라 스크롤).
+   - 블로그 저장 카드: min-height 230px = save-target-fixed 실측 예산(제목
+     26 + 상태뱃지 38 + 저장버튼 48 + 보조버튼행 60 + 여백)에 맞춘 값이다.
+     기존 280px는 불필요하게 크게 잡혀 있어 낮췄다. */
 .panel--upload {
   flex: 0 0 auto;
+  min-height: 108px;
+}
+.panel--upload .panel__body {
+  justify-content: center;
 }
 .panel--library {
   flex: 0 0 auto;
-  max-height: 128px;
+  min-height: 108px;
+  max-height: 120px;
 }
 .panel--save {
   flex: 1 1 0;
-  min-height: 280px;
+  min-height: 230px;
 }
 
 /* PC: 좌(업로드/게시판) - 우(블로그 저장) 2열 패널형 */
@@ -423,4 +441,23 @@
 
 .save-progress-log li {
   padding: 2px 0;
+}
+
+/* v1.6 레이아웃 실기보정(11장): 설정창 "오류 목록" 섹션 하단 버튼 3개(전체 목록/
+   초기화/오류 백과사전)가 너무 크고 투박하다는 지적 반영. 버튼 높이/글자 크기/
+   간격을 줄여 오류 카드 목록보다 버튼 영역이 더 커 보이지 않게 했다. */
+.btn--compact {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  border-radius: 8px;
+}
+
+.settings-error-actions {
+  margin-top: 8px;
+  gap: 8px;
+}
+
+#settings-error-dictionary-btn {
+  margin-top: 8px;
 }
