@@ -1,18 +1,4 @@
-/* ============================================================
-   layout.css — 전체 레이아웃 구조
-   v1.6.2: 레이아웃 전면 재작성(덧댐 패치가 아니라 중복/상충 규칙을
-   정리하고 카드별 상태 기준을 새로 잡음). 기능/동작은 기존과 동일하다.
-
-   기본 원칙
-   - 앱 전체 높이는 100dvh 고정. 전체 페이지는 스크롤되지 않는다.
-   - 내부 스크롤이 허용되는 영역만 스크롤된다:
-     .panel__body--scroll / .popup-panel__scroll /
-     .save-progress-list / .save-progress-log
-   - 카드(.panel) 높이는 "지금 어떤 상태인지"에 따라 달라질 수 있다.
-     블로그 저장 카드가 대표적인 예로, 아래 "블로그 저장 카드" 절에서
-     :has()로 #save-target의 hidden 여부를 감지해 compact/확장 높이를
-     자동으로 나눈다(추가 JS나 HTML 상태 클래스 없이 처리).
-   ============================================================ */
+/* layout.css - 전체 레이아웃 구조 (한 화면 고정, 지정 영역만 내부 스크롤) */
 
 :root {
   --color-bg: #ffffff;
@@ -105,17 +91,10 @@
   color: var(--color-text);
 }
 
-/* v1.6.2 패치1: 헤더 아이콘 3개(⚠️📋⚙️)는 완전히 같은 크기로 고정한다. */
 .header-icon-btn {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   font-size: 13px;
   color: var(--color-text-soft);
+  padding: 6px 10px;
   border-radius: 8px;
 }
 
@@ -130,42 +109,42 @@
   gap: 4px;
 }
 
-/* ---------- 작업대: 업로드 / 게시판 / 블로그 저장 / 네이버 저장 ----------
-   v1.6.2: 항상 세로 1열 4단(위→아래)으로 고정 배치한다(가로 배치, 2×2
-   배치 금지). 전체 페이지(workbench 자체)는 스크롤되지 않으며, 각 패널
-   내부(.panel__body--scroll 등)만 스크롤된다. 4개 패널은 같은 너비
-   (100%)와 같은 높이 기준(flex:1, 동일 비율)으로 배치한다. */
+/* ---------- 작업대: 업로드 / 게시판 / 블로그 저장을 한 화면에 통합 ----------
+   v1.6.2: 카드 박스 구조를 제거하고 섹션형 배치로 정리했다. 전체 페이지는
+   스크롤되지 않는다. 섹션 내부(.panel__body--scroll)만 스크롤된다.
+   모바일: 세로 섹션형(위→아래), 얇은 구분선으로만 구획을 나눈다.
+   PC(min-width:860px): 좌/우 2열 배치. */
 .workbench {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 10px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
 }
 
 .panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  overflow: hidden;
-  background-color: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  padding: 12px 0;
+}
+
+.panel:last-child {
+  border-bottom: none;
 }
 
 .panel__header {
   flex-shrink: 0;
-  padding: 8px 12px;
+  padding: 0 0 8px;
   font-size: 13px;
   font-weight: 700;
   color: var(--color-text-soft);
-  background-color: var(--color-bg-soft);
-  border-bottom: 1px solid var(--color-border);
 }
 
-/* 게시판 패널 헤더처럼 제목 옆에 보조 버튼(전체 게시판 등)이 붙는 경우 */
+/* v1.2: 게시판 패널 헤더처럼 제목 옆에 보조 버튼(전체 게시판 등)이 붙는 경우 */
 .panel__header--row {
   display: flex;
   align-items: center;
@@ -176,28 +155,26 @@
 .panel__body {
   flex: 1;
   min-height: 0;
-  padding: 10px 12px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-/* 내부 스크롤 허용 영역(예외): 게시판 목록 내부 / 팝업 내부(미리보기·전체 게시판 등) */
+/* 내부 스크롤 허용 영역(예외): 게시판 목록 내부 / 팝업 내부(미리보기·전체 게시판 등) / 오류 목록 내부 */
 .panel__body--scroll,
 .popup-panel__scroll {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-/* ---------- 블로그 저장 카드: 내부 구조 ----------
-   save-target-fixed(제목/상태/저장 버튼/보조 도구)는 항상 고정 크기로 전부
-   보이며 스크롤 대상이 아니다(버튼이 스크롤에 가려 잘려 보이는 문제의 핵심
-   원인이었다). save-progress-list만 남은 공간을 차지하며 내부 스크롤된다.
-   (v1.6.2: 블로그 지시서 복사 버튼은 헤더 아이콘(📋)으로 이동했다. 아래
-   .bottom-actions 규칙은 더 이상 사용되지 않는다 — 상세는 파일 하단 참고.)
-   ※ .save-target 정의는 이 파일 한 곳에만 둔다(과거 components.css에도
-   같은 selector가 중복 정의돼 있던 것을 정리함 — 값 충돌은 없었지만
-   유지보수 시 혼동을 주는 중복이었다). */
+/* v1.5(A-1/A-2): 블로그 저장 패널 내부 구조를 다시 잡았다.
+   - save-target-fixed(선택 글 제목/상태/저장 버튼/보조 도구)는 항상 고정 크기로
+     전부 보이며, 스크롤 대상이 아니다(버튼이 스크롤에 가려 "잘려 보이는" 문제의
+     핵심 원인이었다).
+   - save-progress-list만 남은 공간을 차지하며 내부 스크롤된다(A-3 진행 로그와
+     동일한 원칙: 고정 영역 + 내부 스크롤 로그).
+   - 블로그 지시서 복사 버튼은 이 구조 밖(panel__body 맨 아래)에서 항상 고정 노출된다. */
 .save-target {
   display: flex;
   flex-direction: column;
@@ -209,37 +186,28 @@
   flex-shrink: 0;
 }
 
-/* 글 미선택 안내 문구: 저장 카드가 compact 상태일 때, 남는 세로 공간 안에서
-   문구만 작게 중앙 정렬한다(게시판 "글 없음" 안내와 동일한 패턴). 고정
-   padding으로 카드를 밀어내지 않는 것이 "큰 빈 공간 금지" 기준의 핵심이다. */
 #save-empty {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 12px;
-  margin: 0;
+  flex-shrink: 0;
 }
 
 .panel--save .panel__body {
   gap: 10px;
 }
 
-/* v1.6.2: 블로그 지시서 복사 버튼이 헤더 아이콘(📋)으로 이동하면서
-   index.html에서 .bottom-actions 마크업 자체를 제거했다. 이 규칙은 더
-   이상 어떤 요소에도 매치되지 않는다(요청 범위가 배치 구조 수정이라
-   여기서는 규칙 자체를 삭제하지 않고 미사용 상태로만 남겨둔다 — 필요
-   시 정리 여부를 사용자에게 확인 후 삭제 가능). */
+/* 블로그 지시서 복사 버튼은 블로그 저장 영역과 분리된 화면 하단 독립 영역이다.
+   app-container(flex column)의 마지막 고정 크기 자식으로 항상 최하단에
+   고정 노출되며, 저장 버튼/최종 미리보기/패키지 진단 버튼과 시각적으로
+   섞이지 않는다. 굵은 구분선 없이 workbench 좌우 여백과 통일된 padding만
+   둬서 카드처럼 보이지 않게 한다. 안전지역(iOS 홈 인디케이터) 여백도 둔다. */
 .bottom-actions {
   flex-shrink: 0;
-  padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
   background-color: var(--color-bg);
 }
 
-/* 저장 패널 안 보조 버튼(최종 미리보기/패키지 진단)을 가로로 나란히 배치.
-   메인 저장 버튼보다 눈에 덜 띄도록 btn--ghost와 함께 사용한다. 모바일
-   폭이 좁아도 2개 버튼이 겹치지 않도록 최소 폭을 보장한다. */
+/* v1.4: 저장 패널 안 보조 버튼(최종 미리보기/패키지 진단)을 가로로 나란히 배치.
+   메인 저장 버튼보다 눈에 덜 띄도록 btn--ghost와 함께 사용한다.
+   v1.5(A-2): 모바일 폭이 좁아도 2개 버튼이 겹치지 않도록 최소 폭을 보장한다. */
 .save-tool-row {
   display: flex;
   gap: 8px;
@@ -255,54 +223,56 @@
   padding: 8px 6px;
 }
 
-/* "다시 저장" 버튼(retry-module.js). 기본 저장 버튼 바로 아래, 위쪽에
-   살짝 여백을 둬서 별개 동작임을 구분한다. */
+/* v1.4: "다시 저장" 버튼(retry-module.js). 기본 저장 버튼 바로 아래, 위쪽에 살짝
+   여백을 둬서 별개 동작임을 구분한다. */
 #retry-save-btn {
   margin-top: 8px;
   flex-shrink: 0;
 }
 
-/* ---------- 카드별 높이 기준 (v1.6.2 패치2: 세로 1열 4단, 비율 차등) ----------
-   업로드 / 게시판 / 블로그 저장 / 네이버 저장 4개 패널은 같은 카드
-   디자인과 같은 너비(100%)를 쓰지만, 높이 비율은 더 이상 동일(1 1 0)하지
-   않다. 블로그스팟 저장 카드는 제목/상태/저장 버튼/보조 버튼/진행 로그까지
-   담아야 해서 콘텐츠 양이 가장 많고, 네이버 저장 카드는 향후 동일한
-   구성으로 채워질 예정이라 같은 비율을 준다. 업로드는 버튼 하나뿐이라
-   비율을 줄인다. 화면 높이가 부족해도 가로 배치나 2×2 배치로 바뀌지
-   않고 세로 1열을 유지하며, 각 패널 내부(.panel__body--scroll,
-   #save-progress-list 등)만 스크롤된다. */
+/* 모바일: 업로드/게시판은 내용만큼만 높이를 차지하고(고정 크기), 블로그 저장이
+   남은 공간을 모두 채운다. 카드 테두리가 사라진 섹션형 구조에서는 픽셀
+   단위 min-height 보정 없이도 내용 높이만으로 자연스럽게 배치된다.
+   게시판만 목록이 길어질 수 있어 max-height로 상한을 두고 내부 스크롤한다. */
 .panel--upload {
-  flex: 0.8 1 0;
-  min-height: 108px;
+  flex: 0 0 auto;
 }
-
-.panel--library {
-  flex: 1 1 0;
-  min-height: 108px;
-}
-
-.panel--save,
-.panel--naver {
-  flex: 1.6 1 0;
-  min-height: 108px;
-}
-
-/* v1.6.2 패치1: 4개 패널은 선택/미선택 상태와 관계없이 같은 높이 기준을
-   유지한다. 블로그스팟 저장 패널만 글 선택 시 커지던 :has() 규칙을
-   제거했다 — 저장 카드 내부(save-target-fixed)는 flex:1로 배분된 패널
-   공간 안에서 자체적으로 배치되며, 로그가 길어지는 경우는 그대로
-   #save-progress-list 내부 스크롤로 흡수된다. */
-
 .panel--upload .panel__body {
   justify-content: center;
-  align-items: center;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+}
+.panel--library {
+  flex: 0 0 auto;
+  max-height: 140px;
+}
+.panel--save {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
-.panel--naver .panel__body {
-  justify-content: center;
-  align-items: center;
+/* PC: 좌(업로드/게시판) - 우(블로그 저장) 2열 패널형 */
+@media (min-width: 860px) {
+  .app-container {
+    max-width: 900px;
+  }
+
+  .workbench {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "upload  save"
+      "library save";
+  }
+
+  .panel--upload {
+    grid-area: upload;
+  }
+  .panel--library {
+    grid-area: library;
+  }
+  .panel--save {
+    grid-area: save;
+  }
 }
 
 /* ---------- 중앙 팝업(모든 팝업 공통) ---------- */
@@ -334,9 +304,10 @@
   box-shadow: 0 20px 50px rgba(20, 24, 33, 0.25);
 }
 
-/* "고정 크기, 내부 스크롤 금지" 팝업 전용(블로그 지시서 복사 팝업, 저장
-   확인 팝업 등). 콘텐츠가 늘거나 줄어도(예: 복사 완료 문구) 팝업 자체
-   크기가 절대 바뀌지 않는다. */
+/* v1.6(12장): "고정 크기, 내부 스크롤 금지" 팝업 전용(블로그 지시서 복사 팝업,
+   저장 확인 팝업 등). 콘텐츠가 늘거나 줄어도(예: 복사 완료 문구) 팝업 자체
+   크기가 절대 바뀌지 않는다. 내부 요소들이 이 높이 안에 항상 들어가도록
+   여백/글자 수를 설계했다(아래 prompt-copy-result 참고). */
 .popup-panel--fixed {
   height: 420px;
   max-height: 82vh;
@@ -346,8 +317,8 @@
   overflow-y: hidden;
 }
 
-/* 복사 완료 문구가 뜨기 전에도 항상 같은 높이를 차지해서, 문구가 나타나도
-   팝업 레이아웃이 밀리거나 커지지 않게 한다. */
+/* v1.6(12장): 복사 완료 문구가 뜨기 전에도 항상 같은 높이를 차지해서, 문구가
+   나타나도 팝업 레이아웃이 밀리거나 커지지 않게 한다. */
 .prompt-copy-result {
   min-height: 20px;
 }
@@ -366,7 +337,9 @@
   color: var(--color-text);
 }
 
-/* 팝업 공통 닫기 버튼. 원형 + 안에 × 문자, 모바일 터치 가능한 크기(40px). */
+/* v1.3: 팝업 공통 닫기 버튼. 원형 + 안에 × 문자, 모바일 터치 가능한 크기(40px).
+   v1.2 검수사항 반영: 대비가 낮다는 지적에 따라 배경을 더 진하게, 글자는 진한
+   본문색+굵게로 바꿔 시인성을 높였다. */
 .popup-close-btn {
   flex-shrink: 0;
   width: 40px;
@@ -388,7 +361,7 @@
   background-color: #d7dbe3;
 }
 
-/* 팝업 안내 문구와 버튼 사이 여백을 넉넉하게(제목 → 설명 → 여백 → 버튼) */
+/* v1.3: 팝업 안내 문구와 버튼 사이 여백을 넉넉하게(제목 → 설명 → 여백 → 버튼) */
 .popup-actions {
   display: flex;
   flex-direction: column;
@@ -396,7 +369,7 @@
   margin-top: 20px;
 }
 
-/* 오류 목록/데이터 관리 등 버튼 2개를 가로로 나란히 배치할 때 사용 */
+/* v1.3: 오류 목록/데이터 관리 등 버튼 2개를 가로로 나란히 배치할 때 사용 */
 .popup-actions--row {
   flex-direction: row;
 }
@@ -406,7 +379,7 @@
   min-width: 0;
 }
 
-/* 팝업 내부 소제목(업로드 확인의 "저장 전 미리보기", 설정의 각 섹션 제목 등).
+/* v1.3: 팝업 내부 소제목(업로드 확인의 "저장 전 미리보기", 설정의 각 섹션 제목 등).
    여러 팝업이 공통으로 재사용한다. */
 .popup-subheading {
   font-size: 12px;
@@ -415,9 +388,9 @@
   margin: 16px 0 8px;
 }
 
-/* 블로그 저장 진행 팝업 전용 구조. 팝업 자체 높이가 텍스트 줄 수에 따라
-   계속 커지지 않도록, "현재 단계 요약"은 고정된 한 줄로 상단에 두고,
-   상세 로그만 고정 높이(160px) 안에서 내부 스크롤되게 한다. */
+/* v1.5(A-3): 블로그 저장 진행 팝업 전용 구조. 팝업 자체 높이가 텍스트 줄 수에 따라
+   계속 커지지 않도록, "현재 단계 요약"은 고정된 한 줄로 상단에 두고, 상세 로그만
+   고정 높이(160px) 안에서 내부 스크롤되게 한다. */
 .save-progress-summary {
   flex-shrink: 0;
   font-size: 14px;
@@ -447,8 +420,9 @@
   padding: 2px 0;
 }
 
-/* 설정창 "오류 목록" 섹션 하단 버튼(전체 목록/초기화/오류 백과사전)이 너무
-   크고 투박해 보이지 않도록 높이/글자 크기/간격을 줄인 컴팩트 버튼. */
+/* v1.6 레이아웃 실기보정(11장): 설정창 "오류 목록" 섹션 하단 버튼 3개(전체 목록/
+   초기화/오류 백과사전)가 너무 크고 투박하다는 지적 반영. 버튼 높이/글자 크기/
+   간격을 줄여 오류 카드 목록보다 버튼 영역이 더 커 보이지 않게 했다. */
 .btn--compact {
   min-height: 36px;
   padding: 6px 10px;
