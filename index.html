@@ -41,57 +41,79 @@
          다시 저장)은 블로그 저장 영역 안 보조 버튼으로, 그 외(백업/복원, 오류
          백과사전, Worker 상세 상태, 저장 이력)는 설정 팝업 안으로 배치해
          기본 화면 길이를 늘리지 않는다. -->
-    <main class="workbench">
-      <section class="panel panel--upload" aria-label="업로드">
-        <div class="panel__header">📦 업로드</div>
-        <div class="panel__body">
+    <main class="workbench" aria-label="GPT 공작소 메인 작업 화면">
+      <section class="workbench-section workbench-section--upload" aria-label="업로드">
+        <div class="workbench-section__header">📦 업로드</div>
+        <div class="workbench-section__body workbench-section__body--center">
           <label for="zip-file-input" class="file-input-label">📦 블로그 자료 ZIP 선택</label>
           <input id="zip-file-input" type="file" accept=".zip" class="file-input-hidden" />
           <div id="upload-filename" class="upload-filename"></div>
         </div>
       </section>
 
-      <section class="panel panel--library" aria-label="게시판">
-        <div class="panel__header panel__header--row">
+      <section class="workbench-section workbench-section--library" aria-label="게시판">
+        <div class="workbench-section__header workbench-section__header--row">
           <span>📚 게시판</span>
           <button id="board-open-btn" class="panel-header-btn" type="button">전체 게시판</button>
         </div>
-        <div class="panel__body panel__body--scroll">
+        <div class="workbench-section__body workbench-section__body--scroll">
           <ul id="library-list" class="library-list"></ul>
           <div id="library-empty" class="archive-item--empty">저장된 글이 없습니다.<br />업로드에서 먼저 등록해주세요.</div>
         </div>
       </section>
 
-      <section class="panel panel--save" aria-label="블로그 저장">
-        <div class="panel__header">📝 블로그 저장</div>
-        <div class="panel__body">
-          <div id="save-empty" class="archive-item--empty">게시판에서 글을 선택하세요.</div>
-          <div id="save-target" class="save-target hidden">
-            <!-- v1.5(A-2): 제목/상태/저장 버튼/보조 도구는 항상 고정 노출되는 영역이다.
-                 스크롤 대상이 아니므로 모바일에서도 하단이 잘리지 않는다. -->
-            <div class="save-target-fixed">
-              <div id="save-target-title" class="save-target-title"></div>
-              <div id="save-target-status" class="save-target-status"></div>
-              <!-- v1.4: post-status-module.js 전용 표시 영역(선택 기능). 요소가 있으면
-                   해당 모듈이 채우고, 없거나 모듈이 죽어도 나머지 저장 흐름은 그대로 동작한다. -->
-              <div id="post-status-line" class="post-status-line"></div>
+      <div class="publish-grid" aria-label="발행 보조 영역">
+        <section class="workbench-section publish-section publish-section--blogspot" aria-label="블로그스팟 저장">
+          <div class="workbench-section__header">📝 블로그스팟</div>
+          <div class="workbench-section__body publish-section__body">
+            <div id="save-empty" class="archive-item--empty hidden">게시판에서 글을 선택하세요.</div>
+            <div id="save-target" class="save-target">
+              <div class="save-target-fixed">
+                <div id="save-target-title" class="save-target-title">선택된 글 없음</div>
+                <div id="save-target-status" class="save-target-status">
+                  <span class="status-badge status-badge--pending">글 미선택</span>
+                </div>
+                <div id="post-status-line" class="post-status-line">현재 상태: 글 미선택</div>
 
-              <button id="save-start-btn" class="btn btn--primary btn--block" type="button">📝 블로그 임시저장 시작</button>
-              <!-- v1.4: retry-module.js 전용(선택 기능). 임시저장 실패 글에서만 노출된다. -->
-              <button id="retry-save-btn" class="btn btn--block hidden" type="button">🔁 다시 저장</button>
+                <button id="save-start-btn" class="btn btn--primary btn--block" type="button" disabled>📝 블로그 임시저장 시작</button>
+                <button id="retry-save-btn" class="btn btn--block hidden" type="button">🔁 다시 저장</button>
 
-              <!-- v1.4: 최종 HTML 미리보기 / 패키지 진단(둘 다 선택 기능). 저장 흐름
-                   근처 보조 버튼으로 배치하고, 실제 저장/업로드는 실행하지 않는다. -->
-              <div class="save-tool-row">
-                <button id="blogger-preview-open-btn" class="btn btn--ghost" type="button">🔍 최종 미리보기</button>
-                <button id="package-diagnosis-open-btn" class="btn btn--ghost" type="button">🩺 패키지 진단</button>
+                <div class="save-tool-row">
+                  <button id="blogger-preview-open-btn" class="btn btn--ghost" type="button" disabled>🔍 최종 미리보기</button>
+                  <button id="package-diagnosis-open-btn" class="btn btn--ghost" type="button" disabled>🩺 패키지 진단</button>
+                </div>
               </div>
-            </div>
 
-            <ul id="save-progress-list" class="save-progress-list"></ul>
+              <ul id="save-progress-list" class="save-progress-list"></ul>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section class="workbench-section publish-section publish-section--naver" aria-label="네이버 수동 복사">
+          <div class="workbench-section__header">🟢 네이버</div>
+          <div class="workbench-section__body publish-section__body">
+            <div id="naver-copy-target" class="naver-copy-target">
+              <div class="naver-copy-fixed">
+                <div id="naver-copy-title" class="save-target-title">선택된 글 없음</div>
+                <div id="naver-copy-status" class="post-status-line">현재 상태: 글 미선택</div>
+
+                <div class="naver-copy-row">
+                  <button id="naver-title-copy-btn" class="btn btn--ghost" type="button" disabled>제목 복사</button>
+                  <button id="naver-body-copy-btn" class="btn btn--ghost" type="button" disabled>본문 복사</button>
+                </div>
+                <div class="naver-copy-row">
+                  <button id="naver-image-copy-btn" class="btn btn--ghost" type="button" disabled>이미지 URL 복사</button>
+                  <button id="naver-tags-copy-btn" class="btn btn--ghost" type="button" disabled>태그 복사</button>
+                </div>
+                <button id="naver-blog-open-btn" class="btn btn--block" type="button">네이버 블로그 열기</button>
+                <div id="naver-copy-result" class="naver-copy-result"></div>
+              </div>
+
+              <p class="notice-text naver-copy-note">네이버는 자동 저장이 아니라 수동 복사용입니다.</p>
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
 
     <!-- v1.6(9장): 블로그 지시서 복사 버튼은 블로그 저장 카드와 완전히 분리된
@@ -483,5 +505,6 @@
   <script src="js/retry-module.js"></script>
 
   <script src="js/app-core.js"></script>
+  <script src="js/naver-copy-module.js"></script>
 </body>
 </html>

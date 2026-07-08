@@ -337,24 +337,44 @@ function closeBoardPopup() {
    실행되며, 그 내부 구현은 기존과 동일하다(수정하지 않음). 이 흐름 전체는
    신규 모듈과 무관하게 항상 연결된다.
    ---------------------------------------------------------- */
+function setSaveActionButtonsDisabled(disabled) {
+  ["save-start-btn", "blogger-preview-open-btn", "package-diagnosis-open-btn"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !!disabled;
+  });
+}
+
 function renderSavePanel() {
   const emptyEl = document.getElementById("save-empty");
   const targetEl = document.getElementById("save-target");
+  const titleEl = document.getElementById("save-target-title");
+  const statusEl = document.getElementById("save-target-status");
+  const progressListEl = document.getElementById("save-progress-list");
+  const retryBtn = document.getElementById("retry-save-btn");
 
   const post = selectedPostId ? LibraryModule.getPostById(selectedPostId) : null;
   if (!post) {
-    emptyEl.classList.remove("hidden");
-    targetEl.classList.add("hidden");
+    if (emptyEl) emptyEl.classList.add("hidden");
+    if (targetEl) targetEl.classList.remove("hidden");
+    if (titleEl) titleEl.textContent = "선택된 글 없음";
+    if (statusEl) statusEl.innerHTML = `<span class="status-badge status-badge--pending">글 미선택</span>`;
+    if (progressListEl) progressListEl.innerHTML = "";
+    if (retryBtn) {
+      retryBtn.classList.add("hidden");
+      retryBtn.disabled = true;
+    }
+    setSaveActionButtonsDisabled(true);
     notifyLifecycle("post-selected", { post: null });
     return;
   }
 
-  emptyEl.classList.add("hidden");
-  targetEl.classList.remove("hidden");
-  document.getElementById("save-target-title").textContent = post.title;
-  document.getElementById("save-target-status").innerHTML = `<span class="status-badge ${statusBadgeClass(post.saveStatus)}">${escapeHtml(post.saveStatus)}</span>`;
-  document.getElementById("save-progress-list").innerHTML = "";
-  document.getElementById("save-start-btn").disabled = false;
+  if (emptyEl) emptyEl.classList.add("hidden");
+  if (targetEl) targetEl.classList.remove("hidden");
+  if (titleEl) titleEl.textContent = post.title;
+  if (statusEl) statusEl.innerHTML = `<span class="status-badge ${statusBadgeClass(post.saveStatus)}">${escapeHtml(post.saveStatus)}</span>`;
+  if (progressListEl) progressListEl.innerHTML = "";
+  if (retryBtn) retryBtn.disabled = false;
+  setSaveActionButtonsDisabled(false);
 
   // v1.4: 신규 모듈(post-status-module/retry-module 등)에게 선택된 글이
   // 바뀌었음을 안전하게 알린다. 리스너가 없거나 실패해도 위 core 렌더링에는

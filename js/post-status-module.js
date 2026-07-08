@@ -68,11 +68,11 @@ const PostStatusModule = (() => {
     const line = document.getElementById("post-status-line");
     if (!line) return;
     if (!post) {
-      line.textContent = "";
+      line.textContent = "현재 상태: 글 미선택";
       return;
     }
     const entry = getStatus(post.id);
-    line.textContent = entry ? `현재 상태: ${entry.status}${entry.updatedAt ? " · " + formatDate(entry.updatedAt) : ""}` : "";
+    line.textContent = entry ? `현재 상태: ${entry.status}` : "현재 상태: 블로그 임시저장 준비";
   }
 
   function handleLifecycle(eventName, payload) {
