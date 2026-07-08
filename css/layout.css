@@ -105,10 +105,17 @@
   color: var(--color-text);
 }
 
+/* v1.6.2 패치1: 헤더 아이콘 3개(⚠️📋⚙️)는 완전히 같은 크기로 고정한다. */
 .header-icon-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 13px;
   color: var(--color-text-soft);
-  padding: 6px 10px;
   border-radius: 8px;
 }
 
@@ -269,13 +276,11 @@
   min-height: 108px;
 }
 
-/* 블로그 저장 카드는 글 선택 시(save-target-fixed의 제목/상태/저장버튼/
-   보조버튼행이 모두 노출) 다른 3장과 같은 flex:1이어도 버튼이 잘리지
-   않도록 최소 높이를 확보한다. 남는 공간은 save-progress-list 내부
-   스크롤로 흡수된다. */
-.panel--save:has(#save-target:not(.hidden)) {
-  min-height: 230px;
-}
+/* v1.6.2 패치1: 4개 패널은 선택/미선택 상태와 관계없이 같은 높이 기준을
+   유지한다. 블로그스팟 저장 패널만 글 선택 시 커지던 :has() 규칙을
+   제거했다 — 저장 카드 내부(save-target-fixed)는 flex:1로 배분된 패널
+   공간 안에서 자체적으로 배치되며, 로그가 길어지는 경우는 그대로
+   #save-progress-list 내부 스크롤로 흡수된다. */
 
 .panel--upload .panel__body {
   justify-content: center;
