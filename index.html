@@ -96,13 +96,22 @@
         </div>
       </section>
 
-      <!-- v1.6.2: 네이버 저장 패널(디자인만, 신규 기능 아님). 실제 저장 기능은
-           아직 없으며, 다른 3개 패널과 동일한 카드 스타일/너비/높이 기준을
-           따르는 빈 틀로만 배치한다. -->
+      <!-- v1.6.2 패치3: 네이버 저장 패널. 실제 저장 기능은 아직 없으며(신규
+           기능/API 연결 없음), 블로그스팟 저장 패널과 시각적으로 대응되는
+           버튼 구조(메인 버튼 + 보조 버튼 2개)만 disabled 상태로 배치한다.
+           기존 .btn / .btn--primary / .btn--ghost / .save-tool-row 스타일을
+           그대로 재사용하므로 새 디자인은 추가하지 않는다. -->
       <section class="panel panel--naver" aria-label="네이버 저장">
         <div class="panel__header">🟩 네이버 저장</div>
         <div class="panel__body">
-          <div class="archive-item--empty">준비 중입니다.</div>
+          <div class="naver-save-target">
+            <div class="archive-item--empty">현재 준비 중인 기능입니다.</div>
+            <button id="naver-save-start-btn" class="btn btn--primary btn--block" type="button" disabled>🟩 네이버 임시저장 시작</button>
+            <div class="save-tool-row">
+              <button id="naver-preview-open-btn" class="btn btn--ghost" type="button" disabled>🔍 네이버 미리보기</button>
+              <button id="naver-diagnosis-open-btn" class="btn btn--ghost" type="button" disabled>🩺 네이버 진단</button>
+            </div>
+          </div>
         </div>
       </section>
     </main>

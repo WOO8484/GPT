@@ -1,17 +1,19 @@
 /* ============================================================
    layout.css — 전체 레이아웃 구조
-   v1.6.2: 레이아웃 전면 재작성(덧댐 패치가 아니라 중복/상충 규칙을
-   정리하고 카드별 상태 기준을 새로 잡음). 기능/동작은 기존과 동일하다.
+   v1.6.2 패치3 기준. 기능/동작은 원본과 동일하며 이 파일은 레이아웃만
+   담당한다.
 
    기본 원칙
-   - 앱 전체 높이는 100dvh 고정. 전체 페이지는 스크롤되지 않는다.
+   - 앱 전체 높이는 100dvh 고정. 전체 페이지(workbench)는 스크롤되지
+     않는다.
    - 내부 스크롤이 허용되는 영역만 스크롤된다:
      .panel__body--scroll / .popup-panel__scroll /
      .save-progress-list / .save-progress-log
-   - 카드(.panel) 높이는 "지금 어떤 상태인지"에 따라 달라질 수 있다.
-     블로그 저장 카드가 대표적인 예로, 아래 "블로그 저장 카드" 절에서
-     :has()로 #save-target의 hidden 여부를 감지해 compact/확장 높이를
-     자동으로 나눈다(추가 JS나 HTML 상태 클래스 없이 처리).
+   - 메인 화면은 세로 1열 4단(업로드/게시판/블로그스팟 저장/네이버 저장)
+     이며, 각 카드(.panel)는 내용 변화와 무관한 고정 비율(flex-basis)로
+     높이가 배분된다 — 상세는 "카드별 높이 기준" 절 참고.
+   - 각 패널 내부 정렬은 margin 고정값이 아니라 .panel__body의 flex
+     정렬(기본 중앙, 목록형 패널만 상단 정렬로 오버라이드)로 처리한다.
    ============================================================ */
 
 :root {
@@ -175,13 +177,31 @@
   gap: 8px;
 }
 
+/* v1.6.2 패치3: 패널 내부 중앙 정렬은 margin 고정값이 아니라 flex 정렬로
+   처리한다. 기본값은 세로/가로 중앙(대부분의 패널이 이 기본값을 그대로
+   쓴다: 업로드, 네이버 저장, 그리고 블로그스팟 저장의 글 미선택 상태).
+   목록/로그처럼 위에서부터 쌓여야 하는 콘텐츠가 있는 패널만 아래에서
+   justify-content/align-items를 flex-start로 개별 오버라이드한다. */
 .panel__body {
   flex: 1;
   min-height: 0;
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* 게시판(목록이 위에서부터 쌓임)과 블로그스팟 저장(제목/버튼이 위에서부터
+   쌓임)은 세로 중앙 정렬 대신 상단 정렬을 쓴다. 글이 없거나 미선택 상태의
+   중앙 정렬 문구(#library-empty, #save-empty)는 각자 flex:1로 남은 공간을
+   차지해 자체적으로 중앙에 위치한다(아래 해당 규칙 참고). */
+.panel--library .panel__body,
+.panel--save .panel__body {
+  justify-content: flex-start;
+  align-items: stretch;
 }
 
 /* 내부 스크롤 허용 영역(예외): 게시판 목록 내부 / 팝업 내부(미리보기·전체 게시판 등) */
@@ -264,7 +284,7 @@
   flex-shrink: 0;
 }
 
-/* ---------- 카드별 높이 기준 (v1.6.2 패치2: 세로 4단 고정 비율) ----------
+/* ---------- 카드별 높이 기준 (v1.6.2 패치2 도입, 패치3에서 비율만 보정) ----------
    업로드 / 게시판 / 블로그스팟 저장 / 네이버 저장 4개 패널은 같은 카드
    디자인, 같은 너비(100%)를 유지하되, 각 카드 "자체" 높이는 내용 변화와
    무관한 고정 비율로 잡는다(flex-grow/flex-shrink를 0으로 고정하고
@@ -273,11 +293,12 @@
    일이 없다). 내용이 넘치면 카드 높이가 아니라 카드 내부
    (.panel__body--scroll, #save-progress-list 등)만 스크롤된다.
 
-   비율 배분(workbench 전체 높이 대비):
+   비율 배분(workbench 전체 높이 대비, 패치3: 네이버 저장에 버튼 구조가
+   추가되어 블로그스팟 저장과 시각적 균형이 맞도록 비율만 재조정했다):
    - 업로드(가장 낮음): 14%
    - 게시판(글 목록, 중간): 22%
-   - 블로그스팟 저장(제목/상태/버튼, 가장 넉넉히): 42%
-   - 네이버 저장(준비중 표시만, 과하지 않게): 14%
+   - 블로그스팟 저장(제목/상태/버튼): 34%
+   - 네이버 저장(버튼 구조 추가로 블로그스팟 저장과 균형): 30%
    (workbench의 gap(10px×3)을 제외한 나머지를 위 비율로 나눈다) */
 .panel--upload,
 .panel--library,
@@ -297,22 +318,39 @@
 }
 
 .panel--save {
-  flex-basis: 42%;
+  flex-basis: 34%;
 }
 
 .panel--naver {
-  flex-basis: 14%;
+  flex-basis: 30%;
 }
 
 .panel--upload .panel__body {
-  justify-content: center;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-.panel--naver .panel__body {
+/* ---------- 네이버 저장 카드: 내부 구조 ----------
+   v1.6.2 패치3: 블로그스팟 저장의 .save-target 구조와 시각적으로
+   대응되도록 안내 문구 + 메인 버튼 + 보조 버튼 2개(save-tool-row 재사용)
+   를 세로로 쌓는다. 실제 저장 기능은 없으므로(disabled 버튼) 항상 같은
+   내용만 보이며, 카드 내부 콘텐츠 양이 고정되어 있어 별도 스크롤 영역은
+   두지 않는다. 패널 자체는 .panel__body 기본값(중앙 정렬)을 그대로
+   물려받는다. */
+.naver-save-target {
+  display: flex;
+  flex-direction: column;
   justify-content: center;
-  align-items: center;
+  width: 100%;
+}
+
+.naver-save-target .archive-item--empty {
+  padding: 0 12px;
+  margin-bottom: 10px;
+}
+
+.naver-save-target #naver-save-start-btn {
+  margin-bottom: 10px;
 }
 
 /* ---------- 중앙 팝업(모든 팝업 공통) ---------- */
