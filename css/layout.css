@@ -1,0 +1,440 @@
+/* layout.css - 전체 레이아웃 구조 (한 화면 고정, 지정 영역만 내부 스크롤) */
+
+:root {
+  --color-bg: #ffffff;
+  --color-bg-soft: #f6f8fb;
+  --color-text: #1b1f27;
+  --color-text-soft: #6b7280;
+  --color-border: #e5e7eb;
+  --color-primary: #2f6fed;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-bg: #eaf1ff;
+  --color-success: #0f7a52;
+  --color-success-bg: #e4f7ee;
+  --color-danger: #d93025;
+  --color-danger-bg: #fdecea;
+  --color-warn: #b7791f;
+  --color-warn-bg: #fff6e5;
+}
+
+/* ---------- 로그인 화면 ---------- */
+.login-screen {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: var(--color-bg);
+}
+
+.login-box {
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+}
+
+.login-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: var(--color-text);
+}
+
+.login-password-input {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.login-error {
+  color: var(--color-danger);
+  font-size: 13px;
+  margin: -2px 0 10px;
+}
+
+.login-version {
+  position: absolute;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  font-size: 12px;
+  color: var(--color-text-soft);
+}
+
+/* ---------- 앱 컨테이너 (전체 페이지 스크롤 없음) ---------- */
+.app-container {
+  max-width: 480px;
+  margin: 0 auto;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+  overflow: hidden;
+  position: relative;
+}
+
+.app-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-header__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.header-icon-btn {
+  font-size: 13px;
+  color: var(--color-text-soft);
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.header-icon-btn:active {
+  background-color: var(--color-bg-soft);
+}
+
+.app-header__actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---------- 작업대: 업로드 / 게시판 / 블로그 저장을 한 화면에 통합 ----------
+   v1.6.2: 카드 박스 구조를 제거하고 섹션형 배치로 정리했다. 전체 페이지는
+   스크롤되지 않는다. 섹션 내부(.panel__body--scroll)만 스크롤된다.
+   모바일: 세로 섹션형(위→아래), 얇은 구분선으로만 구획을 나눈다.
+   PC(min-width:860px): 좌/우 2열 배치. */
+.workbench {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-bottom: 1px solid var(--color-border);
+  padding: 12px 0;
+}
+
+.panel:last-child {
+  border-bottom: none;
+}
+
+.panel__header {
+  flex-shrink: 0;
+  padding: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-soft);
+}
+
+/* v1.2: 게시판 패널 헤더처럼 제목 옆에 보조 버튼(전체 게시판 등)이 붙는 경우 */
+.panel__header--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.panel__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 내부 스크롤 허용 영역(예외): 게시판 목록 내부 / 팝업 내부(미리보기·전체 게시판 등) / 오류 목록 내부 */
+.panel__body--scroll,
+.popup-panel__scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* v1.5(A-1/A-2): 블로그 저장 패널 내부 구조를 다시 잡았다.
+   - save-target-fixed(선택 글 제목/상태/저장 버튼/보조 도구)는 항상 고정 크기로
+     전부 보이며, 스크롤 대상이 아니다(버튼이 스크롤에 가려 "잘려 보이는" 문제의
+     핵심 원인이었다).
+   - save-progress-list만 남은 공간을 차지하며 내부 스크롤된다(A-3 진행 로그와
+     동일한 원칙: 고정 영역 + 내부 스크롤 로그).
+   - 블로그 지시서 복사 버튼은 이 구조 밖(panel__body 맨 아래)에서 항상 고정 노출된다. */
+.save-target {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.save-target-fixed {
+  flex-shrink: 0;
+}
+
+#save-empty {
+  flex-shrink: 0;
+}
+
+.panel--save .panel__body {
+  gap: 10px;
+}
+
+/* 블로그 지시서 복사 버튼은 블로그 저장 영역과 분리된 화면 하단 독립 영역이다.
+   app-container(flex column)의 마지막 고정 크기 자식으로 항상 최하단에
+   고정 노출되며, 저장 버튼/최종 미리보기/패키지 진단 버튼과 시각적으로
+   섞이지 않는다. 굵은 구분선 없이 workbench 좌우 여백과 통일된 padding만
+   둬서 카드처럼 보이지 않게 한다. 안전지역(iOS 홈 인디케이터) 여백도 둔다. */
+.bottom-actions {
+  flex-shrink: 0;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  background-color: var(--color-bg);
+}
+
+/* v1.4: 저장 패널 안 보조 버튼(최종 미리보기/패키지 진단)을 가로로 나란히 배치.
+   메인 저장 버튼보다 눈에 덜 띄도록 btn--ghost와 함께 사용한다.
+   v1.5(A-2): 모바일 폭이 좁아도 2개 버튼이 겹치지 않도록 최소 폭을 보장한다. */
+.save-tool-row {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+  flex-shrink: 0;
+}
+
+.save-tool-row .btn {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  min-height: 40px;
+  padding: 8px 6px;
+}
+
+/* v1.4: "다시 저장" 버튼(retry-module.js). 기본 저장 버튼 바로 아래, 위쪽에 살짝
+   여백을 둬서 별개 동작임을 구분한다. */
+#retry-save-btn {
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+
+/* 모바일: 업로드/게시판은 내용만큼만 높이를 차지하고(고정 크기), 블로그 저장이
+   남은 공간을 모두 채운다. 카드 테두리가 사라진 섹션형 구조에서는 픽셀
+   단위 min-height 보정 없이도 내용 높이만으로 자연스럽게 배치된다.
+   게시판만 목록이 길어질 수 있어 max-height로 상한을 두고 내부 스크롤한다. */
+.panel--upload {
+  flex: 0 0 auto;
+}
+.panel--upload .panel__body {
+  justify-content: center;
+}
+.panel--library {
+  flex: 0 0 auto;
+  max-height: 140px;
+}
+.panel--save {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* PC: 좌(업로드/게시판) - 우(블로그 저장) 2열 패널형 */
+@media (min-width: 860px) {
+  .app-container {
+    max-width: 900px;
+  }
+
+  .workbench {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "upload  save"
+      "library save";
+  }
+
+  .panel--upload {
+    grid-area: upload;
+  }
+  .panel--library {
+    grid-area: library;
+  }
+  .panel--save {
+    grid-area: save;
+  }
+}
+
+/* ---------- 중앙 팝업(모든 팝업 공통) ---------- */
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(20, 24, 33, 0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.popup-overlay--open {
+  display: flex;
+}
+
+.popup-panel {
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  background-color: var(--color-bg);
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(20, 24, 33, 0.25);
+}
+
+/* v1.6(12장): "고정 크기, 내부 스크롤 금지" 팝업 전용(블로그 지시서 복사 팝업,
+   저장 확인 팝업 등). 콘텐츠가 늘거나 줄어도(예: 복사 완료 문구) 팝업 자체
+   크기가 절대 바뀌지 않는다. 내부 요소들이 이 높이 안에 항상 들어가도록
+   여백/글자 수를 설계했다(아래 prompt-copy-result 참고). */
+.popup-panel--fixed {
+  height: 420px;
+  max-height: 82vh;
+}
+
+.popup-panel__scroll--noscroll {
+  overflow-y: hidden;
+}
+
+/* v1.6(12장): 복사 완료 문구가 뜨기 전에도 항상 같은 높이를 차지해서, 문구가
+   나타나도 팝업 레이아웃이 밀리거나 커지지 않게 한다. */
+.prompt-copy-result {
+  min-height: 20px;
+}
+
+.popup-panel__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.popup-panel__header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* v1.3: 팝업 공통 닫기 버튼. 원형 + 안에 × 문자, 모바일 터치 가능한 크기(40px).
+   v1.2 검수사항 반영: 대비가 낮다는 지적에 따라 배경을 더 진하게, 글자는 진한
+   본문색+굵게로 바꿔 시인성을 높였다. */
+.popup-close-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  min-height: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-text);
+  background-color: var(--color-border);
+  padding: 0;
+}
+
+.popup-close-btn:active {
+  background-color: #d7dbe3;
+}
+
+/* v1.3: 팝업 안내 문구와 버튼 사이 여백을 넉넉하게(제목 → 설명 → 여백 → 버튼) */
+.popup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* v1.3: 오류 목록/데이터 관리 등 버튼 2개를 가로로 나란히 배치할 때 사용 */
+.popup-actions--row {
+  flex-direction: row;
+}
+
+.popup-actions--row .btn {
+  flex: 1;
+  min-width: 0;
+}
+
+/* v1.3: 팝업 내부 소제목(업로드 확인의 "저장 전 미리보기", 설정의 각 섹션 제목 등).
+   여러 팝업이 공통으로 재사용한다. */
+.popup-subheading {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-soft);
+  margin: 16px 0 8px;
+}
+
+/* v1.5(A-3): 블로그 저장 진행 팝업 전용 구조. 팝업 자체 높이가 텍스트 줄 수에 따라
+   계속 커지지 않도록, "현재 단계 요약"은 고정된 한 줄로 상단에 두고, 상세 로그만
+   고정 높이(160px) 안에서 내부 스크롤되게 한다. */
+.save-progress-summary {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  padding: 10px 12px;
+  border-radius: 10px;
+  background-color: var(--color-bg-soft);
+  margin-bottom: 10px;
+}
+
+.save-progress-log {
+  height: 160px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  font-size: 12.5px;
+  color: var(--color-text-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.save-progress-log li {
+  padding: 2px 0;
+}
+
+/* v1.6 레이아웃 실기보정(11장): 설정창 "오류 목록" 섹션 하단 버튼 3개(전체 목록/
+   초기화/오류 백과사전)가 너무 크고 투박하다는 지적 반영. 버튼 높이/글자 크기/
+   간격을 줄여 오류 카드 목록보다 버튼 영역이 더 커 보이지 않게 했다. */
+.btn--compact {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  border-radius: 8px;
+}
+
+.settings-error-actions {
+  margin-top: 8px;
+  gap: 8px;
+}
+
+#settings-error-dictionary-btn {
+  margin-top: 8px;
+}
