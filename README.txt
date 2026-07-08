@@ -1,153 +1,200 @@
-GPT 공작소 v1.3
+GPT 공작소 v1.4
 ====================
 
-신규 모듈 안전 연결 기준 (app-core.js / upload-confirm-module.js /
-settings-module.js / prompt-copy-module.js 공통 적용)
-- 기본 기능(블로그자료 업로드, 게시판 저장, 글 선택, R2 이미지 업로드,
-  Blogger 임시저장)은 신규 모듈에 오류가 생겨도 항상 사용할 수 있습니다.
-- 설정창 / 업로드 확인 팝업 / 지시서 관리 / 오류 목록은 선택 기능입니다.
-  오류가 나도 기본 업로드/저장 흐름에는 영향을 주지 않습니다.
-- app-core.js는 신규 모듈 초기화(콜백 연결)를 safeInit()으로 각각 독립된
-  try/catch로 감쌉니다. 한 모듈의 초기화 실패가 다른 모듈이나 기본 기능
-  초기화를 막지 않습니다.
-- 각 신규 모듈은 필요한 DOM 요소가 없으면 예외를 던지지 않고 조용히
-  종료하며(bindEvents 내부에서 요소 존재 여부를 먼저 확인), 성공 여부를
-  isReady()로 외부에 알립니다.
-- 이벤트 중복 연결 방지: zip-file-input의 change 이벤트는
-  upload-confirm-module.js가 정상 연결됐을 때만 그 모듈이 담당하고, 그렇지
-  않을 때만 app-core.js의 대체(fallback) 흐름이 담당합니다(항상 둘 중
-  하나만 연결됨). 블로그 저장/게시판 저장 버튼도 DOMContentLoaded에서
-  한 번만 연결되고 중복 바인딩되지 않습니다.
-- upload-confirm-module.js(신규 모듈)를 통째로 제거해도(js 파일 + index.html
-  script 태그 + app-core.js의 safeInit 연결 + 팝업 마크업 + 전용 CSS를 모두
-  지워도) app-core.js의 대체 업로드 흐름이 zip-file-input, upload-filename,
-  기존 공용 popup-overlay 같은 기본 요소만으로 "ZIP 업로드 → 최소 확인 →
-  게시판에 저장"을 계속 처리합니다. 실제 저장 로직은
-  handleUploadConfirmed()를 그대로 재사용해 중복 구현하지 않았습니다.
-- settings-module.js/prompt-copy-module.js를 제거하면 해당 버튼(⚙️ 설정,
-  📋 블로그 지시서 복사)이 반응하지 않게 될 뿐, 업로드/게시판/블로그 저장
-  같은 기본 기능에는 영향이 없습니다.
+v1.4 신규 모듈 안전 연결 기준
+- 신규 모듈은 선택 기능입니다.
+- 신규 모듈 오류가 기본 업로드/게시판 저장/R2/Blogger 임시저장을 막으면 실패입니다.
+- 신규 모듈은 독립 try/catch(safeInit)로 초기화됩니다.
+- DOM 요소가 없으면 해당 모듈만 종료됩니다.
+- 문제 발생 시 신규 모듈 제거 또는 v1.3 안정본 롤백이 가능합니다.
+
+이번 v1.4는 v1.3 안정본을 기준으로 한 "대통합 모듈형 고도화"입니다. 아래
+기본 흐름은 v1.3과 100% 동일하게 보호됩니다.
+
+  블로그자료 ZIP 업로드 → 게시판 저장 → 글 선택 → R2 이미지 업로드
+  → Blogger 임시저장
 
 ====================
 
-v1.3 변경 내용 (v1.2 대비 안정화)
+v1.4 신규 기능 (전부 선택형 모듈, 기본 화면 흐름 뒤에 보조 버튼/설정 팝업으로 배치)
 
-1. 모바일 기본 화면 배치 안정화
-- 기본 화면 흐름을 업로드 → 게시판 → 블로그 저장 → 블로그 지시서 복사 순서로
-  정리했습니다.
-- 게시판 기본 화면에는 최신 글 1개만 표시합니다(최신순 기준은 그대로 유지).
-  나머지 글은 [전체 게시판] 버튼으로 여는 팝업에서 확인합니다.
-- 업로드/게시판 패널은 내용만큼만 높이를 차지하고, 블로그 저장 패널이 남은
-  공간을 모두 채우도록 재배분했습니다. 이전에는 게시판 영역이 커서 모바일에서
-  블로그 저장 버튼/상태 영역이 화면 밖으로 잘리는 문제가 있었는데, 이번 배치로
-  해결했습니다. 저장 진행 목록이 길어지는 경우에는 블로그 저장 영역 내부만
-  스크롤됩니다(전체 페이지 스크롤은 여전히 없습니다).
-- 블로그 지시서 복사 버튼을 상단에서 제거하고, 블로그 저장 영역 하단의 보조
-  버튼(메인 저장 버튼보다 덜 강조되는 스타일)으로 옮겼습니다.
+1. 🔍 Blogger 최종 HTML 미리보기 (js/blogger-final-preview-module.js)
+   - 블로그 저장 패널의 [🔍 최종 미리보기] 버튼(선택된 글 기준)
+   - R2 이미지 URL 치환 상태(이미 확보된 URL이 있으면 표시, 없으면 "저장 시
+     R2 URL로 치환 예정"으로 표시), 광고 placeholder(ADSENSE_PLACEHOLDER_TOP/
+     MIDDLE/BOTTOM) 위치 확인, Blogger-safe HTML 상태(script/style/iframe/
+     form/table) 확인, 본문 예상 미리보기를 보여줍니다.
+   - 이 화면에서는 실제 저장이나 R2 업로드가 절대 일어나지 않습니다(읽기
+     전용). blogger-save-module.js의 저장 흐름은 그대로 두고, 이 모듈
+     안에서 같은 판정 로직을 읽기 전용으로 다시 계산해 보여주는 방식입니다.
 
-2. 업로드 성공 후 저장 전 확인 팝업 + 미리보기 추가 (신규: upload-confirm-module.js)
-- ZIP을 선택하면 기존과 동일하게 upload-module.js가 필수 파일을 점검합니다.
-- 점검을 통과하면 바로 게시판에 저장하지 않고, 업로드 확인 팝업이 뜹니다.
-  제목/날짜/이미지 수 요약, metadata.json·content.html·content.md·
-  content.txt·이미지 확인 체크리스트, 저장 전 미리보기(PreviewModule의 기존
-  렌더링 API를 그대로 호출)를 한 팝업 안에서 보여줍니다.
-- [취소]를 누르면 게시판에 저장하지 않고 임시 업로드 데이터를 폐기하며 게시판
-  상태는 그대로 유지됩니다. [게시판에 저장]을 눌러야 실제로 저장되고, 저장된
-  글이 최신 글로 표시되며 선택 상태로 반영됩니다.
-- 점검 실패 시(잘못된 ZIP 등)에는 같은 팝업 안에서 오류 상태만 표시합니다.
+2. 🩺 블로그자료 패키지 진단 (js/package-diagnosis-module.js)
+   - 블로그 저장 패널의 [🩺 패키지 진단] 버튼(선택된 글 기준)
+   - metadata.json / content.html / content.md·content.txt / images 폴더 /
+     이미지 5장(썸네일 1 + 본문 4) / href="#" / table·script·style 위험
+     요소 / 공식 출처(metadata.official_sources)를 점검합니다.
+   - 결과는 점수가 아니라 정상 / 주의 / 수정 필요 3단계로만 표시합니다.
+   - upload-module.js의 내부 파싱 로직은 호출도, 수정도 하지 않습니다.
 
-3. 설정 팝업 모듈 추가 (신규: settings-module.js)
-- 상단 로그아웃 버튼 자리를 설정(⚙️) 아이콘으로 바꿨습니다. 로그아웃은 설정
-  팝업 안 [계정] 섹션 버튼에서 처리하며, 실제 로그아웃 처리(AuthModule.logout)는
-  새로 구현하지 않고 기존 함수를 그대로 호출합니다.
-- 설정 팝업 구성: 계정(로그인 상태/로그아웃) · 작업 서버(주소 표시 + 간단한
-  연결 확인 버튼) · 블로그 지시서 관리(현재 사용 중 지시서 표시, TXT 지시서
-  불러오기, 기본 지시서로 초기화, file:// 환경 주의 안내) · 오류 목록(최근
-  오류 최대 5건 + 오류 초기화, [전체 오류 목록] 버튼으로 기존 오류 목록 팝업
-  호출) · 데이터 관리(저장된 글 개수 표시, 게시판 데이터 초기화 - 확인 팝업을
-  거침) · 버전 정보/개발 메모.
-- 작업 서버 상태 확인은 worker-api-module.js를 수정하지 않고, 이 모듈 안에서
-  주소로 가볍게 fetch를 보내 네트워크 도달 여부만 확인합니다(실패해도 주소
-  표시 자체는 항상 정상 동작).
-- 게시판 데이터 초기화는 바로 실행되지 않고 "정말 게시판 데이터를
-  초기화할까요? [취소] [초기화]" 확인 팝업을 거칩니다. 실제 삭제는
-  storage-module.js의 기존 deletePost()를 글 목록에 대해 반복 호출하는
-  방식으로 처리했습니다(저장소 구조 자체는 수정하지 않음).
-- 전체 게시판 열기는 설정창에 넣지 않았습니다(게시판 영역의 기존 버튼으로만
-  접근).
+3. 게시글 상태 표시 (js/post-status-module.js)
+   - 블로그 저장 패널 안(선택된 글의 상태·저장 버튼 위)에 "현재 상태: ..."
+     한 줄로 표시됩니다.
+   - 업로드 확인 완료 / 게시판 저장 완료 / Blogger 임시저장 완료 / 저장
+     실패 / 이미지 업로드 실패 상태를 별도 localStorage(gptWorkshop.postStatus.v1)에
+     기록합니다. library-module.js의 저장 구조는 건드리지 않습니다.
 
-4. 블로그 지시서 복사 기능 보정 (prompt-copy-module.js)
-- 복사 우선순위: localStorage에 사용자 등록 지시서가 있으면 그것을 복사하고,
-  없으면 기본 내장 최신 지시서(data/blog-writing-prompt-v6.1.txt)를 복사합니다.
-- 지시서 등록/초기화는 설정 팝업이 담당하고, 이 모듈은 복사만 담당합니다
-  (localStorage 키 계약: gptWorkshop.blogPrompt.customText /
-  gptWorkshop.blogPrompt.customName / gptWorkshop.blogPrompt.updatedAt).
-- 복사 버튼 위치를 상단에서 블로그 저장 영역 아래 보조 버튼으로 옮겼습니다.
+4. 💾 백업/복원 (js/backup-module.js)
+   - 설정 → 데이터 관리 → [💾 백업/복원]
+   - 게시판 데이터 전체를 JSON으로 내보내고, 다시 불러와 복원할 수
+     있습니다. 사용자 등록 지시서(있는 경우)도 백업 파일에 함께 포함됩니다.
+   - 복원 전에는 반드시 확인 팝업("정말 이 백업 파일로 복원할까요?")을
+     거칩니다. 불러오기 화면에는 먼저 내보내기로 현재 데이터를 백업해두라는
+     안내 문구가 있습니다. 게시판 데이터 초기화 확인 팝업에도 백업 안내가
+     추가되었습니다.
+   - 백업 파일에서 posts 배열과 customPrompt만 읽고 반영합니다. 알 수 없는
+     localStorage key를 무단으로 덮어쓰지 않으며, localStorage를 통째로
+     지우는 동작도 없습니다.
 
-5. 팝업 디자인 개선 (모든 팝업 공통 CSS)
-- 닫기 버튼은 원형을 유지하되 배경/글자 대비를 강화하고(연한 회색 → 진한
-  테두리색 배경 + 본문색 굵은 글자), 터치 영역을 40px로 통일했습니다.
-- 팝업 제목-설명 문구, 설명 문구-버튼 사이 여백을 넓혀 답답해 보이지 않게
-  정리했습니다.
-- 설정/업로드 확인/미리보기/전체 게시판/블로그 저장 확인/블로그 지시서
-  복사/오류 목록 팝업 모두 기존 popup-panel 구조와 위 공통 스타일을
-  재사용합니다(팝업마다 따로 디자인하지 않음).
+5. 🩹 오류 백과사전 / 로그 복사 (js/error-dictionary-module.js)
+   - 설정 → 오류 목록 → [🩹 오류 백과사전 / 로그 복사]
+   - 기본 에러코드 5종(E-UPLOAD-001/E-R2-001/E-BLOGGER-001/E-WORKER-001/
+     E-STORAGE-001)에 대한 쉬운 설명·원인·조치 방법을 안내합니다.
+   - [오류 로그 복사] 버튼으로 현재 기록된 오류 목록을 복사하기 좋은 텍스트
+     형식으로 클립보드에 복사합니다(실패 시 화면에 텍스트로 표시).
+   - error-log-module.js는 재작성하지 않았고, v1.4에서 선택 항목 code
+     필드와 log()/getErrorsByCode() 공개 함수만 추가했습니다(기존 호출부는
+     변경 없이 그대로 동작).
 
-6. 오류 문구 개선
-- 오류 코드 체계는 아직 도입하지 않았습니다(모듈명 + 쉬운 한글 설명 기준).
-- 예: "[upload-module] 블로그자료 ZIP 구조가 올바르지 않습니다. 블로그자료
-  ZIP만 업로드할 수 있습니다. 프로그램 ZIP, Claude 전달용 ZIP, 일반
-  압축파일은 업로드 대상이 아닙니다. ZIP 루트에 metadata.json, content.html,
-  images/가 있어야 합니다." (구체적인 원인은 "상세"로 함께 표시)
-- 블로그 저장 실패/게시판 저장 실패 팝업에도 "[blogger-save-module]", "[library-module]"
-  같은 모듈명 접두어를 붙여 어디서 발생한 문제인지 알아보기 쉽게 했습니다.
-- 설정 팝업의 버전 정보/개발 메모 섹션에 "향후 기능이 늘어나면 E-UPLOAD-001
-  같은 에러코드 체계와 오류 백과사전을 도입한다"는 메모를 남겼습니다.
+6. 📡 Worker 상태 상세 점검 (js/worker-status-module.js)
+   - 설정 → 작업 서버 → [📡 상세 상태 점검]
+   - 로그인 상태, Worker 주소, Worker 연결 가능 여부(가벼운 fetch 도달성
+     확인), R2 업로드 API 접근 가능 여부(추정치 — 로그인+연결 확인 기반),
+     Blogger API(실제 임시저장 전까지는 "제한적"으로만 표시)를 보여줍니다.
+   - 상태 점검을 위해 실제 게시글을 저장하거나 실제 이미지를 업로드하지
+     않습니다. 이 점검 결과가 나빠도 기본 저장 버튼은 비활성화되지 않습니다.
 
-7. 현재 웹 구조와 맞지 않는 잔재 정리
-- 화면에 보이는 문구 기준으로 Lite/자료실 표시명은 v1.2에서 이미 정리되어
-  있었고, v1.3에서도 재검색 결과 화면 표시명에는 남아있지 않음을 확인했습니다.
-- 수정 허용 파일(index.html, css/*, js/app-core.js, js/prompt-copy-module.js,
-  version.json, README.txt) 및 신규 파일에서 Lite/자료실/GPT-main/v0.0.10/
-  Gemini/품질검수/점수/후보판정/예약/백업/통계/검수/repair를 검색해 실제
-  잔재가 없음을 확인했습니다. 자세한 검색 결과는 완료 보고의 "잔재 코드/문구
-  정리 결과"에 파일별로 기록했습니다.
-- 수정 금지 파일(auth-module.js, upload-module.js, library-module.js,
-  storage-module.js, preview-module.js, r2-image-module.js,
-  worker-api-module.js, zip-reader.js, base.css, blogger-save-module.js)
-  안에 남아있는 이전 출처/이관 관련 주석(GPT-main 이식, repair(0.0.x) 등)은
-  이번 작업 범위에서 수정하지 않았습니다(파일 자체가 수정 금지 대상이므로
-  유지). 실제 동작에는 영향이 없습니다.
+7. 🕘 저장 이력 (js/save-history-module.js)
+   - 설정 → 저장 이력 → [🕘 저장 이력 보기]
+   - 마지막 Blogger 임시저장 시각, 성공/실패, 실패 사유 요약, 최근 이력
+     (최대 20건 표시, 최근 50건까지 저장)을 보여줍니다.
+   - 별도 localStorage(gptWorkshop.saveHistory.v1)에만 기록하며,
+     blogger-save-module.js 내부 저장 흐름은 수정하지 않았습니다. 저장
+     실패 이력이 쌓여도 다음 저장 시도를 막지 않습니다.
 
-건드리지 않은 핵심 로직 (v1.2와 동일)
-- 로그인 인증 / 로그아웃 실제 처리 함수 (auth-module.js) — 수정 없음
+8. 🔁 단순 다시 저장 (js/retry-module.js)
+   - 블로그 저장 패널에서 선택한 글의 saveStatus가 "임시저장실패"일 때만
+     [🔁 다시 저장] 버튼이 나타납니다.
+   - 클릭하면 기존 Blogger 임시저장 흐름(app-core.js의 handleSaveStartClick,
+     기존 저장 버튼과 완전히 동일한 함수)을 1회만 다시 실행합니다. R2만
+     재업로드하거나 Blogger만 따로 재저장하는 기능은 없습니다(저장 흐름을
+     분해하지 않음).
+   - 버튼 disabled 처리 + 메인 저장 버튼 진행 여부 확인으로 중복 클릭을
+     방지합니다.
+
+====================
+
+신규 모듈 연결 구조 (app-core.js, GptCoreAPI)
+
+- app-core.js는 위 8개 신규 모듈을 각각 독립된 safeInit(try/catch)으로
+  연결합니다. 한 모듈의 초기화 실패가 다른 모듈이나 기본 흐름 초기화를
+  막지 않습니다.
+- 각 신규 모듈은 자신에게 필요한 DOM 요소(트리거 버튼/팝업 등)가 없으면
+  예외를 던지지 않고 조용히 종료하며, bound 플래그로 이벤트 중복 연결을
+  스스로 방지합니다. app-core.js는 이 결과를 isReady()로 확인할 수 있습니다.
+- 신규 모듈은 window.GptCoreAPI(선택된 글 조회, 게시판 새로고침, 저장
+  트리거, 공용 팝업, 생애주기 이벤트 등록)를 통해서만 core 상태에
+  접근합니다. app-core.js 내부 변수를 직접 참조하지 않습니다.
+- 생애주기 이벤트(post-selected/upload-confirmed/board-saved/
+  board-save-failed/blogger-save-result/data-reset)는 core 처리(팝업 표시,
+  게시판 갱신)가 이미 끝난 뒤에 통지되며, 리스너 하나가 예외를 던져도
+  다른 리스너 호출이나 기본 흐름에는 영향이 없습니다(각 리스너 호출도
+  safeInit으로 개별 격리됨).
+- 업로드 확인 팝업(v1.3, upload-confirm-module.js)이 정상 연결되지 못하면
+  app-core.js 자체의 대체(fallback) 업로드 흐름이 zip-file-input을 대신
+  담당합니다(v1.3부터 있던 구조, v1.4에서 재검증만 했습니다).
+
+롤백 방법
+- 특정 v1.4 신규 기능 하나만 제거하려면: 해당 js 파일, index.html의 해당
+  script 태그, app-core.js의 newModules 목록에서 해당 항목, 관련 팝업
+  마크업, 전용 CSS(components.css/layout.css 중 관련 규칙)를 함께
+  제거하면 됩니다. 다른 신규 모듈이나 기본 흐름에는 영향이 없습니다.
+- 문제가 심각하면 v1.4 신규 모듈 8개를 모두 제거해 v1.3 수준으로
+  되돌리거나, 그래도 해결되지 않으면 GPT공작소 v1.3 루트업로드용.zip으로
+  완전히 롤백하세요(v1.3은 이번 작업에서 별도로 보관되어 있어야 합니다).
+
+건드리지 않은 핵심 로직 (v1.3과 100% 동일, diff로 확인됨)
+- 로그인 인증 (auth-module.js) — 수정 없음
 - Worker 호출 / Worker 주소(https://wooow.qudrnr84.workers.dev) (worker-api-module.js) — 수정 없음
 - R2 이미지 업로드 (r2-image-module.js) — 수정 없음
 - Blogger 임시저장 핵심 흐름(runSaveFlow/saveBloggerDraft, 이미지 R2 업로드,
-  URL 치환) (blogger-save-module.js) — 수정 없음(v1.2에서 그대로 이어받음)
+  URL 치환, table→카드 변환 등) (blogger-save-module.js) — 수정 없음
 - ZIP 파싱 / 블로그자료 필수 파일 점검 (upload-module.js) — 수정 없음
-- 게시판 저장/불러오기, 브라우저 저장소 구조(IndexedDB/localStorage 우선순위)
-  (library-module.js, storage-module.js) — 수정 없음. 데이터 초기화는 기존
-  deletePost() 공개 API를 반복 호출하는 방식으로만 사용했습니다.
-- 미리보기 렌더링 핵심 / 보안 필터링 (preview-module.js) — 수정 없음. 업로드
-  확인 팝업과 게시판 미리보기 팝업 모두 renderPreview() 결과만 그대로 표시합니다.
+- 게시판 저장/불러오기, 브라우저 저장소 구조 (library-module.js,
+  storage-module.js) — 수정 없음
+- 미리보기 렌더링 핵심 / 보안 필터링 (preview-module.js) — 수정 없음
+- js/vendor/zip-reader.js — 수정 없음
+- js/settings-module.js, js/upload-confirm-module.js,
+  js/prompt-copy-module.js — v1.4에서 코드 변경 없음(byte 단위로 v1.3과
+  동일). index.html에 이 모듈들이 사용하지 않는 새 버튼(설정 팝업 안,
+  다른 신규 모듈이 직접 바인딩)만 추가되었습니다.
 
-앱 구조(v1.3)
+이번 v1.4에서 수정한 파일
+- index.html: 신규 팝업 6개(최종 미리보기/패키지 진단/백업·복원+복원확인/
+  오류 백과사전/Worker 상세 상태/저장 이력) 마크업 추가, 저장 패널에 보조
+  버튼 행·다시 저장 버튼·게시글 상태 표시줄 추가, 설정 팝업에 신규 진입
+  버튼 4개 추가, 게시판 데이터 초기화 확인 팝업에 백업 안내 문구 추가,
+  8개 신규 모듈 script 태그 추가
+- css/layout.css: save-tool-row(보조 버튼 가로 배치), 다시 저장 버튼 여백
+- css/components.css: 패키지 진단 리스트(정상/주의/수정 필요 배지), 오류
+  백과사전 리스트, 게시글 상태 표시줄 스타일 추가
+- js/app-core.js: GptCoreAPI 공개 표면 + 생애주기 이벤트 통지 추가,
+  8개 신규 모듈을 각각 독립 safeInit으로 연결. 업로드/게시판/저장/대체
+  업로드 흐름 등 기존 v1.3 로직 자체는 수정하지 않음(통지 호출 추가만)
+- js/error-log-module.js: code(선택) 필드, log()/getErrorsByCode() 공개
+  함수 추가(기존 logError/getAllErrors/resolveError/clearErrors 구조는
+  그대로 유지, 하위 호환)
+- version.json, README.txt: v1.4 기준 갱신
+
+이번 v1.4에서 추가한 신규 파일 (8개, 전부 선택 기능)
+- js/blogger-final-preview-module.js
+- js/package-diagnosis-module.js
+- js/post-status-module.js
+- js/backup-module.js
+- js/error-dictionary-module.js
+- js/worker-status-module.js
+- js/save-history-module.js
+- js/retry-module.js
+
+앱 구조(v1.4)
 ```
 GPT 공작소
 ├─ 상단: 이름 / 오류 아이콘 / 설정 아이콘(settings-module.js)
 ├─ 업로드: upload-module.js + upload-confirm-module.js
 ├─ 게시판: library-module.js + storage-module.js + preview-module.js
 ├─ 블로그 저장: blogger-save-module.js + r2-image-module.js + worker-api-module.js
-└─ 블로그 지시서 복사: prompt-copy-module.js
+│   ├─ 🔍 최종 미리보기: blogger-final-preview-module.js (선택)
+│   ├─ 🩺 패키지 진단: package-diagnosis-module.js (선택)
+│   ├─ 게시글 상태: post-status-module.js (선택)
+│   └─ 🔁 다시 저장: retry-module.js (선택)
+├─ 블로그 지시서 복사: prompt-copy-module.js
+└─ 설정: settings-module.js
+    ├─ 💾 백업/복원: backup-module.js (선택)
+    ├─ 🩹 오류 백과사전: error-dictionary-module.js (선택)
+    ├─ 📡 Worker 상세 상태: worker-status-module.js (선택)
+    └─ 🕘 저장 이력: save-history-module.js (선택)
 ```
-app-core.js는 위 모듈들을 연결(wiring)하는 역할만 담당합니다.
+app-core.js(+ GptCoreAPI)는 위 모듈들을 연결(wiring)하는 역할만 담당합니다.
+
+계속 제외한 기능(이번 v1.4에도 포함하지 않음)
+- 자동 글 생성, Gemini/GPT API 연결, 품질점수, SEO 점수, 자동 발행,
+  예약 발행, 게시판 검색/필터, 복잡한 검수 시스템, R2만 재업로드,
+  Blogger만 재저장
 
 설치 방법
 - 이 ZIP의 압축을 풀면 나오는 index.html / css / js / data / version.json을
-  그대로 GitHub Pages 저장소 루트에 덮어씁니다(상위 폴더를 한 번 더 만들지
-  않습니다).
-- v1.2 파일을 미리 백업해두는 것을 권장합니다.
+  그대로 GitHub Pages 저장소 루트에 덮어씁니다(상위 폴더를 한 번 더
+  만들지 않습니다).
+- v1.3 파일을 미리 백업해두는 것을 강력히 권장합니다(롤백 대비).
 
 실기 테스트 필요 항목
 1. 로그인 → 설정 아이콘 표시 확인(로그아웃 버튼 자리 대체)
@@ -167,16 +214,42 @@ app-core.js는 위 모듈들을 연결(wiring)하는 역할만 담당합니다.
 13. 설정 팝업의 [게시판 데이터 초기화] 확인 팝업 → [취소]/[초기화] 동작 확인
 14. index.html을 file://로 직접 열었을 때 기본 지시서 fetch 실패 여부(CORS)
     확인 — 반드시 HTTP(S) 환경에서 최종 확인
-15. (안전 연결 검증) index.html에서 upload-confirm-module.js의 script 태그를
-    임시로 지우거나 popup-upload-confirm-overlay 마크업을 지운 상태로 열어,
-    ZIP 업로드 시 app-core.js의 대체(fallback) 확인 팝업이 뜨고 [게시판에
-    저장]으로 정상 저장되는지 확인. 되돌린 뒤 다시 확인.
+15. (안전 연결 검증) upload-confirm-module.js의 script 태그를 임시로
+    지운 상태로 열어, ZIP 업로드 시 app-core.js의 대체(fallback) 확인
+    팝업이 뜨고 [게시판에 저장]으로 정상 저장되는지 확인. 되돌린 뒤 재확인.
 16. (안전 연결 검증) 브라우저 개발자 도구 콘솔에서 오류 없이 로그인 →
-    업로드 → 저장 → Blogger 임시저장까지 끝까지 진행되는지 확인(신규 모듈
-    관련 오류가 있어도 기본 흐름이 멈추지 않아야 함)
+    업로드 → 저장 → Blogger 임시저장까지 끝까지 진행되는지 확인
+17. 신규 모듈 하나(예: js/backup-module.js)를 제거해도 기본 업로드/저장
+    흐름이 동작하는지 확인
+18. 오류 백과사전/백업/Worker 상태/저장 이력 팝업이 기본 저장을 막지
+    않는지 확인(팝업을 연 채로도 기본 화면 뒤 저장 버튼 자체는 별도
+    화면이라 서로 간섭하지 않음을 확인)
+19. 단순 다시 저장(🔁)이 기존 Blogger 임시저장 흐름을 1회만 호출하는지,
+    연속 클릭 시 중복 실행되지 않는지 확인
+20. 콘솔 오류 없이 업로드→게시판 저장→Blogger 임시저장까지 진행되는지 확인
+21. 🔍 최종 미리보기 / 🩺 패키지 진단이 실제 저장·업로드를 실행하지
+    않는지(네트워크 탭에 요청이 없는지) 확인
+22. 💾 백업 내보내기로 받은 JSON 파일을 다시 불러오기 → 복원 확인 팝업
+    → [복원하기] 클릭 시 게시판에 정상 반영되는지 확인
+23. 게시글 상태 표시줄이 업로드 확인/게시판 저장/Blogger 저장 단계에 맞춰
+    갱신되는지 확인
 
-다음 업데이트 후보
-- 오류 코드 체계(E-UPLOAD-001 등)와 오류 백과사전 도입
-- 게시판 정렬 옵션
+자동 검증 완료 사항 (jsdom 기반 시뮬레이션, 이번 작업에서 실행함)
+- v1.4 신규 모듈 8개 + v1.3 신규 모듈 2개 전부 정상 초기화(isReady) 확인
+- 업로드→확인→게시판 저장→글 선택→Blogger 임시저장(mock) 전체 흐름이
+  콘솔 오류 없이 1회씩만 실행됨을 확인
+- v1.4 신규 모듈 관련 DOM(팝업/버튼) 전체를 제거해도 기본 흐름이
+  예외 없이 끝까지 동작함을 확인
+- 다시 저장(retry) 버튼이 실패 시에만 노출되고, 3연속 클릭해도
+  runSaveFlow가 정확히 1회만 추가 호출됨을 확인(중복 클릭 방지 확인)
+- 저장 결과 리스너 중 하나가 강제로 예외를 던져도, 이후 등록된 다른
+  리스너 호출과 게시판 저장 자체가 정상적으로 완료됨을 확인
+- 패키지 진단(href="#" 감지)과 최종 미리보기(광고 placeholder 감지)가
+  실제로 올바른 값을 표시함을 확인
+- 백업 팝업이 저장된 글 개수를 정확히 표시함을 확인
+
+다음 업데이트(v1.5) 후보
+- 오류 코드 체계 확장(더 많은 E-XXX 코드), 실제 로그와의 자동 매칭 강화
+- 게시판 정렬/검색 옵션
 - 저장 전 HTML 정리 옵션
 - 화면 표시 옵션

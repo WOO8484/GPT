@@ -1,9 +1,9 @@
 {
   "project": "GPT 공작소",
-  "version": "1.3.0",
-  "displayVersion": "v1.3",
+  "version": "1.4.0",
+  "displayVersion": "v1.4",
   "releaseDate": "2026-07-08",
-  "description": "v1.3: 모바일 기본 화면 배치를 안정화했다(게시판 기본 화면은 최신 글 1개만 표시, 블로그 저장 영역이 남은 공간을 채워 하단 버튼/상태가 잘리지 않도록 재배분, 블로그 지시서 복사 버튼을 상단에서 블로그 저장 영역 아래 보조 버튼으로 이동). 업로드 성공 후 바로 저장하지 않고 upload-confirm-module.js가 제목/날짜/이미지 수/필수 파일 확인/저장 전 미리보기를 보여주는 확인 팝업을 추가했다([취소]/[게시판에 저장]). 상단 로그아웃 버튼 자리를 설정(⚙️) 아이콘으로 바꾸고 settings-module.js를 추가해 계정(로그아웃)/작업 서버 주소·상태 확인/블로그 지시서 관리(TXT 등록·기본 지시서 초기화)/오류 목록(최근 오류·초기화)/데이터 관리(저장된 글 개수·게시판 초기화, 확인 팝업 포함)/버전 정보를 한 팝업에 모았다. prompt-copy-module.js는 localStorage에 사용자 등록 지시서가 있으면 그것을 우선 복사하고 없으면 기본 내장 최신 지시서를 복사하도록 보정했다. 모든 팝업의 닫기 버튼 대비를 강화하고 제목-설명-여백-버튼 간격을 정리했다. 오류 문구를 모듈명 + 쉬운 한글 설명 기준으로 개선했다(예: [upload-module] 블로그자료 ZIP 구조가 올바르지 않습니다). app-core.js는 연결(wiring) 역할만 담당하도록 정리했고, 업로드 확인/설정 기능은 각각 새 전용 모듈(upload-confirm-module.js, settings-module.js)로 분리했다. 로그인/로그아웃 처리/Worker 호출/Worker 주소/R2 이미지 업로드/Blogger 임시저장/ZIP 파싱/블로그자료 필수 파일 점검/게시판 저장-불러오기/브라우저 저장소 구조/미리보기 렌더링/이미지 URL 치환/saveBloggerDraft/runSaveFlow 등 핵심 로직은 v1.2와 동일하게 유지했다.",
+  "description": "v1.4: v1.3 안정본을 기준으로 한 대통합 모듈형 고도화. 절대 보호 대상인 '블로그자료 업로드 → 게시판 저장 → 글 선택 → R2 이미지 업로드 → Blogger 임시저장' 기본 흐름과 그 핵심 모듈(auth/upload/library/storage/preview/r2-image/worker-api/blogger-save/zip-reader) 내부 로직은 전혀 수정하지 않았다. 신규 기능 8개를 전부 선택형 모듈로 분리해 추가했다: (1) blogger-final-preview-module - Blogger 저장 전 최종 HTML 예상 미리보기, R2 URL 치환 상태·광고 placeholder·Blogger-safe HTML 상태 확인(읽기 전용, 실제 저장/업로드 없음). (2) package-diagnosis-module - 블로그자료 ZIP 구조 진단(metadata.json/content.html/content.md·txt/images/이미지 5장/href=\"#\"/table·script·style/공식 출처, 점수 아닌 정상·주의·수정 필요 3단계). (3) post-status-module - 게시글 생애주기 상태 표시(별도 localStorage, library-module 구조 미변경). (4) backup-module - 게시판 데이터 JSON 내보내기/불러오기, 사용자 등록 지시서 포함, 복원 전 확인 팝업. (5) error-dictionary-module - 에러코드(E-UPLOAD-001 등) 백과사전 + 오류 로그 복사. (6) worker-status-module - Worker 연결/로그인/R2 API 추정 상태(실제 업로드·저장 없이 점검). (7) save-history-module - Blogger 임시저장 시도 이력(최근 50건, 별도 localStorage). (8) retry-module - 단순 다시 저장(기존 저장 흐름 1회 재호출, 중복 클릭 방지, R2/Blogger 개별 재시도 없음). app-core.js에 GptCoreAPI(신규 모듈 전용 공개 표면)와 생애주기 이벤트 통지(post-selected/upload-confirmed/board-saved/board-save-failed/blogger-save-result/data-reset)를 추가해 8개 신규 모듈을 각각 독립 safeInit(try/catch)로 연결했다. 각 모듈은 필요한 DOM이 없으면 예외 없이 조용히 종료하고 isReady()로 상태를 알린다. 신규 모듈(js 파일+script 태그+app-core.js 연결부+팝업 마크업+전용 CSS)을 통째로 제거해도 기본 흐름은 그대로 복구된다(jsdom 기반 자동 시뮬레이션 테스트로 검증). settings-module.js/upload-confirm-module.js/prompt-copy-module.js는 코드 변경 없이 v1.3과 100% 동일하며, index.html에 새 버튼(설정 팝업 안)만 추가되었다.",
   "storagePriority": ["indexedDB", "localStorage"],
   "workerEndpoints": {
     "login": "/auth/login",
@@ -24,6 +24,35 @@
     "prompt-copy-module.js",
     "settings-module.js",
     "error-log-module.js",
+    "vendor/zip-reader.js",
+    "blogger-final-preview-module.js",
+    "package-diagnosis-module.js",
+    "post-status-module.js",
+    "backup-module.js",
+    "error-dictionary-module.js",
+    "worker-status-module.js",
+    "save-history-module.js",
+    "retry-module.js"
+  ],
+  "newModulesV1_4": [
+    "blogger-final-preview-module.js",
+    "package-diagnosis-module.js",
+    "post-status-module.js",
+    "backup-module.js",
+    "error-dictionary-module.js",
+    "worker-status-module.js",
+    "save-history-module.js",
+    "retry-module.js"
+  ],
+  "protectedCoreModules": [
+    "auth-module.js",
+    "upload-module.js",
+    "library-module.js",
+    "storage-module.js",
+    "preview-module.js",
+    "r2-image-module.js",
+    "worker-api-module.js",
+    "blogger-save-module.js",
     "vendor/zip-reader.js"
   ]
 }

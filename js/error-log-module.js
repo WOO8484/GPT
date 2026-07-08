@@ -27,7 +27,9 @@ const ErrorLogModule = (() => {
     }
   }
 
-  function logError({ module, message, detail, relatedId }) {
+  // code는 선택 항목이다(예: "E-UPLOAD-001"). 기존 호출부(module/message/detail/
+  // relatedId만 넘기는 코드)는 code가 없어도 그대로 동작한다 — 하위 호환 유지.
+  function logError({ module, message, detail, relatedId, code }) {
     const errors = readErrors();
     const entry = {
       id: generateId(),
@@ -35,6 +37,7 @@ const ErrorLogModule = (() => {
       message: message || "알 수 없는 오류",
       detail: detail || "",
       relatedId: relatedId || null,
+      code: code || null,
       createdAt: new Date().toISOString(),
       resolved: false,
     };
@@ -43,8 +46,27 @@ const ErrorLogModule = (() => {
     return entry;
   }
 
+  // v1.4: safeInit() 등 신규 모듈 초기화 실패를 간단히 기록하기 위한 편의 함수.
+  // logError({module, message, detail})의 얇은 래퍼일 뿐, 기존 저장 구조/로직은
+  // 그대로 사용한다(재작성 없음).
+  function log(moduleName, err) {
+    return logError({
+      module: moduleName || "unknown",
+      message: "모듈 처리 중 오류가 발생했습니다",
+      detail: err && err.message ? err.message : String(err || ""),
+      relatedId: null,
+    });
+  }
+
   function getAllErrors() {
     return readErrors();
+  }
+
+  // v1.4: error-dictionary-module.js가 특정 에러코드에 해당하는 최근 기록을 찾을 때 사용.
+  // code가 없는(v1.3 이전) 기존 기록은 단순히 대상에서 제외될 뿐, 조회 자체는 안전하다.
+  function getErrorsByCode(code) {
+    if (!code) return [];
+    return readErrors().filter((e) => e.code === code);
   }
 
   function resolveError(id) {
@@ -71,7 +93,9 @@ const ErrorLogModule = (() => {
 
   return {
     logError,
+    log,
     getAllErrors,
+    getErrorsByCode,
     resolveError,
     clearErrors,
     getUserMessage,

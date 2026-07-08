@@ -488,3 +488,112 @@
 .error-list-compact .archive-item--empty {
   padding: 16px 12px;
 }
+
+/* ---------- v1.4: 패키지 진단(정상/주의/수정 필요 3단계, 점수 아님) ---------- */
+.diagnosis-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diagnosis-item {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.diagnosis-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.diagnosis-item__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.diagnosis-item__detail {
+  font-size: 12px;
+  color: var(--color-text-soft);
+  margin-top: 4px;
+}
+
+.diagnosis-level {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.diagnosis-level--ok {
+  color: var(--color-success);
+  background-color: var(--color-success-bg);
+}
+
+.diagnosis-level--warn {
+  color: var(--color-warn);
+  background-color: var(--color-warn-bg);
+}
+
+.diagnosis-level--danger {
+  color: var(--color-danger);
+  background-color: var(--color-danger-bg);
+}
+
+/* ---------- v1.4: 오류 백과사전(에러코드 안내) ---------- */
+.error-dictionary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.error-dictionary-item {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.error-dictionary-item__code {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  background-color: var(--color-primary-bg);
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.error-dictionary-item__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.error-dictionary-item__row {
+  font-size: 12px;
+  color: var(--color-text-soft);
+  margin-top: 2px;
+}
+
+.error-dictionary-item__row strong {
+  color: var(--color-text);
+}
+
+/* ---------- v1.4: 게시글 상태 표시줄(post-status-module.js 전용, save-target 안) ---------- */
+.post-status-line {
+  font-size: 12px;
+  color: var(--color-text-soft);
+  margin-bottom: 10px;
+}
+
+.post-status-line:empty {
+  display: none;
+  margin: 0;
+}

@@ -8,32 +8,44 @@
  * - 미리보기 팝업 — 게시판 글 클릭 시 표시
  * - 블로그 저장 확인 팝업 → BloggerSaveModule.runSaveFlow 트리거
  * - 기본 업로드 흐름의 "최후 보루"(fallback) — 아래 안전 기준 참고
+ * - v1.4: GptCoreAPI(신규 모듈 전용 공개 표면) + 생애주기 이벤트 통지
+ *   (post-selected/upload-confirmed/board-saved/board-save-failed/
+ *   blogger-save-result/data-reset)
  *
  * 이 파일이 소유하지 않는 것(각 전용 모듈이 자체적으로 이벤트 바인딩까지 담당):
  * - 업로드 확인/미리보기 팝업(선택 기능) → UploadConfirmModule
  * - 설정(계정/작업 서버/지시서 관리/오류 목록/데이터 관리, 선택 기능) → SettingsModule
  * - 블로그 지시서 복사(선택 기능) → PromptCopyModule
+ * - v1.4 신규 8개 모듈(전부 선택 기능, GptCoreAPI를 통해서만 core와 통신):
+ *   BloggerFinalPreviewModule / PackageDiagnosisModule / PostStatusModule /
+ *   BackupModule / ErrorDictionaryModule / WorkerStatusModule /
+ *   SaveHistoryModule / RetryModule
  *
  * ------------------------------------------------------------------
  * 신규 모듈 안전 연결 기준
  * ------------------------------------------------------------------
  * 1. 기본 기능(블로그자료 업로드 / 게시판 저장 / 글 선택 / R2 이미지 업로드 /
  *    Blogger 임시저장)은 신규 모듈이 죽어도 항상 살아 있어야 한다.
- * 2. 설정창 / 업로드 확인 팝업 / 지시서 관리 / 오류 목록 같은 신규 모듈은
- *    "선택 기능"이다. 오류가 나도 기본 업로드/저장 흐름은 계속 써야 한다.
- * 3. 신규 모듈 초기화(setOnConfirmSave/setOnDataReset 연결 등)는 각각 독립된
- *    safeInit()(try/catch)로 감싼다. 한 모듈 실패가 다른 초기화를 막지 않는다.
+ * 2. 설정창 / 업로드 확인 팝업 / 지시서 관리 / 오류 목록 / v1.4의 8개 신규
+ *    모듈은 모두 "선택 기능"이다. 오류가 나도 기본 업로드/저장 흐름은 계속
+ *    써야 한다.
+ * 3. 신규 모듈 초기화(setOnConfirmSave/setOnDataReset 연결, v1.4 신규
+ *    모듈의 init() 호출 등)는 각각 독립된 safeInit()(try/catch)로 감싼다.
+ *    한 모듈 실패가 다른 초기화를 막지 않는다.
  * 4. 신규 모듈 자신도 DOM 요소가 없으면 예외를 던지지 않고 조용히 종료하도록
  *    만들어져 있다(각 모듈 파일 참고). app-core.js는 그 결과를 isReady()로 확인한다.
  * 5. 이벤트 중복 연결 방지: 신규 업로드 확인 모듈이 정상 연결됐을 때만 그 모듈이
  *    zip-file-input을 담당하고, 그렇지 않을 때만 아래 "대체 업로드 흐름"이
- *    zip-file-input을 담당한다 — 항상 둘 중 하나만 연결된다.
+ *    zip-file-input을 담당한다 — 항상 둘 중 하나만 연결된다. v1.4 신규
+ *    모듈도 각자 bound 플래그로 자기 자신의 중복 바인딩을 막는다.
  * 6. 기존 안정화 모듈(AuthModule/UploadModule/LibraryModule/StorageModule/
  *    PreviewModule/R2ImageModule/WorkerApiModule/BloggerSaveModule 등) 내부
  *    로직은 이 파일에서 수정하지 않는다. 공개 함수 호출/콜백 연결만 한다.
  * 7. 신규 모듈(js 파일 + index.html script 태그 + 아래 safeInit 연결 + 팝업
  *    마크업 + 전용 CSS)을 통째로 제거해도, "대체 업로드 흐름"이 core 요소만
- *    사용하므로 블로그자료 업로드 → 게시판 저장은 계속 동작한다.
+ *    사용하므로 블로그자료 업로드 → 게시판 저장은 계속 동작한다. v1.4의 8개
+ *    신규 모듈은 각각 독립적으로 제거 가능하다(GptCoreAPI 호출부만 정리하면
+ *    되고, 서로 다른 신규 모듈끼리는 직접 의존하지 않는다).
  * ------------------------------------------------------------------
  */
 
@@ -82,6 +94,41 @@ function safeInit(moduleName, fn) {
     }
     return false;
   }
+}
+
+/* ----------------------------------------------------------
+   v1.4: GptCoreAPI — 신규 모듈 전용 공개 연결 표면.
+   ------------------------------------------------------------
+   v1.4의 8개 신규 모듈(blogger-final-preview/package-diagnosis/post-status/
+   backup/error-dictionary/worker-status/save-history/retry)은 이 객체를
+   통해서만 core 상태(선택된 글/게시판 새로고침/저장 트리거/공용 팝업)에
+   접근한다. 각 모듈은 app-core.js 내부 변수(selectedPostId 등)를 직접
+   참조하지 않는다 — app-core.js 쪽 구현이 바뀌어도 신규 모듈은 영향을
+   받지 않도록 하기 위한 안정된 경계다.
+
+   registerLifecycleListener(moduleName, fn)로 등록해두면, 아래 이벤트가
+   발생할 때마다 fn(eventName, payload)가 safeInit으로 감싸져 호출된다.
+   한 리스너가 실패해도 다른 리스너 호출과 기본 흐름에는 영향이 없다.
+
+   이벤트 목록:
+   - "post-selected"      payload: { post }         글 선택/해제될 때마다
+   - "upload-confirmed"   payload: { post }         업로드 확인 후 저장 시도 직전
+   - "board-saved"        payload: { post }         게시판 저장 성공
+   - "board-save-failed"  payload: { post }         게시판 저장 실패
+   - "blogger-save-result"payload: { post, result } Blogger 임시저장 시도 결과
+   - "data-reset"         payload: {}               게시판 데이터 초기화 완료
+   ---------------------------------------------------------- */
+const lifecycleListeners = [];
+
+function registerLifecycleListener(moduleName, fn) {
+  if (typeof fn !== "function") return;
+  lifecycleListeners.push({ moduleName, fn });
+}
+
+function notifyLifecycle(eventName, payload) {
+  lifecycleListeners.forEach(({ moduleName, fn }) => {
+    safeInit(moduleName + ":" + eventName, () => fn(eventName, payload || {}));
+  });
 }
 
 /* ----------------------------------------------------------
@@ -282,6 +329,7 @@ function renderSavePanel() {
   if (!post) {
     emptyEl.classList.remove("hidden");
     targetEl.classList.add("hidden");
+    notifyLifecycle("post-selected", { post: null });
     return;
   }
 
@@ -291,6 +339,11 @@ function renderSavePanel() {
   document.getElementById("save-target-status").innerHTML = `<span class="status-badge ${statusBadgeClass(post.saveStatus)}">${escapeHtml(post.saveStatus)}</span>`;
   document.getElementById("save-progress-list").innerHTML = "";
   document.getElementById("save-start-btn").disabled = false;
+
+  // v1.4: 신규 모듈(post-status-module/retry-module 등)에게 선택된 글이
+  // 바뀌었음을 안전하게 알린다. 리스너가 없거나 실패해도 위 core 렌더링에는
+  // 이미 아무 영향이 없다(이 통지는 항상 core 렌더링이 끝난 뒤에 이뤄진다).
+  notifyLifecycle("post-selected", { post });
 }
 
 function openSaveConfirmPopup() {
@@ -337,6 +390,12 @@ async function handleSaveStartClick() {
   renderSavePanel();
   await renderLibraryList();
 
+  // v1.4: 저장 결과를 신규 모듈(save-history-module/post-status-module/
+  // retry-module 등)에게 안전하게 알린다. 이 통지는 위 core 팝업/게시판
+  // 갱신이 이미 끝난 뒤에 이뤄지므로, 신규 모듈이 실패해도 저장 결과 자체의
+  // 사용자 안내에는 아무 영향이 없다.
+  notifyLifecycle("blogger-save-result", { post, result });
+
   if (result.success) {
     const warningHtml = result.warnings && result.warnings.length
       ? `<p class="notice-text notice-text--warning">${result.warnings.map((w) => escapeHtml(w)).join("<br/>")}</p>`
@@ -359,6 +418,9 @@ async function handleSaveStartClick() {
    기존 공개 API(LibraryModule/StorageModule)만 사용한다.
    ---------------------------------------------------------- */
 async function handleUploadConfirmed(post) {
+  // v1.4: 저장을 실제로 시도하기 전, "업로드 확인 완료" 시점을 신규 모듈에 알린다.
+  notifyLifecycle("upload-confirmed", { post });
+
   try {
     const res = await LibraryModule.savePost(post);
     if (res.success) {
@@ -366,12 +428,15 @@ async function handleUploadConfirmed(post) {
       await renderLibraryList();
       renderSavePanel();
       showPopup("✅ 게시판 저장 완료", `<p>"${escapeHtml(post.title)}" 글을 게시판에 저장했습니다.</p>`);
+      notifyLifecycle("board-saved", { post });
       return true;
     }
     showPopup("⚠️ 게시판 저장 실패", `<p>[library-module] 게시판 저장 중 오류가 발생했습니다. 오류 목록에서 자세한 내용을 확인해주세요.</p>`);
+    notifyLifecycle("board-save-failed", { post });
     return false;
   } catch (error) {
     showPopup("⚠️ 게시판 저장 실패", `<p>[library-module] 게시판 저장 중 오류가 발생했습니다. 오류 목록에서 자세한 내용을 확인해주세요.</p>`);
+    notifyLifecycle("board-save-failed", { post });
     return false;
   }
 }
@@ -385,6 +450,7 @@ async function handleDataResetConfirmed() {
   await renderLibraryList();
   renderSavePanel();
   renderPreviewPanel(null);
+  notifyLifecycle("data-reset", {});
 }
 
 /* ----------------------------------------------------------
@@ -507,6 +573,31 @@ function bindFallbackUploadFlow() {
 }
 
 /* ----------------------------------------------------------
+   v1.4: GptCoreAPI 공개 — 신규 모듈(js/blogger-final-preview-module.js 등
+   8개)이 core 상태/공용 팝업에 접근하는 유일한 통로다. 각 모듈은 이 객체가
+   없거나 필요한 함수가 없으면 스스로 조용히 종료하도록 만들어져 있다.
+   ---------------------------------------------------------- */
+window.GptCoreAPI = {
+  getSelectedPost: () => (selectedPostId ? LibraryModule.getPostById(selectedPostId) : null),
+  getSelectedPostId: () => selectedPostId,
+  refreshBoard: async () => {
+    await renderLibraryList();
+    renderSavePanel();
+  },
+  // retry-module.js 전용: 기존 저장 버튼과 동일한 handleSaveStartClick()을
+  // 그대로 재사용한다(저장 흐름을 분해하거나 다시 구현하지 않음).
+  triggerBloggerSave: () => handleSaveStartClick(),
+  showPopup,
+  closePopup,
+  updatePopupBody,
+  escapeHtml,
+  formatDate,
+  statusBadgeClass,
+  registerLifecycleListener,
+  safeInit,
+};
+
+/* ----------------------------------------------------------
    초기화 — 각 모듈을 연결한다.
    ---------------------------------------------------------- */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -585,4 +676,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // prompt-copy-module.js는 완전히 독립적으로 스스로 초기화하므로(자체
   // DOMContentLoaded 리스너) 여기서 연결할 것이 없다.
+
+  // 4) v1.4 신규 모듈(전부 선택 기능) — 각각 독립 safeInit으로 연결한다.
+  //    모두 자체 init()에서 필요한 DOM 요소를 먼저 확인하고, 없으면 조용히
+  //    아무 것도 하지 않는다(예외를 던지지 않음). 한 모듈이 실패해도 다른
+  //    모듈 초기화와 위 1~3단계(기본 업로드/게시판/Blogger 저장 흐름)에는
+  //    전혀 영향이 없다 — 이미 그 단계들은 이 지점 이전에 전부 끝나 있다.
+  const newModules = [
+    ["blogger-final-preview-module", () => window.BloggerFinalPreviewModule],
+    ["package-diagnosis-module", () => window.PackageDiagnosisModule],
+    ["post-status-module", () => window.PostStatusModule],
+    ["backup-module", () => window.BackupModule],
+    ["error-dictionary-module", () => window.ErrorDictionaryModule],
+    ["worker-status-module", () => window.WorkerStatusModule],
+    ["save-history-module", () => window.SaveHistoryModule],
+    ["retry-module", () => window.RetryModule],
+  ];
+
+  newModules.forEach(([name, getModule]) => {
+    safeInit(name, () => {
+      const mod = getModule();
+      if (!mod || typeof mod.init !== "function") return;
+      mod.init();
+    });
+  });
 });
