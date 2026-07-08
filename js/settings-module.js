@@ -206,6 +206,16 @@ const SettingsModule = (() => {
   }
 
   /* ---------------------------------------------------------- 오류 목록 ---------------------------------------------------------- */
+  // v1.6(7장): 설정창 오류 목록 카드에도 사용자 친화 문구를 적용한다.
+  // app-core.js의 friendlyErrorTitle과 동일한 규칙을 이 모듈 안에 독립적으로
+  // 둔다(모듈 간 직접 의존을 만들지 않기 위해 — 다른 신규 모듈과 동일한 패턴).
+  function friendlyErrorTitle(e) {
+    if (e.module === "upload-module" && e.message === "필수 파일 누락") {
+      return "블로그자료 ZIP 구조 오류";
+    }
+    return `[${e.module}] ${e.message}`;
+  }
+
   function renderErrorList() {
     const { errorList } = els();
     let errors = [];
@@ -223,7 +233,7 @@ const SettingsModule = (() => {
       .map(
         (e) => `
         <li class="error-item">
-          <div class="error-item__title">[${escapeHtml(e.module)}] ${escapeHtml(e.message)}</div>
+          <div class="error-item__title">${escapeHtml(friendlyErrorTitle(e))}</div>
           <div class="error-item__meta">${formatDate(e.createdAt)}</div>
         </li>`
       )

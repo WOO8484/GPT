@@ -149,6 +149,18 @@ function closePopup() {
   document.getElementById("popup-overlay").classList.remove("popup-overlay--open");
 }
 
+// v1.6(7장): 오류 목록 카드에 표시할 제목을 사용자 친화 문구로 변환한다.
+// 저장된 원본 기록(module/message)은 그대로 두고 "표시할 때만" 바꾸므로,
+// localStorage에 예전 방식으로 남아 있던 오류도 자동으로 친화 문구로 보인다.
+// 내부 모듈명이 필요한 경우(디버깅)를 위해 매핑되지 않은 오류는 기존처럼
+// [module] message 형식을 유지한다.
+function friendlyErrorTitle(e) {
+  if (e.module === "upload-module" && e.message === "필수 파일 누락") {
+    return "블로그자료 ZIP 구조 오류";
+  }
+  return `[${e.module}] ${e.message}`;
+}
+
 function renderErrorsPopup() {
   const errors = ErrorLogModule.getAllErrors().slice().reverse();
   const list = document.getElementById("errors-list");
@@ -164,7 +176,7 @@ function renderErrorsPopup() {
       .map(
         (e) => `
       <div class="error-item">
-        <div class="error-item__title">[${escapeHtml(e.module)}] ${escapeHtml(e.message)}</div>
+        <div class="error-item__title">${escapeHtml(friendlyErrorTitle(e))}</div>
         ${e.detail ? `<div class="error-item__detail">${escapeHtml(e.detail)}</div>` : ""}
         <div class="error-item__meta">${formatDate(e.createdAt)}</div>
       </div>`

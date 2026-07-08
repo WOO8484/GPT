@@ -11,6 +11,8 @@
  *   대표 이미지가 본문 첫 문단보다 위에 있는지 / 첫 번째 img가 대표 이미지인지 /
  *   긴 문단이 과하게 이어지는지 / 포스트잇·카드·주의 박스 등 박스형 구성
  *   요소가 있는지
+ * - v1.6(14/15장): 최종 업데이트 날짜가 본문 상단 근처에 있는지 / 소제목(h2/h3)
+ *   사이에 내용 없이 바로 이어지는 곳은 없는지
  *
  * 결과는 점수가 아니라 "정상 / 주의 / 수정 필요" 3단계로만 표시한다.
  * 이 진단은 품질점수나 SEO 점수가 아니라 단순 구조 진단이다.
@@ -229,6 +231,36 @@ const PackageDiagnosisModule = (() => {
       items.push({ label: "박스형 구성 요소", level: "주의", detail: `박스형 요소가 ${boxCount}개뿐입니다(핵심 포스트잇/확인 카드/주의 박스/공식 링크 박스 중 3개 이상 권장).` });
     } else {
       items.push({ label: "박스형 구성 요소", level: "수정 필요", detail: "포스트잇/카드/체크리스트/주의 박스 형태의 구성 요소를 찾지 못했습니다." });
+    }
+
+    // 14. v1.6: 최종 업데이트 날짜 위치 확인(본문 최상단 근처에 있는지)
+    const topText = doc.body.textContent ? doc.body.textContent.slice(0, 400) : "";
+    const hasDateNearTop = /(최종\s*업데이트|업데이트\s*일|기준\s*일)/.test(topText) && /\d{4}[.\-년]\s?\d{1,2}[.\-월]/.test(topText);
+    const hasDateAnywhere = /(최종\s*업데이트|업데이트\s*일|기준\s*일)/.test(html);
+    if (hasDateNearTop) {
+      items.push({ label: "최종 업데이트 날짜 위치", level: "정상", detail: "본문 상단 근처에서 최종 업데이트 날짜가 확인되었습니다." });
+    } else if (hasDateAnywhere) {
+      items.push({ label: "최종 업데이트 날짜 위치", level: "주의", detail: "최종 업데이트 날짜가 있지만 본문 상단(도입부 이전)에서는 확인되지 않았습니다." });
+    } else {
+      items.push({ label: "최종 업데이트 날짜 위치", level: "수정 필요", detail: "본문에서 최종 업데이트 날짜를 찾지 못했습니다." });
+    }
+
+    // 15. v1.6: 소제목(h2/h3) 간격 확인 - 소제목이 내용 없이 바로 이어지면 "주의/수정 필요"
+    const headings = [...doc.body.querySelectorAll("h2, h3")];
+    if (headings.length < 2) {
+      items.push({ label: "소제목 간격", level: "주의", detail: "비교할 소제목이 2개 미만입니다." });
+    } else {
+      let backToBackCount = 0;
+      for (let i = 0; i < headings.length - 1; i++) {
+        if (headings[i].nextElementSibling === headings[i + 1]) backToBackCount++;
+      }
+      if (backToBackCount === 0) {
+        items.push({ label: "소제목 간격", level: "정상", detail: "소제목 사이마다 내용이 배치되어 있습니다." });
+      } else if (backToBackCount === 1) {
+        items.push({ label: "소제목 간격", level: "주의", detail: "소제목이 내용 없이 바로 이어지는 곳이 1곳 있습니다." });
+      } else {
+        items.push({ label: "소제목 간격", level: "수정 필요", detail: `소제목이 내용 없이 바로 이어지는 곳이 ${backToBackCount}곳입니다. 사이에 설명을 추가하세요.` });
+      }
     }
 
     return items;

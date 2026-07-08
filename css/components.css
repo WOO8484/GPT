@@ -260,6 +260,9 @@
 .library-item__meta {
   font-size: 12px;
   color: var(--color-text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .archive-item--empty {
@@ -267,6 +270,18 @@
   color: var(--color-text-soft);
   font-size: 13px;
   padding: 40px 12px;
+}
+
+/* v1.6(10장): 게시판 "글 없음" 안내 문구는 고정 padding으로 높이를 밀어내지
+   않고, 남은 공간 안에서 항상 중앙 정렬되게 한다. panel--library의 높이 상한
+   (128px)과 무관하게 잘리거나 아래쪽에 애매하게 걸치지 않는다. */
+#library-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  margin: 0;
 }
 
 /* ---------- 상세/미리보기 공통 ---------- */
@@ -309,6 +324,18 @@
 .detail-toc__item--h3 {
   padding: 3px 0 3px 14px;
   color: var(--color-text-soft);
+}
+
+/* v1.6(16장): 최종 HTML 미리보기의 본문을 실제 Blogger 모바일 발행 화면과
+   더 비슷하게 보이도록 감싸는 프레임. 폭을 좁혀 실제 스마트폰 화면 느낌을 준다. */
+.mobile-preview-frame {
+  max-width: 340px;
+  margin: 0 auto;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 14px 12px;
+  background-color: #ffffff;
+  box-shadow: 0 4px 16px rgba(20, 24, 33, 0.08);
 }
 
 /* ---------- 본문 미리보기 렌더링 영역 ---------- */

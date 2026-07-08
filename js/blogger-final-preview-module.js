@@ -7,6 +7,9 @@
  *   R2 URL로 치환 예정"으로 표시)
  * - 광고 placeholder(ADSENSE_PLACEHOLDER_TOP/MIDDLE/BOTTOM) 위치 확인
  * - Blogger-safe HTML 상태 확인(script/style/iframe/form, table 등)
+ * - v1.6(16/17장): 발행 전 체크리스트 6항목(제목 중복/대표 이미지 위치/첫
+ *   이미지=대표 이미지/문단 길이/박스형 구성/공식 링크·FAQ)과, 본문 미리보기를
+ *   실제 Blogger 모바일 발행 화면과 더 비슷하게 보여주는 모바일 프레임을 추가했다.
  *
  * 금지 사항 준수:
  * - Blogger 저장을 직접 실행하지 않는다(WorkerApiModule/BloggerSaveModule.runSaveFlow를
@@ -35,6 +38,7 @@ const BloggerFinalPreviewModule = (() => {
       overlay: document.getElementById("popup-blogger-final-preview-overlay"),
       emptyEl: document.getElementById("blogger-preview-empty"),
       bodyEl: document.getElementById("blogger-preview-body"),
+      checklistEl: document.getElementById("blogger-preview-checklist"),
       imageStatusEl: document.getElementById("blogger-preview-image-status"),
       adStatusEl: document.getElementById("blogger-preview-ad-status"),
       safeStatusEl: document.getElementById("blogger-preview-safe-status"),
@@ -124,6 +128,91 @@ const BloggerFinalPreviewModule = (() => {
     return items;
   }
 
+  // v1.6(17장): "발행 전 체크리스트" 6항목. package-diagnosis-module.js와 별개로
+  // 이 모듈 안에서 읽기 전용으로 다시 계산한다(모듈 간 직접 의존을 만들지 않음).
+  function checkPrePublishChecklist(post) {
+    const html = post.contentHtmlRaw || "";
+    const items = [];
+
+    // 1. 제목이 한 번만 보이나?
+    const hasH1 = /<h1[\s>]/i.test(html);
+    items.push({
+      label: "제목이 한 번만 보이나요?",
+      status: hasH1 ? "danger" : "ok",
+      detail: hasH1 ? "본문에 <h1>이 있어 Blogger 제목과 중복될 수 있습니다" : "본문에 <h1>이 없어 제목이 한 번만 표시됩니다",
+    });
+
+    let doc = null;
+    try {
+      doc = new DOMParser().parseFromString(html, "text/html");
+    } catch (error) {
+      doc = null;
+    }
+
+    if (!doc) {
+      items.push({ label: "본문 구조 확인", status: "warn", detail: "본문 구조를 분석하지 못했습니다" });
+      return items;
+    }
+
+    // 2/3. 대표 이미지 위치 + 첫 이미지가 대표 이미지인지
+    const orderedEls = [...doc.body.querySelectorAll("img, p")];
+    const firstImgIdx = orderedEls.findIndex((el) => el.tagName === "IMG");
+    if (firstImgIdx === -1) {
+      items.push({ label: "대표 이미지가 본문 첫 글자보다 위에 있나요?", status: "warn", detail: "본문에서 이미지를 찾지 못했습니다" });
+      items.push({ label: "첫 번째 이미지가 대표 이미지인가요?", status: "warn", detail: "본문에서 이미지를 찾지 못했습니다" });
+    } else {
+      const pBefore = orderedEls.slice(0, firstImgIdx).filter((el) => el.tagName === "P").length;
+      items.push({
+        label: "대표 이미지가 본문 첫 글자보다 위에 있나요?",
+        status: pBefore <= 1 ? "ok" : pBefore === 2 ? "warn" : "danger",
+        detail: pBefore <= 1 ? "이미지가 도입문보다 앞에 배치되어 있습니다" : "문단이 이미지보다 먼저 나옵니다",
+      });
+
+      const firstImg = orderedEls[firstImgIdx];
+      const src = (firstImg.getAttribute("src") || "").toLowerCase();
+      const baseName = (src.split("/").pop() || "").split("?")[0];
+      const imageFiles = post.imageFiles || {};
+      const isThumb = baseName.indexOf("thumbnail") !== -1 || (imageFiles[baseName] && imageFiles[baseName].role === "thumbnail");
+      items.push({
+        label: "첫 번째 이미지가 대표 이미지인가요?",
+        status: isThumb ? "ok" : "danger",
+        detail: isThumb ? "첫 번째 이미지가 대표(썸네일) 이미지입니다" : "첫 번째 이미지가 대표 이미지가 아닌 것으로 보입니다",
+      });
+    }
+
+    // 4. 모바일에서 문단이 길지 않나?
+    const paragraphs = [...doc.body.querySelectorAll("p")];
+    const longCount = paragraphs.filter((p) => {
+      const text = (p.textContent || "").trim();
+      const sentenceCount = (text.match(/[.!?。]/g) || []).length;
+      return sentenceCount > 4 || text.length > 220;
+    }).length;
+    items.push({
+      label: "모바일에서 문단이 길지 않나요?",
+      status: !paragraphs.length ? "warn" : longCount === 0 ? "ok" : longCount / paragraphs.length <= 0.2 ? "warn" : "danger",
+      detail: !paragraphs.length ? "문단(<p>)을 찾지 못했습니다" : longCount === 0 ? "과도하게 긴 문단이 없습니다" : `긴 문단 ${longCount}개가 있습니다(2~3문장 권장)`,
+    });
+
+    // 5. 박스형 구성 요소가 보이나?
+    const boxes = [...doc.body.querySelectorAll("div[style]")].filter((d) => /background|border/i.test(d.getAttribute("style") || ""));
+    items.push({
+      label: "오늘 핵심/신청 전 확인/주의사항/공식 링크 박스가 보이나요?",
+      status: boxes.length >= 3 ? "ok" : boxes.length >= 1 ? "warn" : "danger",
+      detail: `박스형 요소 ${boxes.length}개가 확인되었습니다`,
+    });
+
+    // 6. 공식 링크와 FAQ가 정상 표시되나?
+    const hasRealLink = [...doc.body.querySelectorAll("a[href]")].some((a) => /^https?:\/\//i.test(a.getAttribute("href") || ""));
+    const hasFaq = /FAQ|자주\s*묻는\s*질문/i.test(html);
+    items.push({
+      label: "공식 링크와 FAQ가 정상 표시되나요?",
+      status: hasRealLink && hasFaq ? "ok" : hasRealLink || hasFaq ? "warn" : "danger",
+      detail: `공식 링크 ${hasRealLink ? "있음" : "없음"} · FAQ ${hasFaq ? "있음" : "없음"}`,
+    });
+
+    return items;
+  }
+
   function renderList(container, items) {
     if (!container) return;
     container.innerHTML = items
@@ -144,7 +233,7 @@ const BloggerFinalPreviewModule = (() => {
   }
 
   function renderForPost(post) {
-    const { emptyEl, bodyEl, imageStatusEl, adStatusEl, safeStatusEl, contentEl } = els();
+    const { emptyEl, bodyEl, checklistEl, imageStatusEl, adStatusEl, safeStatusEl, contentEl } = els();
     if (!post) {
       emptyEl.classList.remove("hidden");
       bodyEl.classList.add("hidden");
@@ -153,6 +242,7 @@ const BloggerFinalPreviewModule = (() => {
     emptyEl.classList.add("hidden");
     bodyEl.classList.remove("hidden");
 
+    renderList(checklistEl, checkPrePublishChecklist(post));
     renderList(imageStatusEl, classifyImages(post));
     renderList(adStatusEl, checkAdPlaceholders(post.contentHtmlRaw));
     renderList(safeStatusEl, checkBloggerSafeHtml(post.contentHtmlRaw));
@@ -189,8 +279,8 @@ const BloggerFinalPreviewModule = (() => {
 
   function bindEvents() {
     if (bound) return;
-    const { openBtn, closeBtn, overlay, emptyEl, bodyEl } = els();
-    if (!openBtn || !closeBtn || !overlay || !emptyEl || !bodyEl) return;
+    const { openBtn, closeBtn, overlay, emptyEl, bodyEl, checklistEl } = els();
+    if (!openBtn || !closeBtn || !overlay || !emptyEl || !bodyEl || !checklistEl) return;
 
     try {
       closeBtn.addEventListener("click", closePopup);

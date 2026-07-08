@@ -23,13 +23,13 @@
       <div id="login-error" class="login-error hidden"></div>
       <button id="login-btn" class="btn btn--primary btn--block" type="button">입장하기</button>
     </div>
-    <div class="login-version">v1.4</div>
+    <div class="login-version">v1.6</div>
   </div>
 
   <!-- 메인 앱: 로그인 성공 전에는 hidden 상태로 유지 -->
   <div id="app-container" class="app-container hidden">
     <header class="app-header">
-      <div class="app-header__title">🛠️ GPT 공작소</div>
+      <div class="app-header__title">🤖 GPT 공작소</div>
       <div class="app-header__actions">
         <button id="open-errors-btn" class="header-icon-btn" type="button" aria-label="오류 목록">⚠️</button>
         <button id="settings-open-btn" class="header-icon-btn" type="button" aria-label="설정">⚙️</button>
@@ -90,10 +90,17 @@
 
             <ul id="save-progress-list" class="save-progress-list"></ul>
           </div>
-          <button id="prompt-copy-open-btn" class="btn btn--ghost btn--block" type="button">📋 블로그 지시서 복사</button>
         </div>
       </section>
     </main>
+
+    <!-- v1.6(9장): 블로그 지시서 복사 버튼은 블로그 저장 카드와 완전히 분리된
+         화면 하단 독립 영역이다. 저장 버튼/최종 미리보기/패키지 진단 버튼과
+         섞이지 않는다. prompt-copy-module.js는 이 버튼 id만 그대로 참조하므로
+         위치 이동 외에 다른 코드 변경은 필요 없다. -->
+    <div class="bottom-actions">
+      <button id="prompt-copy-open-btn" class="btn btn--ghost btn--block" type="button">📋 블로그 지시서 복사</button>
+    </div>
   </div>
 
   <!-- 중앙 팝업: 게시판 저장 완료/실패, R2 변환 진행, 블로그 저장 완료/실패 -->
@@ -176,7 +183,7 @@
         <h2>📝 블로그 저장 확인</h2>
         <button id="save-confirm-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
       </div>
-      <div class="popup-panel__scroll">
+      <div class="popup-panel__scroll popup-panel__scroll--noscroll">
         <p class="notice-text">선택한 글을 Blogger 임시글로 저장할까요?</p>
         <div class="popup-actions">
           <button id="save-confirm-cancel-btn" class="btn btn--block" type="button">취소</button>
@@ -188,23 +195,26 @@
 
   <!-- 블로그 지시서 복사 팝업. prompt-copy-module.js가 전담(사용자 등록 지시서 우선 복사). -->
   <div id="popup-prompt-copy-overlay" class="popup-overlay">
-    <div class="popup-panel">
+    <div class="popup-panel popup-panel--fixed">
       <div class="popup-panel__header">
         <h2>📋 블로그 지시서 복사</h2>
         <button id="prompt-copy-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
       </div>
-      <div class="popup-panel__scroll">
+      <div class="popup-panel__scroll popup-panel__scroll--noscroll">
         <p class="notice-text">현재 사용 중인 블로그 글작성 실행지시서 원문 전체를 복사합니다.<br />복사한 내용을 사용 중인 GPT 등에 붙여넣어 사용하세요.</p>
         <div id="prompt-copy-source" class="notice-text"></div>
         <button id="prompt-copy-all-btn" class="btn btn--primary btn--block" type="button">전체 복사</button>
-        <div id="prompt-copy-result" class="notice-text"></div>
-        <textarea id="prompt-copy-fallback" class="prompt-copy-fallback hidden" readonly rows="10" aria-label="블로그 지시서 원문"></textarea>
+        <!-- v1.6(12장): 복사 완료 문구가 뜨기 전/후 팝업 높이가 변하지 않도록
+             결과 영역에 항상 고정된 공간을 예약해둔다(min-height). -->
+        <div id="prompt-copy-result" class="notice-text prompt-copy-result"></div>
+        <textarea id="prompt-copy-fallback" class="prompt-copy-fallback hidden" readonly rows="6" aria-label="블로그 지시서 원문"></textarea>
       </div>
     </div>
   </div>
 
   <!-- v1.4: Blogger 최종 HTML 미리보기 팝업(신규, 선택 기능). blogger-final-preview-module.js가
-       전담한다. 실제 저장/R2 업로드는 절대 실행하지 않는다(읽기 전용 미리보기). -->
+       전담한다. 실제 저장/R2 업로드는 절대 실행하지 않는다(읽기 전용 미리보기).
+       v1.6(16/17장): 발행 전 체크리스트(6항목)와 모바일 화면 프레임 미리보기를 추가했다. -->
   <div id="popup-blogger-final-preview-overlay" class="popup-overlay">
     <div class="popup-panel">
       <div class="popup-panel__header">
@@ -213,17 +223,21 @@
       </div>
       <div class="popup-panel__scroll">
         <p class="notice-text">Blogger 저장 시 반영되는 모습을 미리 보여주는 화면입니다. 이 화면에서는 실제 저장이나 이미지 업로드가 일어나지 않습니다.</p>
-        <p class="notice-text">제목 중복, 대표 이미지 위치, 문단 길이, 박스형 구성 같은 v6.2 구조 점검은 [🩺 패키지 진단]에서 확인할 수 있습니다.</p>
         <div id="blogger-preview-empty" class="archive-item--empty">게시판에서 글을 선택한 뒤 다시 열어주세요.</div>
         <div id="blogger-preview-body" class="hidden">
+          <div class="popup-subheading">발행 전 체크리스트</div>
+          <ul id="blogger-preview-checklist" class="check-list"></ul>
+
           <div class="popup-subheading">이미지 R2 URL 상태</div>
           <ul id="blogger-preview-image-status" class="check-list"></ul>
           <div class="popup-subheading">광고 위치(placeholder) 확인</div>
           <ul id="blogger-preview-ad-status" class="check-list"></ul>
           <div class="popup-subheading">Blogger-safe HTML 상태</div>
           <ul id="blogger-preview-safe-status" class="check-list"></ul>
-          <div class="popup-subheading">본문 미리보기(예상)</div>
-          <div id="blogger-preview-content" class="preview-content"></div>
+          <div class="popup-subheading">본문 미리보기(모바일 화면 기준)</div>
+          <div class="mobile-preview-frame">
+            <div id="blogger-preview-content" class="preview-content"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -239,6 +253,7 @@
       </div>
       <div class="popup-panel__scroll">
         <p class="notice-text">업로드된 블로그자료 ZIP 구조를 점검합니다. 점수가 아니라 정상 / 주의 / 수정 필요 3단계로만 표시합니다.</p>
+        <p class="notice-text">주제 선정 참고: 전기/에너지 요금 계열은 주 1~2회 이하로, 생활비/세금/보험/통신/자동차/카드/정부지원/소비비교 카테고리로 분산해 연속 반복을 피하세요.</p>
         <div id="package-diagnosis-empty" class="archive-item--empty">게시판에서 글을 선택한 뒤 다시 열어주세요.</div>
         <ul id="package-diagnosis-list" class="diagnosis-list"></ul>
       </div>
@@ -308,10 +323,10 @@
 
         <div class="settings-section settings-section--last">
           <div class="popup-subheading">버전 정보 / 개발 메모</div>
-          <div class="detail-row"><span class="detail-row__label">현재 버전</span><span>GPT공작소 v1.4</span></div>
-          <div class="detail-row"><span class="detail-row__label">기준 버전</span><span>GPT공작소 v1.3</span></div>
+          <div class="detail-row"><span class="detail-row__label">현재 버전</span><span>GPT공작소 v1.6</span></div>
+          <div class="detail-row"><span class="detail-row__label">기준 버전</span><span>GPT공작소 v1.5</span></div>
           <p class="notice-text">다음 업데이트 후보: 오류 코드 체계 확장, 게시판 정렬/검색 옵션, 저장 전 HTML 정리 옵션, 화면 표시 옵션.</p>
-          <p class="notice-text">개발 메모: v1.4부터 신규 기능은 모두 선택형 모듈로 분리되어 있습니다. 특정 기능에 문제가 있으면 해당 모듈만 제거해도 기본 업로드/저장 흐름은 계속 사용할 수 있습니다.</p>
+          <p class="notice-text">개발 메모: 신규 기능은 모두 선택형 모듈로 분리되어 있습니다. 특정 기능에 문제가 있으면 해당 모듈만 제거해도 기본 업로드/저장 흐름은 계속 사용할 수 있습니다.</p>
         </div>
 
       </div>
