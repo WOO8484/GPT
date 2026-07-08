@@ -130,13 +130,11 @@
   gap: 4px;
 }
 
-/* ---------- 작업대: 업로드 / 게시판 / 블로그스팟 저장 / 네이버 저장 ----------
-   v1.6.2 패치2: 항상 세로 1열 4단(위→아래)으로 고정 배치한다(가로 배치,
-   2×2 배치 금지). workbench 자체는 overflow:hidden으로 전체 페이지가
-   내용 때문에 밀리지 않는다. 4개 패널은 같은 너비(100%)를 쓰되, 카드
-   "자체" 높이는 내용과 무관한 고정 비율(flex-basis, 아래 카드별 높이
-   기준 섹션 참고)로 배분한다. 각 패널 내부(.panel__body--scroll,
-   #save-progress-list 등)만 스크롤된다. */
+/* ---------- 작업대: 업로드 / 게시판 / 블로그 저장 / 네이버 저장 ----------
+   v1.6.2: 항상 세로 1열 4단(위→아래)으로 고정 배치한다(가로 배치, 2×2
+   배치 금지). 전체 페이지(workbench 자체)는 스크롤되지 않으며, 각 패널
+   내부(.panel__body--scroll 등)만 스크롤된다. 4개 패널은 같은 너비
+   (100%)와 같은 높이 기준(flex:1, 동일 비율)으로 배치한다. */
 .workbench {
   flex: 1;
   min-height: 0;
@@ -264,45 +262,25 @@
   flex-shrink: 0;
 }
 
-/* ---------- 카드별 높이 기준 (v1.6.2 패치2: 세로 4단 고정 비율) ----------
-   업로드 / 게시판 / 블로그스팟 저장 / 네이버 저장 4개 패널은 같은 카드
-   디자인, 같은 너비(100%)를 유지하되, 각 카드 "자체" 높이는 내용 변화와
-   무관한 고정 비율로 잡는다(flex-grow/flex-shrink를 0으로 고정하고
-   flex-basis를 %로 지정 — 글 선택으로 블로그스팟 저장 카드 내부 내용이
-   늘어나도 flex-grow가 0이므로 카드 자체가 커지며 아래 카드를 밀어내는
-   일이 없다). 내용이 넘치면 카드 높이가 아니라 카드 내부
-   (.panel__body--scroll, #save-progress-list 등)만 스크롤된다.
-
-   비율 배분(workbench 전체 높이 대비):
-   - 업로드(가장 낮음): 14%
-   - 게시판(글 목록, 중간): 22%
-   - 블로그스팟 저장(제목/상태/버튼, 가장 넉넉히): 42%
-   - 네이버 저장(준비중 표시만, 과하지 않게): 14%
-   (workbench의 gap(10px×3)을 제외한 나머지를 위 비율로 나눈다) */
+/* ---------- 카드별 높이 기준 (v1.6.2: 세로 1열 4단 고정) ----------
+   업로드 / 게시판 / 블로그 저장 / 네이버 저장 4개 패널은 같은 카드
+   디자인, 같은 너비(100%), 같은 높이 기준(flex:1 1 0, 동일 비율)으로
+   배치한다. 화면 높이가 부족해도 가로 배치나 2×2 배치로 바뀌지 않고
+   세로 1열을 유지하며, 각 패널 내부(.panel__body--scroll,
+   #save-progress-list 등)만 스크롤된다. */
 .panel--upload,
 .panel--library,
 .panel--save,
 .panel--naver {
-  flex-grow: 0;
-  flex-shrink: 0;
-  min-height: 0;
+  flex: 1 1 0;
+  min-height: 108px;
 }
 
-.panel--upload {
-  flex-basis: 14%;
-}
-
-.panel--library {
-  flex-basis: 22%;
-}
-
-.panel--save {
-  flex-basis: 42%;
-}
-
-.panel--naver {
-  flex-basis: 14%;
-}
+/* v1.6.2 패치1: 4개 패널은 선택/미선택 상태와 관계없이 같은 높이 기준을
+   유지한다. 블로그스팟 저장 패널만 글 선택 시 커지던 :has() 규칙을
+   제거했다 — 저장 카드 내부(save-target-fixed)는 flex:1로 배분된 패널
+   공간 안에서 자체적으로 배치되며, 로그가 길어지는 경우는 그대로
+   #save-progress-list 내부 스크롤로 흡수된다. */
 
 .panel--upload .panel__body {
   justify-content: center;
@@ -312,32 +290,7 @@
 
 .panel--naver .panel__body {
   justify-content: center;
-  align-items: stretch;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* v1.6.2 패치4: 네이버 저장 패널 내부 전용 구조. 이 패널 안에서만 적용
-   되며 다른 패널의 정렬/비율에는 영향을 주지 않는다. 카드 자체 높이
-   (.panel--naver의 flex-basis: 14%)는 그대로 유지한 채, 내부 버튼
-   3개가 좁은 공간에서도 잘리지 않도록 컴팩트한 간격을 쓰고, 그래도
-   내용이 넘치면 .panel--naver .panel__body의 내부 스크롤로 흡수한다. */
-.naver-save-target {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  flex-shrink: 0;
-}
-
-.naver-save-notice {
-  text-align: center;
-  color: var(--color-text-soft);
-  font-size: 12px;
-  margin-bottom: 6px;
-}
-
-.naver-save-target #naver-save-start-btn {
-  margin-bottom: 8px;
+  align-items: center;
 }
 
 /* ---------- 중앙 팝업(모든 팝업 공통) ---------- */
