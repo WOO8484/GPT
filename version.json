@@ -1,9 +1,9 @@
 {
   "project": "GPT 공작소",
-  "version": "1.6.3",
+  "version": "1.6.1",
   "displayVersion": "v1.6",
   "releaseDate": "2026-07-08",
-  "description": "v1.6: 실사용 문제 개선(iPhone/Blogger 실제 화면 기준)과 Blogger 발행 품질 고도화를 합친 정식 업데이트. v1.5 안정본을 기준으로 한다. 버전 표기 버그 수정: v1.5 작업에서 누락되어 로그인 화면(v1.4)과 설정창(현재 v1.4/기준 v1.3)에 남아있던 잘못된 버전 표기를 모두 v1.6/v1.5로 수정했다. 오류 문구: 설정창 오류 목록과 오류 목록 팝업 카드 모두에서 '[upload-module] 필수 파일 누락'이 그대로 노출되지 않도록 표시 시점에 '블로그자료 ZIP 구조 오류'로 변환하는 로직을 추가했다(localStorage에 남은 예전 기록도 자동 변환). 로고: 상단 앱 헤더를 '🛠️ GPT 공작소'에서 '🤖 GPT 공작소'로 실제 교체했다. 블로그 지시서 복사 버튼을 블로그 저장 카드 내부에서 완전히 분리해 화면 하단 독립 영역(.bottom-actions)으로 이동했다. 게시판 레이아웃: '글 없음' 안내 문구가 영역 안에서 flex로 중앙 정렬되도록 고정 padding 방식을 제거했고(잘림 방지), 카드 메타 라인에도 방어적 말줄임을 추가했다. 블로그 저장 카드: 프롬프트 복사 버튼이 빠지면서 확보된 여유 공간과 min-height 상향(280px)으로 저장 버튼/최종 미리보기/패키지 진단 버튼이 항상 온전히 보이도록 재확인했다. 블로그 지시서 복사 팝업과 저장 확인 팝업에 '고정 크기, 내부 스크롤 금지' 전용 스타일(popup-panel--fixed, popup-panel__scroll--noscroll)을 적용하고, 복사 완료 문구 영역에 항상 고정 공간을 예약해 팝업 높이가 변하지 않게 했다. Blogger 발행 품질 고도화: package-diagnosis-module.js에 '최종 업데이트 날짜 위치'와 '소제목 간격' 진단 2항목을 추가했다(기존 v6.2 구조 진단 5항목과 합쳐 총 7항목, 전부 정상/주의/수정 필요 3단계). blogger-final-preview-module.js에 '발행 전 체크리스트' 6항목(제목 중복/대표 이미지 위치/첫 이미지=대표이미지/문단 길이/박스형 구성/공식링크·FAQ)을 추가하고, 본문 미리보기를 실제 Blogger 모바일 화면과 비슷한 프레임(.mobile-preview-frame)으로 감쌌다. 블로그자료 생성 기준: data/blog-writing-prompt-v6.2.txt에 '주제 반복 방지(카테고리 분산)' 섹션(2-4)을 신규 추가했다 — 전기/에너지 계열 주 1~2회 이하, 생활비/세금/보험/통신/자동차/카드/정부지원/소비비교로 분산. 패키지 진단 팝업에도 이 기준을 안내 문구로 반영했다. 절대 보호 흐름(블로그자료 ZIP 업로드 → 업로드 확인 → 게시판 저장 → 글 선택 → R2 이미지 업로드 → Blogger 임시저장)과 핵심 모듈 9개(auth/upload/library/storage/preview/r2-image/worker-api/blogger-save/zip-reader) 및 css/base.css는 전혀 수정하지 않았다(diff 100% 동일 확인). 신규/보조 기능은 이번에도 전부 기존 GptCoreAPI/safeInit 안전 연결 구조를 그대로 사용했다. [v1.6.1 레이아웃 실기보정] iPhone 실기 화면 기준으로 CSS/HTML만 최소 수정: 업로드/게시판 카드 높이를 서로 가깝게 통일(min-height 108px, 게시판 max-height 120px), 블로그 저장 카드 min-height를 실측 예산(230px)에 맞춰 낮춤, 블로그 지시서 복사 버튼 위 가로줄 제거 및 카드 간 간격을 workbench 기존 gap과 동일하게 정리, 업로드 버튼 문구를 \"블로그 자료 ZIP 선택\"으로 변경, 게시글 제목을 1줄에서 2줄(-webkit-line-clamp) 말줄임으로 변경, 설정창 오류 목록 버튼 3개를 축소(btn--compact)하고 \"오류 백과사전 / 로그 복사\"를 \"오류 백과사전\"으로 축약, 설정 섹션 구분선을 더 연하게 조정. JS 파일은 단 한 줄도 수정하지 않았다(diff 100% 동일 확인). [v1.6.3] 메인 화면 뼈대를 재작성해 카드창 높이 보정 구조를 제거하고, 블로그스팟/네이버 발행 보조 영역을 분리했다. 네이버는 자동 저장/API 연결 없이 수동 복사 전용 단독 모듈(naver-copy-module.js)로 추가했다. post-status-module.js의 시간 표시는 제거하고 상태만 표시한다.",
+  "description": "v1.6: 실사용 문제 개선(iPhone/Blogger 실제 화면 기준)과 Blogger 발행 품질 고도화를 합친 정식 업데이트. v1.5 안정본을 기준으로 한다. 버전 표기 버그 수정: v1.5 작업에서 누락되어 로그인 화면(v1.4)과 설정창(현재 v1.4/기준 v1.3)에 남아있던 잘못된 버전 표기를 모두 v1.6/v1.5로 수정했다. 오류 문구: 설정창 오류 목록과 오류 목록 팝업 카드 모두에서 '[upload-module] 필수 파일 누락'이 그대로 노출되지 않도록 표시 시점에 '블로그자료 ZIP 구조 오류'로 변환하는 로직을 추가했다(localStorage에 남은 예전 기록도 자동 변환). 로고: 상단 앱 헤더를 '🛠️ GPT 공작소'에서 '🤖 GPT 공작소'로 실제 교체했다. 블로그 지시서 복사 버튼을 블로그 저장 카드 내부에서 완전히 분리해 화면 하단 독립 영역(.bottom-actions)으로 이동했다. 게시판 레이아웃: '글 없음' 안내 문구가 영역 안에서 flex로 중앙 정렬되도록 고정 padding 방식을 제거했고(잘림 방지), 카드 메타 라인에도 방어적 말줄임을 추가했다. 블로그 저장 카드: 프롬프트 복사 버튼이 빠지면서 확보된 여유 공간과 min-height 상향(280px)으로 저장 버튼/최종 미리보기/패키지 진단 버튼이 항상 온전히 보이도록 재확인했다. 블로그 지시서 복사 팝업과 저장 확인 팝업에 '고정 크기, 내부 스크롤 금지' 전용 스타일(popup-panel--fixed, popup-panel__scroll--noscroll)을 적용하고, 복사 완료 문구 영역에 항상 고정 공간을 예약해 팝업 높이가 변하지 않게 했다. Blogger 발행 품질 고도화: package-diagnosis-module.js에 '최종 업데이트 날짜 위치'와 '소제목 간격' 진단 2항목을 추가했다(기존 v6.2 구조 진단 5항목과 합쳐 총 7항목, 전부 정상/주의/수정 필요 3단계). blogger-final-preview-module.js에 '발행 전 체크리스트' 6항목(제목 중복/대표 이미지 위치/첫 이미지=대표이미지/문단 길이/박스형 구성/공식링크·FAQ)을 추가하고, 본문 미리보기를 실제 Blogger 모바일 화면과 비슷한 프레임(.mobile-preview-frame)으로 감쌌다. 블로그자료 생성 기준: data/blog-writing-prompt-v6.2.txt에 '주제 반복 방지(카테고리 분산)' 섹션(2-4)을 신규 추가했다 — 전기/에너지 계열 주 1~2회 이하, 생활비/세금/보험/통신/자동차/카드/정부지원/소비비교로 분산. 패키지 진단 팝업에도 이 기준을 안내 문구로 반영했다. 절대 보호 흐름(블로그자료 ZIP 업로드 → 업로드 확인 → 게시판 저장 → 글 선택 → R2 이미지 업로드 → Blogger 임시저장)과 핵심 모듈 9개(auth/upload/library/storage/preview/r2-image/worker-api/blogger-save/zip-reader) 및 css/base.css는 전혀 수정하지 않았다(diff 100% 동일 확인). 신규/보조 기능은 이번에도 전부 기존 GptCoreAPI/safeInit 안전 연결 구조를 그대로 사용했다. [v1.6.1 레이아웃 실기보정] iPhone 실기 화면 기준으로 CSS/HTML만 최소 수정: 업로드/게시판 카드 높이를 서로 가깝게 통일(min-height 108px, 게시판 max-height 120px), 블로그 저장 카드 min-height를 실측 예산(230px)에 맞춰 낮춤, 블로그 지시서 복사 버튼 위 가로줄 제거 및 카드 간 간격을 workbench 기존 gap과 동일하게 정리, 업로드 버튼 문구를 \"블로그 자료 ZIP 선택\"으로 변경, 게시글 제목을 1줄에서 2줄(-webkit-line-clamp) 말줄임으로 변경, 설정창 오류 목록 버튼 3개를 축소(btn--compact)하고 \"오류 백과사전 / 로그 복사\"를 \"오류 백과사전\"으로 축약, 설정 섹션 구분선을 더 연하게 조정. JS 파일은 단 한 줄도 수정하지 않았다(diff 100% 동일 확인).",
   "storagePriority": [
     "indexedDB",
     "localStorage"
@@ -35,8 +35,7 @@
     "error-dictionary-module.js",
     "worker-status-module.js",
     "save-history-module.js",
-    "retry-module.js",
-    "naver-copy-module.js"
+    "retry-module.js"
   ],
   "newModulesV1_4": [
     "blogger-final-preview-module.js",
@@ -60,8 +59,5 @@
     "vendor/zip-reader.js"
   ],
   "blogWritingPromptVersion": "v6.2",
-  "blogWritingPromptFile": "data/blog-writing-prompt-v6.2.txt",
-  "newModulesV1_6_3": [
-    "naver-copy-module.js"
-  ]
+  "blogWritingPromptFile": "data/blog-writing-prompt-v6.2.txt"
 }
