@@ -1,4 +1,10 @@
-/* components.css - 버튼, 카드, 리스트, 뱃지 등 컴포넌트 스타일 */
+/* ============================================================
+   components.css — 버튼, 카드, 리스트, 뱃지 등 컴포넌트 스타일
+   v1.6.2: 레이아웃 전면 재작성. 전체 구조/값은 대부분 기존과 동일하게
+   유지하고, 아래 두 가지만 실질적으로 손봤다(나머지는 파일 정리만 진행).
+   1) .save-target 중복 정의 제거 — layout.css 한 곳에만 남긴다.
+   2) .library-item__meta 뱃지 잘림 버그 수정 — flex 정렬로 교체.
+   ============================================================ */
 
 /* ---------- 버튼 ---------- */
 .btn {
@@ -36,7 +42,7 @@
   cursor: not-allowed;
 }
 
-/* v1.3: 메인 저장 버튼보다 덜 강조되는 보조 버튼(블로그 지시서 복사 등) */
+/* 메인 저장 버튼보다 덜 강조되는 보조 버튼(블로그 지시서 복사 등) */
 .btn--ghost {
   background-color: transparent;
   border: 1.5px solid var(--color-border);
@@ -47,7 +53,7 @@
   background-color: var(--color-bg-soft);
 }
 
-/* v1.3: 게시판 데이터 초기화 등 되돌릴 수 없는 동작에 사용하는 강조 버튼 */
+/* 게시판 데이터 초기화 등 되돌릴 수 없는 동작에 사용하는 강조 버튼 */
 .btn--danger {
   background-color: var(--color-danger-bg);
   color: var(--color-danger);
@@ -57,7 +63,7 @@
   background-color: #f7d7d3;
 }
 
-/* v1.2: 패널 헤더 안에 들어가는 작은 보조 버튼(전체 게시판 등) */
+/* 패널 헤더 안에 들어가는 작은 보조 버튼(전체 게시판 등) */
 .panel-header-btn {
   flex-shrink: 0;
   min-height: 30px;
@@ -90,7 +96,7 @@
   outline-offset: 1px;
 }
 
-/* v1.2: 블로그 지시서 복사 실패 시 직접 선택/복사할 수 있는 fallback textarea */
+/* 블로그 지시서 복사 실패 시 직접 선택/복사할 수 있는 fallback textarea */
 .prompt-copy-fallback {
   width: 100%;
   min-height: 160px;
@@ -139,7 +145,7 @@
   opacity: 0.85;
 }
 
-/* v1.3: 설정창 안의 작은 파일 선택 버튼(TXT 지시서 불러오기) */
+/* 설정창 안의 작은 파일 선택 버튼(TXT 지시서 불러오기) */
 .settings-file-label {
   min-height: 44px;
   font-size: 14px;
@@ -154,8 +160,8 @@
   word-break: break-all;
 }
 
-/* v1.6 레이아웃 실기보정(8-2): 파일명이 아직 없을 때는 여백도 없앤다. 그래야
-   ZIP 선택 버튼이 업로드 카드 안에서 위아래로 안정적으로(중앙) 위치한다. */
+/* 파일명이 아직 없을 때는 여백도 없앤다. 그래야 ZIP 선택 버튼이 업로드
+   카드 안에서 위아래로 안정적으로(중앙) 위치한다. */
 .upload-filename:empty {
   margin: 0;
 }
@@ -253,10 +259,10 @@
   background-color: var(--color-bg-soft);
 }
 
-/* v1.6 레이아웃 실기보정(9-3): 제목이 길 때 1줄로 강제 자르지 않고 최대 2줄까지
-   보여준 뒤 말줄임 처리한다(iOS Safari가 지원하는 -webkit-line-clamp 사용).
-   그 이상 길어져 카드가 max-height를 넘으면 panel__body--scroll의 기존 내부
-   스크롤로 흡수된다(잘림이 아니라 스크롤). */
+/* 제목이 길 때 1줄로 강제 자르지 않고 최대 2줄까지 보여준 뒤 말줄임
+   처리한다(iOS Safari가 지원하는 -webkit-line-clamp 사용). 그 이상
+   길어져 카드가 max-height를 넘으면 panel__body--scroll의 내부 스크롤로
+   흡수된다(잘림이 아니라 스크롤). */
 .library-item__title {
   font-size: 14px;
   font-weight: 600;
@@ -269,12 +275,18 @@
   overflow: hidden;
 }
 
+/* 날짜 + 상태 배지 한 줄. 기존에는 white-space:nowrap + text-overflow:
+   ellipsis 방식이었는데, 배지(status-badge)가 inline-block이라 줄 높이보다
+   커질 경우 overflow:hidden에 위아래가 잘려 보이는 문제가 있었다. flex
+   행으로 바꿔 배지 높이만큼 자동으로 정렬되게 하여(align-items:center)
+   "날짜/상태 배지 잘림 금지" 기준을 만족시킨다. */
 .library-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   color: var(--color-text-soft);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .archive-item--empty {
@@ -284,9 +296,9 @@
   padding: 40px 12px;
 }
 
-/* v1.6(10장): 게시판 "글 없음" 안내 문구는 고정 padding으로 높이를 밀어내지
-   않고, 남은 공간 안에서 항상 중앙 정렬되게 한다. panel--library의 높이 상한
-   (128px)과 무관하게 잘리거나 아래쪽에 애매하게 걸치지 않는다. */
+/* 게시판 "글 없음" 안내 문구는 고정 padding으로 높이를 밀어내지 않고,
+   남은 공간 안에서 항상 중앙 정렬되게 한다. panel--library의 높이 상한과
+   무관하게 잘리거나 아래쪽에 애매하게 걸치지 않는다. */
 #library-empty {
   flex: 1;
   display: flex;
@@ -338,8 +350,8 @@
   color: var(--color-text-soft);
 }
 
-/* v1.6(16장): 최종 HTML 미리보기의 본문을 실제 Blogger 모바일 발행 화면과
-   더 비슷하게 보이도록 감싸는 프레임. 폭을 좁혀 실제 스마트폰 화면 느낌을 준다. */
+/* 최종 HTML 미리보기의 본문을 실제 Blogger 모바일 발행 화면과 더 비슷하게
+   보이도록 감싸는 프레임. 폭을 좁혀 실제 스마트폰 화면 느낌을 준다. */
 .mobile-preview-frame {
   max-width: 340px;
   margin: 0 auto;
@@ -406,13 +418,9 @@
   word-break: keep-all;
 }
 
-/* ---------- 저장 모듈 ---------- */
-.save-target {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
+/* ---------- 저장 모듈 ----------
+   ※ .save-target 자체의 flex 구조 정의는 layout.css로 일원화했다(중복
+   제거). 여기서는 그 내부 텍스트/리스트 컴포넌트 스타일만 둔다. */
 .save-target-title {
   font-size: 15px;
   font-weight: 600;
@@ -445,7 +453,7 @@
   margin-top: 8px;
 }
 
-/* v1.2: 미리보기 팝업 상단 안내 영역(업로드 확인 문구 등). 내용이 없으면 여백도 없앤다. */
+/* 미리보기 팝업 상단 안내 영역(업로드 확인 문구 등). 내용이 없으면 여백도 없앤다. */
 #preview-popup-notice:empty {
   margin: 0;
 }
@@ -454,8 +462,8 @@
   margin-bottom: 10px;
 }
 
-/* v1.5(A-4): 경고성 안내문 아래 버튼/입력 요소와의 간격을 넉넉하게 둬서
-   백업/복원 팝업처럼 문구가 긴 경우에도 답답해 보이지 않게 한다. */
+/* 경고성 안내문 아래 버튼/입력 요소와의 간격을 넉넉하게 둬서 백업/복원
+   팝업처럼 문구가 긴 경우에도 답답해 보이지 않게 한다. */
 .notice-text--warning {
   color: var(--color-warn);
   margin-bottom: 10px;
@@ -489,9 +497,9 @@
   margin-top: 2px;
 }
 
-/* ---------- v1.3: 설정 팝업 구획 ---------- */
-/* v1.6 레이아웃 실기보정(11-4): 구분선은 삭제하지 않고, 색을 더 연하게(반투명)
-   조정해 버튼 영역과 다음 섹션 사이 시각적 무게가 과해 보이지 않게 했다. */
+/* ---------- 설정 팝업 구획 ----------
+   구분선은 삭제하지 않고, 색을 더 연하게(반투명) 유지해 버튼 영역과 다음
+   섹션 사이 시각적 무게가 과해 보이지 않게 한다. */
 .settings-section {
   padding-bottom: 16px;
   margin-bottom: 16px;
@@ -514,7 +522,7 @@
   border-bottom: none;
 }
 
-/* v1.3: 설정창 "오류 목록" 섹션의 최근 오류 미니 목록. 오류 목록 팝업(error-item)과
+/* 설정창 "오류 목록" 섹션의 최근 오류 미니 목록. 오류 목록 팝업(error-item)과
    같은 시각 언어를 쓰되 카드 형태로 묶어 구분감을 준다. */
 .error-list-compact {
   display: flex;
@@ -534,7 +542,7 @@
   padding: 16px 12px;
 }
 
-/* ---------- v1.4: 패키지 진단(정상/주의/수정 필요 3단계, 점수 아님) ---------- */
+/* ---------- 패키지 진단(정상/주의/수정 필요 3단계, 점수 아님) ---------- */
 .diagnosis-list {
   display: flex;
   flex-direction: column;
@@ -589,7 +597,7 @@
   background-color: var(--color-danger-bg);
 }
 
-/* ---------- v1.4: 오류 백과사전(에러코드 안내) ---------- */
+/* ---------- 오류 백과사전(에러코드 안내) ---------- */
 .error-dictionary-list {
   display: flex;
   flex-direction: column;
@@ -631,7 +639,7 @@
   color: var(--color-text);
 }
 
-/* ---------- v1.4: 게시글 상태 표시줄(post-status-module.js 전용, save-target 안) ---------- */
+/* ---------- 게시글 상태 표시줄(post-status-module.js 전용, save-target 안) ---------- */
 .post-status-line {
   font-size: 12px;
   color: var(--color-text-soft);
