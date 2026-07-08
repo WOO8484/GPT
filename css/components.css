@@ -299,21 +299,28 @@
   margin: 0;
 }
 
-/* v1.6.2: 블로그 저장 영역의 "글을 선택하세요" 안내는 panel--save가 남은
-   공간을 크게 차지하더라도 화면 중앙에 크게 뜨지 않도록 작게, 상단에
-   가깝게 표시한다(카드창 제거 후 큰 빈칸으로 보이는 문제 방지).
-   v1.6.2(9장): 이 안내 영역 자체는 css/layout.css에서 항상 숨김 처리했다
-   (블로그스팟 저장 영역이 항상 보이며 같은 안내를 대신 하기 때문). */
+/* v1.6.2(작업5): "게시판에서 글을 선택하세요" 안내는 index.html에서 기본
+   hidden 클래스로 처리한다(js/app-core.js가 더 이상 이 요소의 표시를
+   토글하지 않는다 — 블로그스팟 영역이 항상 보이고 #post-status-line이
+   같은 안내를 대신 하기 때문). */
 #save-empty {
   padding: 16px 0;
   text-align: left;
 }
 
-/* v1.6.2(9장): post-status-module.js(수정 금지 대상)가 만드는
-   "현재 상태: ... · 날짜" 형식 문구는 신규 상태 표기 규칙과 맞지 않아
-   화면에서 숨긴다. 모듈 자체의 기록/계산 로직에는 영향이 없다(표시만 숨김). */
-#post-status-line {
+/* v1.6.2(작업3): 블로그스팟 영역은 네이버 영역처럼 "현재 상태"만 한 줄로
+   보여준다. js/app-core.js의 renderSavePanel()이 더 이상 #save-target-title
+   (반복 글 제목)과 #save-target-status(등록됨 등 원본 상태 배지)를 채우지
+   않도록 정리했다(이번 작업 허용 범위인 "상태 문구 정리"). 두 요소는 id
+   유지를 위해 DOM에는 남겨두되, 내용이 없을 때 자연스럽게 공간을 차지하지
+   않도록 기존 .post-status-line:empty와 같은 방식으로 처리한다(강제
+   display:none 숨김이 아니라 "비어 있을 때만" 접히는 방식). 같은 자리의
+   #post-status-line(이번 작업에서 날짜/시간 표기만 제거)이 "현재 상태:
+   게시판 저장 완료"처럼 실제 상태를 한 줄로 표시한다. */
+#save-target-title:empty,
+#save-target-status:empty {
   display: none;
+  margin: 0;
 }
 
 /* ---------- 네이버 수동 복사(v1.6.2, 단독 기능) ---------- */
@@ -323,10 +330,12 @@
   color: var(--color-text);
 }
 
+/* v1.6.2(작업7): 상태 문구와 바로 아래 버튼 사이 간격 보정. */
 .naver-copy-status {
   font-size: 12px;
   color: var(--color-text-soft);
   margin-top: 2px;
+  margin-bottom: 8px;
 }
 
 .naver-copy-grid .btn {
@@ -480,11 +489,14 @@
 }
 
 /* ---------- 안내 문구 ---------- */
+/* v1.6.2(작업7): 설명문/안내문 바로 아래 버튼이 붙어 보이지 않도록 공통
+   하단 여백을 추가했다(팝업 설명문 → 버튼, 안내문 → 버튼 등 공통 적용). */
 .notice-text {
   font-size: 13px;
   line-height: 1.6;
   color: var(--color-text-soft);
   margin-top: 8px;
+  margin-bottom: 10px;
 }
 
 /* v1.2: 미리보기 팝업 상단 안내 영역(업로드 확인 문구 등). 내용이 없으면 여백도 없앤다. */

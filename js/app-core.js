@@ -338,21 +338,21 @@ function closeBoardPopup() {
    신규 모듈과 무관하게 항상 연결된다.
    ---------------------------------------------------------- */
 function renderSavePanel() {
-  const emptyEl = document.getElementById("save-empty");
-  const targetEl = document.getElementById("save-target");
-
+  // v1.6.2(작업3/5): 블로그스팟 영역(제목/현재 상태/저장 버튼/보조 도구)을
+  // 더 이상 숨기지 않는다(글 선택 여부와 무관하게 항상 표시). #save-empty는
+  // index.html 기본 클래스로 항상 숨겨두고, #save-target은 index.html
+  // 기본값 그대로 항상 보이므로 이 함수에서는 별도로 hidden 클래스를
+  // 토글하지 않는다.
+  // v1.6.2(작업3): #save-target-title(반복되는 글 제목)과 #save-target-status
+  // (등록됨 등 원본 상태 배지)는 더 이상 채우지 않는다 — 같은 자리의
+  // #post-status-line(post-status-module.js)이 "현재 상태: ..." 한 줄로
+  // 대신 표시한다. 두 id는 유지하되(6장) 내용은 비워둔다.
   const post = selectedPostId ? LibraryModule.getPostById(selectedPostId) : null;
   if (!post) {
-    emptyEl.classList.remove("hidden");
-    targetEl.classList.add("hidden");
     notifyLifecycle("post-selected", { post: null });
     return;
   }
 
-  emptyEl.classList.add("hidden");
-  targetEl.classList.remove("hidden");
-  document.getElementById("save-target-title").textContent = post.title;
-  document.getElementById("save-target-status").innerHTML = `<span class="status-badge ${statusBadgeClass(post.saveStatus)}">${escapeHtml(post.saveStatus)}</span>`;
   document.getElementById("save-progress-list").innerHTML = "";
   document.getElementById("save-start-btn").disabled = false;
 

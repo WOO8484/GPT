@@ -68,11 +68,15 @@ const PostStatusModule = (() => {
     const line = document.getElementById("post-status-line");
     if (!line) return;
     if (!post) {
-      line.textContent = "";
+      // v1.6.2(작업5/11): "현재 상태: 글 미선택"은 요구 상태 표기 목록에 포함된
+      // 값이라 이 파일의 허용 수정 범위(현재 상태 문구 정리) 안에서 채운다.
+      line.textContent = "현재 상태: 글 미선택";
       return;
     }
     const entry = getStatus(post.id);
-    line.textContent = entry ? `현재 상태: ${entry.status}${entry.updatedAt ? " · " + formatDate(entry.updatedAt) : ""}` : "";
+    // v1.6.2(작업5/11): 금지된 "· 날짜/시간" 접미사를 제거했다. 날짜 자체는
+    // 계속 기록/저장하지만(recordStatus, formatDate) 화면 문구에는 붙이지 않는다.
+    line.textContent = entry ? `현재 상태: ${entry.status}` : "";
   }
 
   function handleLifecycle(eventName, payload) {

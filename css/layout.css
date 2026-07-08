@@ -182,20 +182,6 @@
   min-height: 0;
 }
 
-/* v1.6.2(9장): 블로그 임시저장 시작/최종 미리보기/패키지 진단 버튼은 글 선택
-   여부와 무관하게 항상 표시한다. app-core.js의 선택 상태 토글 로직(수정 금지
-   대상)은 그대로 두고, CSS 우선순위로만 표시를 강제한다. base.css의
-   .hidden{display:none !important;}보다 더 구체적인 선택자로 덮어쓴다. */
-#save-target.hidden {
-  display: flex !important;
-}
-
-/* 위와 짝을 이루는 "게시판에서 글을 선택하세요" 안내는 더 이상 필요 없다
-   (블로그스팟 영역이 항상 보이며 "현재 상태: 글 미선택"으로 같은 안내를 한다). */
-#save-empty {
-  display: none !important;
-}
-
 .save-target-fixed {
   flex-shrink: 0;
 }
@@ -208,10 +194,7 @@
   gap: 10px;
 }
 
-/* v1.6.2: 하단 큰 "블로그 지시서 복사" 버튼 영역을 상단 아이콘으로 옮기면서
-   bottom-actions는 더 이상 사용하지 않는다(index.html에서 해당 div 제거). */
-
-/* v1.6.2: 네이버 수동 복사 영역(단독 기능). 블로그스팟 저장 버튼 영역(제목/상태/
+/* v1.6.2: 네이버 수동 복사 영역(단독 기능). 블로그스팟 저장 버튼 영역(현재 상태/
    저장 버튼/보조 도구) 바로 아래, save-progress-list 위에 위치한다. 항상 고정
    크기만 차지해(flex-shrink:0) 모바일에서 하단이 밀리지 않게 한다. */
 .naver-copy-section {
@@ -263,9 +246,13 @@
 .panel--upload .panel__body {
   justify-content: center;
 }
+/* v1.6.2(작업1): 글이 하나도 없는 상태 기준(140px)으로 높이를 잡으면 글이
+   1개만 등록돼도 카드 하단(날짜/배지)이 잘렸다. 제목 2줄 + 날짜/배지가 모두
+   보이는 카드 1개 + 헤더가 넉넉히 들어가도록 높이를 늘렸다. 카드가 2개 이상
+   되어야 panel__body--scroll의 기존 내부 스크롤이 사용된다. */
 .panel--library {
   flex: 0 0 auto;
-  max-height: 140px;
+  max-height: 200px;
 }
 .panel--save {
   flex: 1 1 0;
@@ -327,17 +314,24 @@
   box-shadow: 0 20px 50px rgba(20, 24, 33, 0.25);
 }
 
-/* v1.6(12장): "고정 크기, 내부 스크롤 금지" 팝업 전용(블로그 지시서 복사 팝업,
-   저장 확인 팝업 등). 콘텐츠가 늘거나 줄어도(예: 복사 완료 문구) 팝업 자체
-   크기가 절대 바뀌지 않는다. 내부 요소들이 이 높이 안에 항상 들어가도록
-   여백/글자 수를 설계했다(아래 prompt-copy-result 참고). */
+/* v1.6.2(작업6): 블로그 지시서 복사 팝업 전용. 이전 고정 420px는 내용보다
+   훨씬 커서 하단에 빈 공간이 많았다. 내용 기준 높이(auto)로 compact하게
+   줄이고, 화면이 작아 내용이 넘칠 때만 상한(max-height)에서 내부
+   스크롤되게 한다(무조건 스크롤 금지가 아니라 "필요할 때만" 허용). */
 .popup-panel--fixed {
-  height: 420px;
+  height: auto;
   max-height: 82vh;
 }
 
 .popup-panel__scroll--noscroll {
   overflow-y: hidden;
+}
+
+/* v1.6.2(작업6): 위 --noscroll 기본값(스크롤 금지)은 저장 확인 팝업처럼
+   내용이 항상 짧은 팝업에는 그대로 유지하고, 지시서 복사 팝업(.popup-panel--fixed)
+   에서만 내용이 넘칠 경우에 한해 내부 스크롤을 허용한다. */
+.popup-panel--fixed .popup-panel__scroll--noscroll {
+  overflow-y: auto;
 }
 
 /* v1.6(12장): 복사 완료 문구가 뜨기 전에도 항상 같은 높이를 차지해서, 문구가

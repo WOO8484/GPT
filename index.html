@@ -65,23 +65,34 @@
         </div>
       </section>
 
-      <section class="panel panel--save" aria-label="블로그 저장">
-        <div class="panel__header">📝 블로그 저장</div>
+      <section class="panel panel--save" aria-label="블로그스팟">
+        <div class="panel__header">📝 블로그스팟</div>
         <div class="panel__body">
-          <div id="save-empty" class="archive-item--empty">게시판에서 글을 선택하세요.</div>
-          <div id="save-target" class="save-target hidden">
+          <!-- v1.6.2(작업5): js/app-core.js가 더 이상 이 요소의 표시를 토글하지
+               않는다. 블로그스팟 영역(#save-target)이 항상 보이고 #post-status-line이
+               같은 안내를 대신 하므로 기본값으로 항상 숨김 처리한다. -->
+          <div id="save-empty" class="archive-item--empty hidden">게시판에서 글을 선택하세요.</div>
+          <!-- v1.6.2(작업5): 더 이상 hidden 기본값을 두지 않는다(글 선택 여부와
+               무관하게 항상 표시). js/app-core.js도 이 요소의 hidden 클래스를
+               더 이상 토글하지 않는다(renderSavePanel() 참고). -->
+          <div id="save-target" class="save-target">
             <!-- v1.5(A-2): 제목/상태/저장 버튼/보조 도구는 항상 고정 노출되는 영역이다.
                  스크롤 대상이 아니므로 모바일에서도 하단이 잘리지 않는다. -->
             <div class="save-target-fixed">
-              <!-- v1.6.2(9장): 글 미선택 상태에서도 항상 보이는 기본 문구.
-                   글이 선택되면 app-core.js(수정 금지)가 그대로 덮어쓴다. -->
-              <div id="save-target-title" class="save-target-title">선택된 글 없음</div>
-              <div id="save-target-status" class="save-target-status">현재 상태: 글 미선택</div>
-              <!-- v1.4: post-status-module.js 전용 표시 영역(선택 기능). 요소가 있으면
-                   해당 모듈이 채우고, 없거나 모듈이 죽어도 나머지 저장 흐름은 그대로 동작한다.
-                   v1.6.2(9장): 이 모듈이 만드는 "현재 상태: ... · 날짜" 표기가 신규 상태
-                   표기 규칙과 맞지 않아 CSS로 숨김 처리했다(css/components.css 참고).
-                   모듈 자체(js/post-status-module.js)는 수정 금지 대상이라 그대로 둔다. -->
+              <!-- v1.6.2(작업3): 선택된 글 제목을 다시 크게 반복 표시하지 않는다.
+                   js/app-core.js가 더 이상 이 요소를 채우지 않아 항상 비어 있고,
+                   css/components.css의 :empty 규칙으로 자연스럽게 공간을 차지하지
+                   않는다(id는 유지). -->
+              <div id="save-target-title" class="save-target-title"></div>
+              <!-- v1.6.2(작업3): "등록됨" 같은 원본 상태 배지를 별도 줄로 보여주지
+                   않는다. js/app-core.js가 더 이상 이 요소를 채우지 않는다(id 유지).
+                   실제 "현재 상태"는 바로 아래 #post-status-line이 담당한다. -->
+              <div id="save-target-status" class="save-target-status"></div>
+              <!-- v1.4: post-status-module.js 전용 표시 영역. v1.6.2(작업3/5/11):
+                   블로그스팟 영역의 유일한 "현재 상태" 표시줄로 사용한다.
+                   "현재 상태: 글 미선택 / 게시판 저장 완료 / 저장 실패" 등으로
+                   표시되며(post-status-module.js에서 날짜/시간 표기만 제거),
+                   더 이상 CSS로 숨기지 않는다. -->
               <div id="post-status-line" class="post-status-line"></div>
 
               <!-- v1.6.2(9장): 글 미선택 상태에서는 기본적으로 비활성화. 글 선택 시
@@ -98,10 +109,10 @@
               </div>
             </div>
 
-            <!-- v1.6.2: 네이버 수동 복사 영역(신규, 단독 기능). 네이버는 자동 저장이
-                 아니며, 선택된 글의 제목/본문/이미지 URL/태그를 클립보드로 복사하는
-                 수동 보조 도구다. js/naver-copy-module.js가 단독으로 관리하고 기존
-                 Blogger 저장 흐름에는 전혀 개입하지 않는다. -->
+            <!-- v1.6.2: 네이버 수동 복사 영역(단독 기능, 이번 작업에서 로직 미수정).
+                 네이버는 자동 저장이 아니며, 선택된 글의 제목/본문/이미지 URL/태그를
+                 클립보드로 복사하는 수동 보조 도구다. js/naver-copy-module.js가
+                 단독으로 관리하고 기존 Blogger 저장 흐름에는 전혀 개입하지 않는다. -->
             <div id="naver-copy-section" class="naver-copy-section">
               <div class="naver-copy-section__header">🟢 네이버</div>
               <div id="naver-copy-status" class="naver-copy-status">현재 상태: 게시글 선택 필요</div>
@@ -199,7 +210,7 @@
   <div id="popup-save-confirm-overlay" class="popup-overlay">
     <div class="popup-panel">
       <div class="popup-panel__header">
-        <h2>📝 블로그 저장 확인</h2>
+        <h2>📝 블로그스팟 확인</h2>
         <button id="save-confirm-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
       </div>
       <div class="popup-panel__scroll popup-panel__scroll--noscroll">
