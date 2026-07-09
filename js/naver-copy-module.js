@@ -9,8 +9,9 @@
  *   표시/복사는 팝업(#popup-naver-copy-overlay) 안에서 처리한다.
  * - 네이버 이미지 팝업 최종 정리: 구버전 이미지 안내 문구/버튼을 제거하고,
  *   대신 "이미지 목록 팝업"(#popup-naver-image-list-overlay)에서 썸네일 →
- *   본문 이미지 순서로 미리보기를 보여주고, 이미지마다 [이미지 열기] 버튼
- *   하나만 둔다(저장/다운로드/크게보기 버튼 없음, 새 창에서 단독 표시만 한다).
+ *   본문 이미지 순서로 미리보기를 보여주고, 이미지마다 [이미지 다운로드] 버튼
+ *   하나만 둔다(저장 안내 문구/크게보기 버튼 없음, 클릭 시 파일 다운로드를
+ *   시도하고 브라우저 정책으로 막히면 새 창 표시로 대체한다).
  *   본문 이미지 개수는 고정하지 않고 post.imageFiles의 role(썸네일/본문 번호)
  *   기준으로 동적으로 표시한다.
  *
@@ -67,7 +68,7 @@ const NaverCopyModule = (() => {
   }
 
   // 이미지 목록 팝업 전용 DOM(네이버 이미지 팝업 최종 정리). 안내문/저장/크게보기
-  // 없이 "이미지 목록 팝업" + 이미지마다 [이미지 열기] 버튼 하나만 사용한다.
+  // 없이 "이미지 목록 팝업" + 이미지마다 [이미지 다운로드] 버튼 하나만 사용한다.
   function imageListEls() {
     return {
       openBtn: document.getElementById("naver-image-list-open-btn"),
@@ -104,24 +105,41 @@ const NaverCopyModule = (() => {
     return (post && post.metadata) || {};
   }
 
-  // v7.2: 네이버 태그 특수문자 금지. # , ( ) / ! ? " ' : ; _ 등
-  // 금지 문자를 제거하고, 빈 태그/중복 태그도 정리한다.
-  const NAVER_TAG_FORBIDDEN_RE = /[#,()/!?"':;_]/g;
+  // v1.8.3: 네이버 태그 최종 정제(실기 오류 수정). naver_tags.txt 또는
+  // metadata.naver_tags 어느 쪽에서 와도 화면 표시/복사 직전에 반드시 이
+  // 파이프라인을 통과시킨다. "#뢰출, 호우주의보, 날씨확인지역 키워드: 정보
+  // 없음"처럼 라벨/값이 태그 뒤에 공백 없이 붙어오는 실기 오류를, 라벨
+  // 문구를 구분자로 바꿔 분리한 뒤 플레이스홀더 값을 제거하는 방식으로 고친다.
+  const NAVER_TAG_LABEL_RE = /(지역\s*키워드|키워드|태그)\s*[:：]/g;
+  const NAVER_TAG_SPLIT_RE = /[\n,#]+|\s{2,}/g;
+  const NAVER_TAG_PUNCT_RE = /[:：;；,，#()（）\[\]{}/\\'"“”‘’]/g;
+  const NAVER_TAG_PLACEHOLDER_SET = new Set(["정보없음", "정보 없음", "없음", "null", "undefined", "-", ""]);
+  const NAVER_TAG_MAX_COUNT = 10;
 
-  function cleanNaverTag(tag) {
-    return String(tag || "").replace(NAVER_TAG_FORBIDDEN_RE, "").trim();
-  }
+  // raw는 문자열(naver_tags.txt 원문) 또는 배열(metadata.naver_tags)일 수 있다.
+  function cleanNaverTagsFromRaw(raw) {
+    const source = Array.isArray(raw) ? raw.join("\n") : String(raw || "");
+    if (!source.trim()) return [];
 
-  function cleanNaverTagList(list) {
+    // 1) "지역 키워드:" / "키워드:" / "태그:" 라벨은 구분자로 바꾸고 라벨
+    //    자체는 버린다(태그 뒤에 공백 없이 붙어와도 여기서 분리된다).
+    let text = source.replace(NAVER_TAG_LABEL_RE, "\n");
+
+    // 2) 줄바꿈 / 쉼표 / # / 공백 2개 이상을 전부 구분자로 통일한다.
+    text = text.replace(NAVER_TAG_SPLIT_RE, "\n");
+
     const seen = new Set();
     const cleaned = [];
-    list.forEach((raw) => {
-      const tag = cleanNaverTag(raw);
-      if (!tag || seen.has(tag)) return;
+    text.split("\n").forEach((token) => {
+      const tag = token.replace(NAVER_TAG_PUNCT_RE, "").trim();
+      if (!tag) return;
+      if (NAVER_TAG_PLACEHOLDER_SET.has(tag) || NAVER_TAG_PLACEHOLDER_SET.has(tag.toLowerCase())) return;
+      if (seen.has(tag)) return;
       seen.add(tag);
       cleaned.push(tag);
     });
-    return cleaned;
+
+    return cleaned.slice(0, NAVER_TAG_MAX_COUNT);
   }
 
   // v7.2: selected_topic.md는 "## N. 필드명" 형식 섹션으로 구성된다(지시문 9장).
@@ -150,35 +168,29 @@ const NaverCopyModule = (() => {
 
   // 신규 작업지침서(카테고리별 TOP1 전체 ZIP 업로드 처리) 10장: "네이버 태그는
   // naver_tags.txt를 우선 사용한다." naver_tags.txt가 있으면 그것을 먼저 쓰고,
-  // 없을 때만 metadata.naver_tags로 보조한다(이전 라운드와 우선순위 반대).
+  // 없을 때만 metadata.naver_tags로 보조한다.
   function getTags(post) {
     const rawFile = (post && post.naverTagsTxt) || "";
-    if (rawFile.trim()) {
-      const lines = rawFile.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-      return cleanNaverTagList(lines);
-    }
+    if (rawFile.trim()) return cleanNaverTagsFromRaw(rawFile);
+
     const meta = getMeta(post);
     if (Array.isArray(meta.naver_tags) && meta.naver_tags.length) {
-      return cleanNaverTagList(meta.naver_tags.filter(Boolean));
+      return cleanNaverTagsFromRaw(meta.naver_tags);
     }
     return [];
   }
 
-  // v7.2: 화면에는 항상 정리된(특수문자 제거) 태그만 표시/복사하지만, 원본에
-  // 특수문자가 있었는지도 함께 알려준다("네이버 태그: 통과" / "정리됨").
-  function getRawTagSource(post) {
-    const raw = (post && post.naverTagsTxt) || "";
-    if (raw.trim()) return raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const meta = getMeta(post);
-    if (Array.isArray(meta.naver_tags) && meta.naver_tags.length) return meta.naver_tags.map(String);
-    return [];
-  }
+  // v1.8.3: 원본에 특수문자/라벨/플레이스홀더 등 정제가 필요한 부분이
+  // 있었는지 확인한다("네이버 태그: 통과" / "정리됨"). 실제 표시/복사되는
+  // 값은 항상 cleanNaverTagsFromRaw()를 거친 결과이므로, 이 검사는 안내용이다.
+  const NAVER_TAG_DIRTY_TEST_RE = /[:：;；,，#()（）\[\]{}/\\'"“”‘’]|정보\s*없음|없음|null|undefined/i;
 
   function getTagCheckStatus(post) {
-    const rawTags = getRawTagSource(post);
-    if (!rawTags.length) return "";
-    const hadForbidden = rawTags.some((tag) => /[#,()/!?"':;_]/.test(tag));
-    return hadForbidden ? "정리됨(원본에 특수문자 있었음)" : "네이버 태그: 통과";
+    const rawFile = (post && post.naverTagsTxt) || "";
+    const meta = getMeta(post);
+    const rawSource = rawFile.trim() ? rawFile : (Array.isArray(meta.naver_tags) ? meta.naver_tags.join("\n") : "");
+    if (!rawSource.trim()) return "";
+    return NAVER_TAG_DIRTY_TEST_RE.test(rawSource) ? "정리됨(원본에 정제 필요한 부분 있었음)" : "네이버 태그: 통과";
   }
 
   function getLocationKeywords(meta) {
@@ -291,6 +303,10 @@ const NaverCopyModule = (() => {
     });
   }
 
+  // v1.8.3: 네이버 태그 복사 오류 수정. 복사되는 문자열은 반드시 "태그1\n태그2\n
+  // 태그3"처럼 정제된 태그만 한 줄에 하나씩 담는다. "태그:"/"지역 키워드:" 같은
+  // 라벨이나 "지역 키워드: 정보 없음" 같은 빈 값 줄은 절대 포함하지 않는다
+  // (지역 키워드가 실제로 있을 때만 태그 뒤에 같은 방식으로 이어 붙인다).
   function handleCopyTagLocation() {
     const { resultEl } = els();
     withSelectedPost(resultEl, (post) => {
@@ -301,9 +317,7 @@ const NaverCopyModule = (() => {
         resultEl.textContent = "복사할 태그/지역 키워드가 없습니다(metadata에 없음).";
         return;
       }
-      const lines = [];
-      lines.push(`태그: ${tags.length ? tags.join(", ") : EMPTY_LABEL}`);
-      lines.push(`지역 키워드: ${location.length ? location.join(", ") : EMPTY_LABEL}`);
+      const lines = [...tags, ...location];
       copyText(lines.join("\n"), resultEl, "태그/지역");
     });
   }
@@ -352,10 +366,23 @@ const NaverCopyModule = (() => {
     });
   }
 
-  // [이미지 열기]: 저장/다운로드가 아니라 단독 화면(새 창)으로 보여주기만 한다.
-  // 팝업 차단 등으로 새 창을 못 열면 같은 데이터를 새 탭으로 직접 여는 것으로 대체한다.
-  function openImage(dataUrl, fileName) {
+  // [이미지 다운로드](v1.8.3): 새 창으로 열기만 하던 동작을 실제 파일 다운로드
+  // 시도로 바꾼다. a 태그의 download 속성으로 다운로드를 시도하고, 브라우저
+  // 보안 정책 등으로 막히면 새 창 열기로 대체한다(버튼명은 계속 "이미지
+  // 다운로드"를 유지한다).
+  function downloadImage(dataUrl, fileName) {
     if (!dataUrl) return;
+    try {
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = fileName || "image.png";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    } catch (error) {
+      // 아래 fallback(새 창 열기)으로 진행
+    }
     try {
       const win = window.open("", "_blank");
       if (win && win.document) {
@@ -373,7 +400,7 @@ const NaverCopyModule = (() => {
         return;
       }
     } catch (error) {
-      // 아래 fallback으로 진행
+      // 아래 최종 fallback으로 진행
     }
     window.open(dataUrl, "_blank");
   }
@@ -409,8 +436,8 @@ const NaverCopyModule = (() => {
       const openImgBtn = document.createElement("button");
       openImgBtn.type = "button";
       openImgBtn.className = "btn btn--ghost btn--compact naver-image-item__open-btn";
-      openImgBtn.textContent = "이미지 열기";
-      openImgBtn.addEventListener("click", () => openImage(image.dataUrl, image.fileName));
+      openImgBtn.textContent = "이미지 다운로드";
+      openImgBtn.addEventListener("click", () => downloadImage(image.dataUrl, image.fileName));
 
       const info = document.createElement("div");
       info.className = "naver-image-item__info";
