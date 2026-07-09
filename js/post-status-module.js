@@ -93,7 +93,7 @@ const PostStatusModule = (() => {
     if (eventName === "upload-confirmed") {
       recordStatus(post.id, "업로드 확인 완료");
     } else if (eventName === "board-saved") {
-      recordStatus(post.id, "게시판 등록 완료");
+      recordStatus(post.id, "게시판 저장 완료");
     } else if (eventName === "board-save-failed") {
       recordStatus(post.id, "저장 실패", "게시판 저장 실패");
     } else if (eventName === "blogger-save-result") {

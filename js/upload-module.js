@@ -384,47 +384,51 @@ const UploadModule = (() => {
     return { success: true, isMasterBundle: false };
   }
 
-  // 업로드 결과 카드(v1.8.6 업로드 다이어트)는 "성공/실패"만 보여준다("경고",
-  // "문제 확인", "상세 보기"는 화면에 넣지 않는다 — 사용자 화면 노출 금지).
-  // 실패 사유 자체는 오류 목록(ErrorLogModule)에만 남기고, 화면에는 노출하지 않는다.
-  function shortFailureReason(reason) {
-    if (!reason) return "알 수 없는 오류";
-    if (reason.indexOf("metadata.json") !== -1 && reason.indexOf("형식 오류") !== -1) return "metadata.json 형식 오류";
-    if (reason.indexOf("metadata.json") !== -1) return "metadata.json 없음";
-    if (reason.indexOf("content.html") !== -1) return "content.html 없음";
-    if (reason.indexOf("열 수 없습니다") !== -1) return "개별 ZIP 열기 실패";
-    return reason;
+  function buildScanChecklist(scan, imgFiles) {
+    const bodyCount = Object.values(imgFiles).filter((img) => img.role.indexOf("body-") === 0).length;
+    const hasThumbnail = Object.values(imgFiles).some((img) => img.role === "thumbnail");
+    const top5Count = Object.keys(scan.top5Candidates || {}).length;
+    const naverTagsCheck = checkNaverTagsClean(scan.naverTagsTxt);
+
+    return [
+      { label: "metadata.json", ok: !!scan.metadata },
+      { label: "content.html", ok: !!scan.html },
+      { label: "content.md", ok: !!(scan.markdown && scan.markdown.trim()), optional: true },
+      { label: "content.txt", ok: !!(scan.text && scan.text.trim()), optional: true },
+      { label: "썸네일 이미지", ok: hasThumbnail, optional: true },
+      { label: `본문 이미지 (${bodyCount}개 인식)`, ok: bodyCount > 0, optional: true },
+      { label: `TOP5 개별 파일 (${top5Count}/5개 인식)`, ok: top5Count >= 5, optional: true },
+      { label: "top5/top5_summary.md", ok: !!(scan.top5SummaryMd && scan.top5SummaryMd.trim()), optional: true },
+      { label: "selected_topic.md", ok: !!(scan.selectedTopicMd && scan.selectedTopicMd.trim()), optional: true },
+      {
+        label: naverTagsCheck.checked
+          ? (naverTagsCheck.clean ? "naver_tags.txt(네이버 태그: 통과)" : "naver_tags.txt(네이버 태그: 특수문자 포함 — 수정 필요)")
+          : "naver_tags.txt",
+        ok: naverTagsCheck.checked ? naverTagsCheck.clean : !!(scan.naverTagsTxt && scan.naverTagsTxt.trim()),
+        optional: true,
+      },
+    ];
   }
 
   function getCheckStatus() {
     if (isMasterBundle) {
-      // 전체 묶음 ZIP: 카테고리별 성공/실패만 돌려준다(화면은 성공/실패만
-      // 표시하고, 저장 대상 판정은 buildCategoryPosts()의 scan.success 기준과
-      // 동일하게 맞춘다 — 필수 파일(metadata.json/content.html)만 있으면 성공).
-      const categoryResults = masterCategoryResults.map((r) => ({
-        num: r.num,
-        categoryName: r.categoryName,
-        fileName: r.fileName,
-        ok: r.scan.success,
-        reason: r.scan.success ? null : shortFailureReason(r.scan.reason),
-        title: r.scan.success ? (r.scan.metadata && r.scan.metadata.title) || "" : "",
-      }));
-
-      const successCount = categoryResults.filter((r) => r.ok).length;
-      const failCount = categoryResults.length - successCount;
-
+      // 전체 묶음 ZIP: 카테고리별로 각각의 체크리스트를 돌려준다. 화면(신규 UI)에서
+      // 9개를 나열해서 보여줄 수 있게 원자료를 그대로 제공한다.
       return {
         isMasterBundle: true,
         requiredFilesOk,
         failReason,
         zipFileName: loadedZipFileName,
         categoryCount: masterCategoryResults.length,
-        categoryResults,
-        summary: {
-          totalCount: categoryResults.length,
-          successCount,
-          failCount,
-        },
+        categoryResults: masterCategoryResults.map((r) => ({
+          num: r.num,
+          categoryName: r.categoryName,
+          fileName: r.fileName,
+          ok: r.scan.success,
+          reason: r.scan.success ? null : r.scan.reason,
+          title: r.scan.success ? (r.scan.metadata && r.scan.metadata.title) || "" : "",
+          checklist: r.scan.success ? buildScanChecklist(r.scan, r.scan.imageFiles) : [],
+        })),
       };
     }
 
@@ -432,11 +436,26 @@ const UploadModule = (() => {
       ? PreviewModule.findUnresolvedImageRefs(loadedHtml, imageFiles)
       : [];
 
+    const scanShape = {
+      metadata: loadedMetadata,
+      html: loadedHtml,
+      markdown: loadedMarkdown,
+      text: loadedText,
+      top5Candidates: loadedTop5Candidates,
+      top5SummaryMd: loadedTop5SummaryMd,
+      selectedTopicMd: loadedSelectedTopicMd,
+      naverTagsTxt: loadedNaverTagsTxt,
+    };
+    const checklist = requiredFilesOk
+      ? [{ label: "ZIP 열기", ok: true }, ...buildScanChecklist(scanShape, imageFiles)]
+      : [{ label: "ZIP 열기", ok: !!loadedZipFileName }];
+
     return {
       isMasterBundle: false,
       requiredFilesOk,
-      failReason: requiredFilesOk ? null : shortFailureReason(failReason),
+      failReason,
       zipFileName: loadedZipFileName,
+      checklist,
       unresolvedImageRefs: unresolved,
       top5CandidateCount: Object.keys(loadedTop5Candidates).length,
       naverTagsCheck: checkNaverTagsClean(loadedNaverTagsTxt),

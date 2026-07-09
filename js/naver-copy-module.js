@@ -1,13 +1,14 @@
 /**
- * naver-copy-module.js
+ * naver-copy-module.js (v1.6.2 신규 → v6.9 지시문 반영 → 네이버 이미지 팝업 최종 정리)
  *
  * 역할:
  * - 네이버는 자동 저장/발행 대상이 아니다. 이 모듈은 게시판에서 선택된 글의
  *   제목 / 본문 / 게시판 / 네이버 주제분류 / 태그 / 지역 키워드 / 공식 링크를
- *   확인하고 클립보드로 "수동 복사"만 한다. 항목이 많아 메인 화면에는 상태 +
- *   여는 버튼만 두고, 실제 항목 표시/복사는 팝업(#popup-naver-copy-overlay)
- *   안에서 처리한다.
- * - 이미지는 "이미지 목록 팝업"(#popup-naver-image-list-overlay)에서 썸네일 →
+ *   확인하고 클립보드로 "수동 복사"만 한다.
+ * - v6.9 반영: 항목이 많아져 메인 화면에는 상태 + 여는 버튼만 두고, 실제 항목
+ *   표시/복사는 팝업(#popup-naver-copy-overlay) 안에서 처리한다.
+ * - 네이버 이미지 팝업 최종 정리: 구버전 이미지 안내 문구/버튼을 제거하고,
+ *   대신 "이미지 목록 팝업"(#popup-naver-image-list-overlay)에서 썸네일 →
  *   본문 이미지 순서로 미리보기를 보여주고, 이미지마다 [이미지 다운로드] 버튼
  *   하나만 둔다(저장 안내 문구/크게보기 버튼 없음, 클릭 시 파일 다운로드를
  *   시도하고 브라우저 정책으로 막히면 새 창 표시로 대체한다).
@@ -20,7 +21,7 @@
  * - Blogger 저장 흐름(blogger-save-module.js, app-core.js의 handleSaveStartClick 등)을
  *   호출하거나 개입하지 않는다. 오직 GptCoreAPI로 "읽기"만 한다.
  *
- * metadata.json에 게시판/네이버 관련 필드(naver_board / naver_topic_category / naver_tags /
+ * metadata.json에 v6.9 신규 필드(naver_board / naver_topic_category / naver_tags /
  * naver_location_keywords / official_links)가 없어도 빈칸으로 깨지지 않게
  * "정보 없음"으로 표시하고, 기능(복사 등)은 계속 동작한다.
  *
@@ -56,15 +57,6 @@ const NaverCopyModule = (() => {
       fieldTitle: document.getElementById("naver-field-title"),
       fieldLinks: document.getElementById("naver-field-links"),
 
-      tagPreviewBefore: document.getElementById("naver-tag-preview-before"),
-      tagPreviewAfter: document.getElementById("naver-tag-preview-after"),
-      tagPreviewCount: document.getElementById("naver-tag-preview-count"),
-
-      checkTitle: document.getElementById("naver-check-title"),
-      checkBody: document.getElementById("naver-check-body"),
-      checkTags: document.getElementById("naver-check-tags"),
-      checkImage: document.getElementById("naver-check-image"),
-
       titleBtn: document.getElementById("naver-copy-title-btn"),
       bodyBtn: document.getElementById("naver-copy-body-btn"),
       boardCategoryBtn: document.getElementById("naver-copy-board-category-btn"),
@@ -73,29 +65,6 @@ const NaverCopyModule = (() => {
 
       resultEl: document.getElementById("naver-copy-result"),
     };
-  }
-
-  // 네이버 복사 체크리스트(신규): 제목/본문/태그/이미지 다운로드 완료 표시를
-  // 채워 넣는다. 팝업을 새로 열 때마다 renderFields()에서 초기 상태로
-  // 되돌린다(선택된 글이 바뀌면 체크 표시도 초기화된다).
-  function setChecklistDone(el, label) {
-    if (!el) return;
-    el.textContent = `✅ ${label} 완료`;
-    el.classList.add("naver-copy-checklist__item--done");
-  }
-
-  function resetChecklistItem(el, label) {
-    if (!el) return;
-    el.textContent = `☐ ${label}`;
-    el.classList.remove("naver-copy-checklist__item--done");
-  }
-
-  function resetChecklist() {
-    const { checkTitle, checkBody, checkTags, checkImage } = els();
-    resetChecklistItem(checkTitle, "제목 복사");
-    resetChecklistItem(checkBody, "본문 복사");
-    resetChecklistItem(checkTags, "태그 복사");
-    resetChecklistItem(checkImage, "이미지 다운로드");
   }
 
   // 이미지 목록 팝업 전용 DOM(네이버 이미지 팝업 최종 정리). 안내문/저장/크게보기
@@ -217,25 +186,18 @@ const NaverCopyModule = (() => {
   const NAVER_TAG_DIRTY_TEST_RE = /[:：;；,，#()（）\[\]{}/\\'"“”‘’]|정보\s*없음|없음|null|undefined/i;
 
   function getTagCheckStatus(post) {
-    const rawSource = getRawTagPreviewText(post);
+    const rawFile = (post && post.naverTagsTxt) || "";
+    const meta = getMeta(post);
+    const rawSource = rawFile.trim() ? rawFile : (Array.isArray(meta.naver_tags) ? meta.naver_tags.join("\n") : "");
     if (!rawSource.trim()) return "";
     return NAVER_TAG_DIRTY_TEST_RE.test(rawSource) ? "정리됨(원본에 정제 필요한 부분 있었음)" : "네이버 태그: 통과";
-  }
-
-  // 태그 정제 결과 미리보기(신규)용: 정제 전 원본 텍스트를 그대로 반환한다.
-  function getRawTagPreviewText(post) {
-    const rawFile = (post && post.naverTagsTxt) || "";
-    if (rawFile.trim()) return rawFile;
-    const meta = getMeta(post);
-    if (Array.isArray(meta.naver_tags) && meta.naver_tags.length) return meta.naver_tags.join(", ");
-    return "";
   }
 
   function getLocationKeywords(meta) {
     return Array.isArray(meta.naver_location_keywords) ? meta.naver_location_keywords.filter(Boolean) : [];
   }
 
-  // official_links: [{ name, url, type, purpose }, ...] 형태. 형식이
+  // official_links: [{ name, url, type, purpose }, ...] 형태(v6.9 기준). 형식이
   // 다르거나(예: 문자열 배열) 값이 없어도 깨지지 않게 최대한 표시한다.
   function getOfficialLinks(meta) {
     if (!Array.isArray(meta.official_links)) return [];
@@ -263,7 +225,6 @@ const NaverCopyModule = (() => {
   function renderFields() {
     const {
       fieldBoard, fieldCategory, fieldTags, fieldTagCheck, fieldLocation, fieldTitle, fieldLinks,
-      tagPreviewBefore, tagPreviewAfter, tagPreviewCount,
     } = els();
     const post = getSelectedPost();
     const meta = getMeta(post);
@@ -276,12 +237,6 @@ const NaverCopyModule = (() => {
     if (fieldTags) fieldTags.textContent = tags.length ? tags.join(", ") : EMPTY_LABEL;
     if (fieldTagCheck) fieldTagCheck.textContent = getTagCheckStatus(post) || EMPTY_LABEL;
 
-    // 태그 정제 결과 미리보기(신규): 복사 전에 원본과 정제 후 결과, 개수를 보여준다.
-    const rawPreview = getRawTagPreviewText(post);
-    if (tagPreviewBefore) tagPreviewBefore.textContent = rawPreview.trim() ? rawPreview.replace(/\r?\n/g, " / ") : EMPTY_LABEL;
-    if (tagPreviewAfter) tagPreviewAfter.textContent = tags.length ? tags.join(", ") : EMPTY_LABEL;
-    if (tagPreviewCount) tagPreviewCount.textContent = `${tags.length}개`;
-
     const location = getLocationKeywords(meta);
     if (fieldLocation) fieldLocation.textContent = location.length ? location.join(", ") : EMPTY_LABEL;
 
@@ -291,12 +246,9 @@ const NaverCopyModule = (() => {
         ? links.map((link) => (link.name ? `${link.name}: ${link.url}` : link.url)).join(" / ")
         : EMPTY_LABEL;
     }
-
-    // 글이 바뀔 때마다 복사 체크리스트도 초기 상태로 되돌린다.
-    resetChecklist();
   }
 
-  async function copyText(text, resultEl, label, onSuccess) {
+  async function copyText(text, resultEl, label) {
     if (!text || !text.trim()) {
       resultEl.textContent = `복사할 ${label} 내용이 없습니다.`;
       return;
@@ -305,7 +257,6 @@ const NaverCopyModule = (() => {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
         resultEl.textContent = `✅ ${label} 복사 완료`;
-        if (typeof onSuccess === "function") onSuccess();
       } else {
         resultEl.textContent = "이 환경에서는 자동 복사를 지원하지 않습니다. 직접 선택해 복사해주세요.";
       }
@@ -324,15 +275,15 @@ const NaverCopyModule = (() => {
   }
 
   function handleCopyTitle() {
-    const { resultEl, checkTitle } = els();
-    withSelectedPost(resultEl, (post) => copyText(post.title || "", resultEl, "제목", () => setChecklistDone(checkTitle, "제목 복사")));
+    const { resultEl } = els();
+    withSelectedPost(resultEl, (post) => copyText(post.title || "", resultEl, "제목"));
   }
 
   function handleCopyBody() {
-    const { resultEl, checkBody } = els();
+    const { resultEl } = els();
     withSelectedPost(resultEl, (post) => {
       const text = post.contentText && post.contentText.trim() ? post.contentText : stripHtml(post.contentHtmlRaw);
-      copyText(text, resultEl, "본문", () => setChecklistDone(checkBody, "본문 복사"));
+      copyText(text, resultEl, "본문");
     });
   }
 
@@ -357,7 +308,7 @@ const NaverCopyModule = (() => {
   // 라벨이나 "지역 키워드: 정보 없음" 같은 빈 값 줄은 절대 포함하지 않는다
   // (지역 키워드가 실제로 있을 때만 태그 뒤에 같은 방식으로 이어 붙인다).
   function handleCopyTagLocation() {
-    const { resultEl, checkTags } = els();
+    const { resultEl } = els();
     withSelectedPost(resultEl, (post) => {
       const meta = getMeta(post);
       const tags = getTags(post);
@@ -367,7 +318,7 @@ const NaverCopyModule = (() => {
         return;
       }
       const lines = [...tags, ...location];
-      copyText(lines.join("\n"), resultEl, "태그/지역", () => setChecklistDone(checkTags, "태그 복사"));
+      copyText(lines.join("\n"), resultEl, "태그/지역");
     });
   }
 
@@ -419,7 +370,7 @@ const NaverCopyModule = (() => {
   // 시도로 바꾼다. a 태그의 download 속성으로 다운로드를 시도하고, 브라우저
   // 보안 정책 등으로 막히면 새 창 열기로 대체한다(버튼명은 계속 "이미지
   // 다운로드"를 유지한다).
-  function downloadImage(dataUrl, fileName, onDone) {
+  function downloadImage(dataUrl, fileName) {
     if (!dataUrl) return;
     try {
       const link = document.createElement("a");
@@ -428,7 +379,6 @@ const NaverCopyModule = (() => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      if (typeof onDone === "function") onDone();
       return;
     } catch (error) {
       // 아래 fallback(새 창 열기)으로 진행
@@ -447,14 +397,12 @@ const NaverCopyModule = (() => {
         img.style.height = "auto";
         img.style.margin = "0 auto";
         win.document.body.appendChild(img);
-        if (typeof onDone === "function") onDone();
         return;
       }
     } catch (error) {
       // 아래 최종 fallback으로 진행
     }
     window.open(dataUrl, "_blank");
-    if (typeof onDone === "function") onDone();
   }
 
   function renderImageList() {
@@ -489,24 +437,12 @@ const NaverCopyModule = (() => {
       openImgBtn.type = "button";
       openImgBtn.className = "btn btn--ghost btn--compact naver-image-item__open-btn";
       openImgBtn.textContent = "이미지 다운로드";
-
-      const doneEl = document.createElement("div");
-      doneEl.className = "naver-image-item__done hidden";
-      doneEl.textContent = "다운로드 완료";
-
-      openImgBtn.addEventListener("click", () => {
-        downloadImage(image.dataUrl, image.fileName, () => {
-          doneEl.classList.remove("hidden");
-          const { checkImage } = els();
-          setChecklistDone(checkImage, "이미지 다운로드");
-        });
-      });
+      openImgBtn.addEventListener("click", () => downloadImage(image.dataUrl, image.fileName));
 
       const info = document.createElement("div");
       info.className = "naver-image-item__info";
       info.appendChild(label);
       info.appendChild(openImgBtn);
-      info.appendChild(doneEl);
 
       item.appendChild(thumb);
       item.appendChild(info);
