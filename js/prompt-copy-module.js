@@ -8,7 +8,7 @@
  *
  * v1.3 보정(작업지침서 10장): 복사 우선순위를 아래와 같이 적용한다.
  *   1. localStorage에 사용자 등록 지시서가 있으면 그것을 복사
- *   2. 없으면 기본 내장 최신 지시서(data/blog-writing-prompt-v6.2.txt)를 fetch로
+ *   2. 없으면 기본 내장 최신 지시서(data/blog-writing-prompt-v7.0.txt)를 fetch로
  *      불러와 복사
  * 사용자 등록/초기화는 settings-module.js가 담당하고, 이 모듈은 동일한
  * localStorage 키 계약만 읽는다(등록 로직은 여기서 새로 만들지 않는다):
@@ -18,13 +18,19 @@
  * 기존 guideline/settings 계열 모듈과 섞지 않기 위해 이벤트 바인딩도
  * 이 파일 안에서 스스로 처리한다(app-core.js의 초기화 블록을 건드리지 않음).
  *
+ * v7.0 보정(작업지침서 4-1): "제목만 복사/일부만 복사/빈 값 복사"는 실패로
+ * 본다. fetch된 기본 지시서 길이가 비정상적으로 짧으면(전체 복사 실패로 간주)
+ * 클립보드 복사를 시도하지 않고 바로 수동 복사 팝업(textarea)으로 전환한다.
+ *
  * 주의: file://로 index.html을 직접 열면 브라우저 CORS 정책 때문에 기본
  * 지시서 fetch()가 실패할 수 있다(사용자 등록 지시서는 localStorage이므로
  * 영향받지 않는다). 반드시 HTTP(S) 환경에서 기본 지시서를 테스트한다.
  */
 
 const PromptCopyModule = (() => {
-  const PROMPT_URL = "data/blog-writing-prompt-v6.2.txt";
+  const PROMPT_URL = "data/blog-writing-prompt-v7.0.txt";
+  const PROMPT_VERSION_LABEL = "v7.0";
+  const MIN_EXPECTED_LENGTH = 3000; // 실제 v7.0 완성본은 3만자 이상이므로, 이보다 훨씬 짧으면 "일부만 복사" 실패로 간주한다.
   const LS_KEY_TEXT = "gptWorkshop.blogPrompt.customText";
   const LS_KEY_NAME = "gptWorkshop.blogPrompt.customName";
 
@@ -54,10 +60,10 @@ const PromptCopyModule = (() => {
   async function resolvePromptText() {
     const custom = readCustomPrompt();
     if (custom) {
-      return { text: custom.text, sourceLabel: `사용자 등록 지시서 (${custom.name})` };
+      return { text: custom.text, sourceLabel: `사용자 등록 지시서 (${custom.name})`, isDefault: false };
     }
     const defaultText = await loadDefaultPromptText();
-    return { text: defaultText, sourceLabel: "기본 최신 지시서" };
+    return { text: defaultText, sourceLabel: "기본 최신 지시서", isDefault: true };
   }
 
   function showFallback(text, resultEl, textareaEl) {
@@ -88,15 +94,33 @@ const PromptCopyModule = (() => {
       return;
     }
 
+    // v7.0(작업지침서 4-1): 기본 지시서인데 내용이 비정상적으로 짧으면(제목만/
+    // 일부만 불러온 경우) 클립보드 복사를 시도하지 않고 바로 수동 복사 팝업으로 전환한다.
+    const text = resolved.text || "";
+    if (resolved.isDefault && text.trim().length < MIN_EXPECTED_LENGTH) {
+      if (typeof ErrorLogModule !== "undefined") {
+        ErrorLogModule.logError({
+          module: "prompt-copy-module",
+          message: "블로그 지시서 내용이 비정상적으로 짧습니다(일부만 로드된 것으로 추정)",
+          detail: `length=${text.trim().length}`,
+          relatedId: null,
+        });
+      }
+      showFallback(text, resultEl, textareaEl);
+      return;
+    }
+
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(resolved.text);
-        resultEl.textContent = `✅ 복사 완료(${resolved.sourceLabel}). 사용 중인 GPT 등에 붙여넣기 하세요.`;
+        await navigator.clipboard.writeText(text);
+        resultEl.textContent = resolved.isDefault
+          ? `✅ 블로그자료 생성 지시문 ${PROMPT_VERSION_LABEL} 전체가 복사되었습니다.`
+          : `✅ 복사 완료(${resolved.sourceLabel}). 사용 중인 GPT 등에 붙여넣기 하세요.`;
       } else {
-        showFallback(resolved.text, resultEl, textareaEl);
+        showFallback(text, resultEl, textareaEl);
       }
     } catch (error) {
-      showFallback(resolved.text, resultEl, textareaEl);
+      showFallback(text, resultEl, textareaEl);
     }
   }
 

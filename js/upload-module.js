@@ -19,6 +19,9 @@ const UploadModule = (() => {
   const IMAGE_EXT_RE = /\.(png|jpe?g|webp)$/i;
   const THUMBNAIL_RE = /^thumbnail\.(png|jpe?g|webp)$/i;
   const BODY_RE = /^body-(\d+)\.(png|jpe?g|webp)$/i;
+  // v7.0 업로드 ZIP 구조 인식 보정(작업지침서 4-4): 아래는 전부 선택 항목이다.
+  // 없어도 기존 필수 파일(metadata.json/content.html) 검증에는 영향을 주지 않는다.
+  const TOP5_CANDIDATE_RE = /^0([1-5])_candidate\.md$/i;
 
   let loadedZipFileName = null;
   let loadedMetadata = null;
@@ -26,6 +29,11 @@ const UploadModule = (() => {
   let loadedHtml = null;
   let loadedMarkdown = null;
   let loadedText = null;
+  let loadedSelectedTopicMd = ""; // v7.0: selected_topic.md 원문(선택 항목)
+  let loadedNaverTagsTxt = ""; // v7.0: naver_tags.txt 원문(선택 항목)
+  let loadedTop5SummaryMd = ""; // v7.0: top5/top5_summary.md 원문(선택 항목)
+  let loadedTop5Candidates = {}; // v7.0: { "01": "...md 원문", "02": "...", ... }(선택 항목)
+  let loadedImagePromptsMd = ""; // v7.0: image_prompts.md 원문(선택 항목, 썸네일 시각요소 진단용)
   let imageFiles = {}; // { baseNameLower: { fileName, dataUrl, mimeType, ext, role } }
   let requiredFilesOk = false;
   let failReason = null;
@@ -84,6 +92,12 @@ const UploadModule = (() => {
     let htmlEntry = null;
     let markdownEntry = null;
     let textEntry = null;
+    // v7.0 추가 선택 항목(작업지침서 4-4)
+    let selectedTopicEntry = null;
+    let naverTagsEntry = null;
+    let top5SummaryEntry = null;
+    let imagePromptsEntry = null;
+    const top5CandidateEntries = {}; // { "01": entry, ... }
 
     entries.forEach((entry) => {
       if (entry.isDirectory) return;
@@ -108,6 +122,29 @@ const UploadModule = (() => {
       }
       if (lower === "content.txt" && !textEntry) {
         textEntry = entry;
+        return;
+      }
+      // v7.0: selected_topic.md / naver_tags.txt / top5/*.md(선택 항목, 없어도 실패 아님)
+      if (lower === "selected_topic.md" && !selectedTopicEntry) {
+        selectedTopicEntry = entry;
+        return;
+      }
+      if (lower === "naver_tags.txt" && !naverTagsEntry) {
+        naverTagsEntry = entry;
+        return;
+      }
+      if (lower === "top5_summary.md" && !top5SummaryEntry) {
+        top5SummaryEntry = entry;
+        return;
+      }
+      if (lower === "image_prompts.md" && !imagePromptsEntry) {
+        imagePromptsEntry = entry;
+        return;
+      }
+      const top5Match = lower.match(TOP5_CANDIDATE_RE);
+      if (top5Match) {
+        const num = top5Match[1].padStart(2, "0");
+        if (!top5CandidateEntries[num]) top5CandidateEntries[num] = entry;
         return;
       }
 
@@ -181,9 +218,51 @@ const UploadModule = (() => {
     loadedMarkdown = markdownEntry ? MiniZip.bytesToText(markdownEntry.dataBytes) : "";
     loadedText = textEntry ? MiniZip.bytesToText(textEntry.dataBytes) : "";
 
+    // v7.0 추가 선택 항목 읽기(작업지침서 4-4/4-6/4-7). 읽기 실패해도 필수 흐름을
+    // 막지 않도록 각각 try/catch로 감싸고, 실패 시 빈 값으로만 남긴다.
+    try {
+      loadedSelectedTopicMd = selectedTopicEntry ? MiniZip.bytesToText(selectedTopicEntry.dataBytes) : "";
+    } catch (error) {
+      loadedSelectedTopicMd = "";
+    }
+    try {
+      loadedNaverTagsTxt = naverTagsEntry ? MiniZip.bytesToText(naverTagsEntry.dataBytes) : "";
+    } catch (error) {
+      loadedNaverTagsTxt = "";
+    }
+    try {
+      loadedTop5SummaryMd = top5SummaryEntry ? MiniZip.bytesToText(top5SummaryEntry.dataBytes) : "";
+    } catch (error) {
+      loadedTop5SummaryMd = "";
+    }
+    try {
+      loadedImagePromptsMd = imagePromptsEntry ? MiniZip.bytesToText(imagePromptsEntry.dataBytes) : "";
+    } catch (error) {
+      loadedImagePromptsMd = "";
+    }
+    loadedTop5Candidates = {};
+    Object.keys(top5CandidateEntries).forEach((num) => {
+      try {
+        loadedTop5Candidates[num] = MiniZip.bytesToText(top5CandidateEntries[num].dataBytes);
+      } catch (error) {
+        // 개별 후보 파일 하나가 읽기 실패해도 다른 후보/필수 흐름에는 영향 없음.
+      }
+    });
+
     requiredFilesOk = true;
     failReason = null;
     return { success: true };
+  }
+
+  // v7.0: naver_tags.txt에 금지된 특수문자가 있는지 검사한다(작업지침서 4-7).
+  // 특수문자 정의: # , ( ) / ! ? " : ; _ 등. 빈 줄은 검사에서 제외한다.
+  const NAVER_TAG_FORBIDDEN_RE = /[#,()/!?"':;_]/;
+
+  function checkNaverTagsClean(rawText) {
+    if (!rawText || !rawText.trim()) return { checked: false, clean: true, badLines: [] };
+    const lines = rawText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const badLines = lines.filter((line) => NAVER_TAG_FORBIDDEN_RE.test(line));
+    return { checked: true, clean: badLines.length === 0, badLines };
   }
 
   function getCheckStatus() {
@@ -193,6 +272,9 @@ const UploadModule = (() => {
 
     const bodyCount = Object.values(imageFiles).filter((img) => img.role.indexOf("body-") === 0).length;
     const hasThumbnail = Object.values(imageFiles).some((img) => img.role === "thumbnail");
+
+    const top5Count = Object.keys(loadedTop5Candidates).length;
+    const naverTagsCheck = checkNaverTagsClean(loadedNaverTagsTxt);
 
     return {
       requiredFilesOk,
@@ -206,8 +288,23 @@ const UploadModule = (() => {
         { label: "content.txt", ok: !!loadedText, optional: true },
         { label: "썸네일 이미지", ok: hasThumbnail, optional: true },
         { label: `본문 이미지 (${bodyCount}개 인식)`, ok: bodyCount > 0, optional: true },
+        // v7.0 추가 항목(작업지침서 4-4/9): 없어도 업로드 자체는 실패시키지 않는
+        // 선택 항목이지만, 진단 화면에서는 확인 결과를 보여준다.
+        { label: `TOP5 개별 파일 (${top5Count}/5개 인식)`, ok: top5Count >= 5, optional: true },
+        { label: "top5/top5_summary.md", ok: !!loadedTop5SummaryMd, optional: true },
+        { label: "selected_topic.md", ok: !!loadedSelectedTopicMd, optional: true },
+        {
+          label: naverTagsCheck.checked
+            ? (naverTagsCheck.clean ? "naver_tags.txt(네이버 태그: 통과)" : "naver_tags.txt(네이버 태그: 특수문자 포함 — 수정 필요)")
+            : "naver_tags.txt",
+          ok: naverTagsCheck.checked ? naverTagsCheck.clean : !!loadedNaverTagsTxt,
+          optional: true,
+        },
       ],
       unresolvedImageRefs: unresolved,
+      // v7.0: 다른 모듈(package-diagnosis 등)이 세부 정보를 그대로 활용할 수 있도록 원자료도 함께 제공한다.
+      top5CandidateCount: top5Count,
+      naverTagsCheck,
     };
   }
 
@@ -238,6 +335,14 @@ const UploadModule = (() => {
       saveStatus: "등록됨",
       r2ImageMap: null,
       bloggerDraftResult: null,
+      // v7.0 추가 필드(전부 선택 항목, 없으면 빈 값): naver-copy-module.js /
+      // package-diagnosis-module.js가 "정보 없음"/"파일에 없음"으로만 표시하고
+      // 기능은 계속 동작한다(작업지침서 4-5/4-6/4-7).
+      selectedTopicMd: loadedSelectedTopicMd || "",
+      naverTagsTxt: loadedNaverTagsTxt || "",
+      top5SummaryMd: loadedTop5SummaryMd || "",
+      top5Candidates: { ...loadedTop5Candidates },
+      imagePromptsMd: loadedImagePromptsMd || "",
     };
 
     return post;
@@ -250,6 +355,11 @@ const UploadModule = (() => {
     loadedHtml = null;
     loadedMarkdown = null;
     loadedText = null;
+    loadedSelectedTopicMd = "";
+    loadedNaverTagsTxt = "";
+    loadedTop5SummaryMd = "";
+    loadedTop5Candidates = {};
+    loadedImagePromptsMd = "";
     imageFiles = {};
     requiredFilesOk = false;
     failReason = null;

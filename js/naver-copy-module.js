@@ -51,6 +51,7 @@ const NaverCopyModule = (() => {
       fieldBoard: document.getElementById("naver-field-board"),
       fieldCategory: document.getElementById("naver-field-category"),
       fieldTags: document.getElementById("naver-field-tags"),
+      fieldTagCheck: document.getElementById("naver-field-tag-check"),
       fieldLocation: document.getElementById("naver-field-location"),
       fieldTitle: document.getElementById("naver-field-title"),
       fieldLinks: document.getElementById("naver-field-links"),
@@ -103,18 +104,77 @@ const NaverCopyModule = (() => {
     return (post && post.metadata) || {};
   }
 
-  function getBoard(meta) {
+  // v7.0: 네이버 태그 특수문자 금지(작업지침서 4-7). # , ( ) / ! ? " ' : ; _ 등
+  // 금지 문자를 제거하고, 빈 태그/중복 태그도 정리한다.
+  const NAVER_TAG_FORBIDDEN_RE = /[#,()/!?"':;_]/g;
+
+  function cleanNaverTag(tag) {
+    return String(tag || "").replace(NAVER_TAG_FORBIDDEN_RE, "").trim();
+  }
+
+  function cleanNaverTagList(list) {
+    const seen = new Set();
+    const cleaned = [];
+    list.forEach((raw) => {
+      const tag = cleanNaverTag(raw);
+      if (!tag || seen.has(tag)) return;
+      seen.add(tag);
+      cleaned.push(tag);
+    });
+    return cleaned;
+  }
+
+  // v7.0: selected_topic.md는 "## N. 필드명" 형식 섹션으로 구성된다(작업지침서
+  // 4-5, 지시문 9장). metadata.json에 값이 없을 때만 보조로 추출한다.
+  function extractMdSection(md, label) {
+    if (!md) return "";
+    const re = new RegExp("##\\s*\\d+\\.\\s*" + label + "\\s*\\n+([\\s\\S]*?)(?=\\n##\\s*\\d+\\.|$)", "i");
+    const match = md.match(re);
+    if (!match) return "";
+    return match[1].replace(/^[-\s]+/, "").trim().split("\n")[0].trim();
+  }
+
+  function getBoard(post) {
+    const meta = getMeta(post);
     const value = meta.naver_board;
-    return typeof value === "string" && value.trim() ? value.trim() : "";
+    if (typeof value === "string" && value.trim()) return value.trim();
+    return extractMdSection(post && post.selectedTopicMd, "추천 게시판");
   }
 
-  function getCategory(meta) {
+  function getCategory(post) {
+    const meta = getMeta(post);
     const value = meta.naver_topic_category;
-    return typeof value === "string" && value.trim() ? value.trim() : "";
+    if (typeof value === "string" && value.trim()) return value.trim();
+    return extractMdSection(post && post.selectedTopicMd, "네이버 주제분류");
   }
 
-  function getTags(meta) {
-    return Array.isArray(meta.naver_tags) ? meta.naver_tags.filter(Boolean) : [];
+  function getTags(post) {
+    const meta = getMeta(post);
+    if (Array.isArray(meta.naver_tags) && meta.naver_tags.length) {
+      return cleanNaverTagList(meta.naver_tags.filter(Boolean));
+    }
+    // metadata에 없으면 naver_tags.txt(한 줄에 태그 1개)에서 보조로 추출한다.
+    const raw = (post && post.naverTagsTxt) || "";
+    if (!raw.trim()) return [];
+    const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    return cleanNaverTagList(lines);
+  }
+
+  // v7.0: 화면에는 항상 정리된(특수문자 제거) 태그만 표시/복사하지만, 원본에
+  // 특수문자가 있었는지도 함께 알려준다("네이버 태그: 통과" / "정리됨").
+  function getRawTagSource(post) {
+    const meta = getMeta(post);
+    if (Array.isArray(meta.naver_tags) && meta.naver_tags.length) return meta.naver_tags.map(String);
+    const raw = (post && post.naverTagsTxt) || "";
+    if (!raw.trim()) return [];
+    return raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  }
+
+  function getTagCheckStatus(post) {
+    const rawTags = getRawTagSource(post);
+    if (!rawTags.length) return "";
+    const hadForbidden = rawTags.some((tag) => /[#,()/!?"':;_]/.test(tag));
+    return hadForbidden ? "정리됨(원본에 특수문자 있었음)" : "네이버 태그: 통과";
   }
 
   function getLocationKeywords(meta) {
@@ -148,17 +208,18 @@ const NaverCopyModule = (() => {
   // metadata 필드가 없어도 "정보 없음"으로만 표시하고 예외를 던지지 않는다.
   function renderFields() {
     const {
-      fieldBoard, fieldCategory, fieldTags, fieldLocation, fieldTitle, fieldLinks,
+      fieldBoard, fieldCategory, fieldTags, fieldTagCheck, fieldLocation, fieldTitle, fieldLinks,
     } = els();
     const post = getSelectedPost();
     const meta = getMeta(post);
 
     if (fieldTitle) fieldTitle.textContent = (post && post.title) ? post.title : EMPTY_LABEL;
-    if (fieldBoard) fieldBoard.textContent = getBoard(meta) || EMPTY_LABEL;
-    if (fieldCategory) fieldCategory.textContent = getCategory(meta) || EMPTY_LABEL;
+    if (fieldBoard) fieldBoard.textContent = getBoard(post) || EMPTY_LABEL;
+    if (fieldCategory) fieldCategory.textContent = getCategory(post) || EMPTY_LABEL;
 
-    const tags = getTags(meta);
+    const tags = getTags(post);
     if (fieldTags) fieldTags.textContent = tags.length ? tags.join(", ") : EMPTY_LABEL;
+    if (fieldTagCheck) fieldTagCheck.textContent = getTagCheckStatus(post) || EMPTY_LABEL;
 
     const location = getLocationKeywords(meta);
     if (fieldLocation) fieldLocation.textContent = location.length ? location.join(", ") : EMPTY_LABEL;
@@ -213,9 +274,8 @@ const NaverCopyModule = (() => {
   function handleCopyBoardCategory() {
     const { resultEl } = els();
     withSelectedPost(resultEl, (post) => {
-      const meta = getMeta(post);
-      const board = getBoard(meta);
-      const category = getCategory(meta);
+      const board = getBoard(post);
+      const category = getCategory(post);
       if (!board && !category) {
         resultEl.textContent = "복사할 게시판/주제분류 정보가 없습니다(metadata에 없음).";
         return;
@@ -231,7 +291,7 @@ const NaverCopyModule = (() => {
     const { resultEl } = els();
     withSelectedPost(resultEl, (post) => {
       const meta = getMeta(post);
-      const tags = getTags(meta);
+      const tags = getTags(post);
       const location = getLocationKeywords(meta);
       if (!tags.length && !location.length) {
         resultEl.textContent = "복사할 태그/지역 키워드가 없습니다(metadata에 없음).";

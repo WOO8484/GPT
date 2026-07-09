@@ -1,3 +1,48 @@
+GPT 공작소 v1.7
+====================
+
+[v1.7.0 — 블로그자료 생성 지시문 v7.0 통합 반영]
+기준: 이전 GPT공작소 v1.6.2 계열 웹앱(naver-copy-module.js 신규 포함, 네이버
+이미지 목록 팝업 최종 정리 반영 상태). 이번 업데이트는 메인 레이아웃 재작성이
+아니라 (1) 웹앱 내부 블로그자료 생성 지시문을 v7.0 완성본으로 교체하고,
+(2) 업로드/진단/네이버 복사 화면이 v7.0 ZIP 구조를 인식하도록 최소 보정한
+것입니다.
+- data/blog-writing-prompt-v7.0.txt로 교체(기존 v6.2/v6.9 파일 제거).
+  TOP5 개별 파일 제공, 지시문 업로드 즉시 실행, 최종 주제 자동 선정
+  (selected_topic.md), 네이버 태그 특수문자 금지(naver_tags.txt), 썸네일
+  내부 그림/사진 강화 규칙을 모두 포함한 완성본입니다.
+- prompt-copy-module.js: fetch 대상 파일 경로를 v7.0 파일로 갱신했고,
+  기본 지시서 복사 성공 시 "블로그자료 생성 지시문 v7.0 전체가
+  복사되었습니다." 문구를 표시합니다. 불러온 내용이 비정상적으로 짧으면
+  (제목만/일부만 로드) 자동 복사 대신 수동 복사 상자(textarea)로 전환합니다.
+- upload-module.js: metadata.json/content.html 등 기존 필수 검증은 그대로
+  두고, top5/01~05_candidate.md, top5/top5_summary.md, selected_topic.md,
+  naver_tags.txt, image_prompts.md를 전부 "선택 항목"으로 인식해 post
+  객체에 원문을 담도록만 보강했습니다(없어도 업로드 자체는 실패하지 않음).
+- package-diagnosis-module.js: TOP5 개별 파일 인식 개수, top5_summary.md/
+  selected_topic.md 확인 여부, naver_tags.txt 특수문자 검사(통과/수정
+  필요), 썸네일 내부 그림·사진 요소 확인(image_prompts.md/selected_topic.md
+  기반, 완전한 이미지 판독은 아님) 항목을 추가했습니다. 공식 출처 확인
+  항목은 기존 official_sources뿐 아니라 official_links(v6.9~)도 함께
+  세도록 넓혔습니다.
+- naver-copy-module.js: metadata.json에 게시판/주제분류/태그 값이 없을 때
+  naver_tags.txt·selected_topic.md에서 보조로 추출하도록 보강했습니다.
+  네이버 태그는 항상 금지 특수문자(# , ( ) / ! ? " ' : ; _)를 제거하고
+  중복도 제거해서만 화면에 표시/복사되며, 원본에 특수문자가 있었는지는
+  별도 "네이버 태그 검사" 행으로 표시합니다.
+- 지난 라운드에서 정리한 "네이버 이미지 목록 팝업 + [이미지 열기]" 구조는
+  그대로 유지했습니다(이번 v7.0 패키지 문서의 구버전 "이미지 업로드 안내"
+  버튼 문구보다 최근 확정된 정리 결과를 우선했습니다 — 되돌리길 원하시면
+  말씀해주세요).
+- 로그인/ZIP 업로드 기본 동작/게시판 저장 구조/글 선택 구조/R2 이미지
+  업로드/Blogger 임시저장/Blogger 발행·예약/Worker API 호출 방식/토큰
+  처리는 전혀 건드리지 않았습니다. auth-module.js, worker-api-module.js,
+  r2-image-module.js, blogger-save-module.js, blogger-final-preview-module.js,
+  error-log-module.js, vendor/zip-reader.js, css/base.css는 무수정입니다.
+자세한 내역은 완료 보고를 참고하세요.
+
+====================
+
 GPT 공작소 v1.6
 ====================
 

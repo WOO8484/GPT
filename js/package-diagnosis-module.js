@@ -120,17 +120,89 @@ const PackageDiagnosisModule = (() => {
       items.push({ label: "table / script / style", level: "정상", detail: "위험 요소가 발견되지 않았습니다" });
     }
 
-    // 8. 공식 링크(공식 출처) 여부
+    // 8. 공식 링크(공식 출처) 여부. official_sources(구) / official_links(v6.9~v7.0) 둘 다 확인한다.
     const officialSources = Array.isArray(meta.official_sources) ? meta.official_sources : [];
+    const officialLinks = Array.isArray(meta.official_links) ? meta.official_links : [];
+    const officialCount = officialSources.length + officialLinks.length;
     items.push(
-      officialSources.length > 0
-        ? { label: "공식 출처(official_sources)", level: "정상", detail: `${officialSources.length}건 등록됨` }
-        : { label: "공식 출처(official_sources)", level: "주의", detail: "metadata에 공식 출처가 비어 있습니다" }
+      officialCount > 0
+        ? { label: "공식 출처(official_sources/official_links)", level: "정상", detail: `${officialCount}건 등록됨` }
+        : { label: "공식 출처(official_sources/official_links)", level: "주의", detail: "metadata에 공식 출처가 비어 있습니다" }
     );
+
+    // v7.0 추가 항목(작업지침서 4-4/4-6/4-7/4-9): TOP5/selected_topic.md/naver_tags.txt/
+    // 썸네일 시각요소. post 객체를 읽기 전용으로만 확인한다(파일 형식 요구는
+    // 없어도 실패로 처리하지 않는다 — 전부 "주의" 이하로만 표시).
+    diagnoseV70Extras(post).forEach((item) => items.push(item));
 
     // v1.5(B-5): 블로그자료 생성 기준 v6.2 구조 점검. 품질점수/SEO점수가 아니라
     // 정상/주의/수정 필요 3단계로만 표시하는 단순 구조 진단이다.
     diagnoseV62Structure(html, meta, imageFiles).forEach((item) => items.push(item));
+
+    return items;
+  }
+
+  // v7.0 추가 진단(작업지침서 4-4/4-6/4-7/4-9). post 객체(post.top5Candidates/
+  // post.top5SummaryMd/post.selectedTopicMd/post.naverTagsTxt/post.imagePromptsMd)를
+  // 읽기 전용으로 확인한다. 전부 선택 항목이라 없어도 "수정 필요"까지는 가지
+  // 않고 "주의"로만 표시한다(업로드 자체를 막지 않는다).
+  const NAVER_TAG_FORBIDDEN_RE = /[#,()/!?"':;_]/;
+
+  function diagnoseV70Extras(post) {
+    const items = [];
+    const top5Candidates = post.top5Candidates || {};
+    const top5Count = Object.keys(top5Candidates).length;
+    const top5SummaryMd = post.top5SummaryMd || "";
+    const selectedTopicMd = post.selectedTopicMd || "";
+    const naverTagsTxt = post.naverTagsTxt || "";
+    const imagePromptsMd = post.imagePromptsMd || "";
+
+    // TOP5 개별 파일 확인
+    if (top5Count >= 5) {
+      items.push({ label: "TOP5 개별 파일", level: "정상", detail: `top5/0N_candidate.md 5개 모두 확인됨` });
+    } else if (top5Count > 0) {
+      items.push({ label: "TOP5 개별 파일", level: "주의", detail: `top5/0N_candidate.md ${top5Count}개만 확인됨(5개 권장)` });
+    } else {
+      items.push({ label: "TOP5 개별 파일", level: "주의", detail: "top5/0N_candidate.md를 찾지 못했습니다(선택 파일)" });
+    }
+
+    // top5/top5_summary.md 확인
+    items.push(
+      top5SummaryMd.trim()
+        ? { label: "top5/top5_summary.md", level: "정상", detail: "확인됨" }
+        : { label: "top5/top5_summary.md", level: "주의", detail: "파일에 없음(선택 파일)" }
+    );
+
+    // selected_topic.md 확인
+    items.push(
+      selectedTopicMd.trim()
+        ? { label: "selected_topic.md", level: "정상", detail: "확인됨" }
+        : { label: "selected_topic.md", level: "주의", detail: "파일에 없음(선택 파일)" }
+    );
+
+    // naver_tags.txt 확인 + 특수문자 검사
+    if (!naverTagsTxt.trim()) {
+      items.push({ label: "naver_tags.txt", level: "주의", detail: "파일에 없음(선택 파일)" });
+    } else {
+      const lines = naverTagsTxt.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      const badLines = lines.filter((line) => NAVER_TAG_FORBIDDEN_RE.test(line));
+      items.push(
+        badLines.length === 0
+          ? { label: "네이버 태그: 통과", level: "정상", detail: `${lines.length}개 태그, 특수문자 없음` }
+          : { label: "네이버 태그: 특수문자 포함 — 수정 필요", level: "수정 필요", detail: `${badLines.length}개 태그에 특수문자가 있습니다: ${badLines.slice(0, 5).join(", ")}` }
+      );
+    }
+
+    // 썸네일 내부 그림/사진 요소 확인(완전한 이미지 판독은 하지 않는다)
+    const hasVisualPromptWords = /(고지서|사물|오브젝트|시각\s*요소|장면|아이콘|배경|사진)/.test(imagePromptsMd);
+    const hasThumbnailDirectionInSelectedTopic = /이미지\s*방향[\s\S]{0,120}썸네일/.test(selectedTopicMd) || /썸네일\s*[:：]/.test(selectedTopicMd);
+    if (imagePromptsMd.trim() && hasVisualPromptWords) {
+      items.push({ label: "썸네일 내부 그림/사진 요소", level: "정상", detail: "image_prompts.md에서 핵심 오브젝트/시각 요소 문구가 확인되었습니다." });
+    } else if (hasThumbnailDirectionInSelectedTopic) {
+      items.push({ label: "썸네일 내부 그림/사진 요소", level: "주의", detail: "selected_topic.md의 썸네일 방향만 확인되었습니다(image_prompts.md는 확인 안 됨)." });
+    } else {
+      items.push({ label: "썸네일 내부 그림/사진 요소", level: "주의", detail: "image_prompts.md/selected_topic.md에서 썸네일 시각 요소 문구를 찾지 못했습니다(선택 항목)." });
+    }
 
     return items;
   }
