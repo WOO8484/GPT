@@ -118,7 +118,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 10px 14px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -129,7 +129,7 @@
   flex-direction: column;
   min-height: 0;
   border-bottom: 1px solid var(--color-border);
-  padding: 12px 0;
+  padding: 8px 0;
 }
 
 .panel:last-child {
@@ -138,18 +138,10 @@
 
 .panel__header {
   flex-shrink: 0;
-  padding: 0 0 8px;
+  padding: 0 0 6px;
   font-size: 13px;
   font-weight: 700;
   color: var(--color-text-soft);
-}
-
-/* v1.2: 게시판 패널 헤더처럼 제목 옆에 보조 버튼(전체 게시판 등)이 붙는 경우 */
-.panel__header--row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
 }
 
 .panel__body {
@@ -161,8 +153,8 @@
   overflow: hidden;
 }
 
-/* 내부 스크롤 허용 영역(예외): 게시판 목록 내부 / 팝업 내부(미리보기·전체 게시판 등) / 오류 목록 내부 */
-.panel__body--scroll,
+/* 내부 스크롤 허용 영역(예외): 팝업 내부(미리보기 등) / 오류 목록 내부.
+   게시판 목록은 .board-select-list 자체가 필요할 때만 내부 스크롤을 갖는다. */
 .popup-panel__scroll {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -252,7 +244,7 @@
    되어야 panel__body--scroll의 기존 내부 스크롤이 사용된다. */
 .panel--library {
   flex: 0 0 auto;
-  max-height: 200px;
+  max-height: 230px;
 }
 .panel--save {
   flex: 1 1 0;

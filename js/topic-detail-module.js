@@ -1,15 +1,15 @@
 /**
- * topic-detail-module.js (신규, 선택 기능)
+ * topic-detail-module.js (v1.8.6-fix1 재설계)
  *
- * 역할: 카테고리별 TOP1 전체 묶음 ZIP에서 등록된(또는 단일 ZIP이라도 v7.2
- * 선택 항목을 포함한) 게시글의 TOP5 후보 파일(top5/01~05_candidate.md,
- * top5/top5_summary.md)과 selected_topic.md 원문을 읽기 전용으로 보여준다.
+ * 역할: 선택된 글의 selected_topic.md / TOP5 후보 원문에서 필요한 값만
+ * 파싱해 "선정자료" 요약 카드로 보여준다.
  *
  * 이 모듈은:
+ * - 파일명(selected_topic.md, top5/0N_candidate.md 등)을 화면에 노출하지 않는다.
+ * - 원문 전체를 그대로 보여주지 않는다(요약 값만 파싱해서 보여준다).
  * - 저장/발행/재선정/삭제 등 어떤 동작도 수행하지 않는다(순수 읽기 전용 뷰어).
- * - GptCoreAPI.getSelectedPost()로 이미 만들어진 post 객체만 읽는다(다른
- *   모듈처럼 upload-module.js 내부를 직접 호출하지 않는다).
- * - 값이 없으면 "정보 없음"/"파일에 없음"으로만 표시하고 예외를 던지지 않는다.
+ * - GptCoreAPI.getSelectedPost()로 이미 만들어진 post 객체만 읽는다.
+ * - 값이 없으면 "정보 없음"으로만 표시하고 예외를 던지지 않는다.
  * - prompt-copy-module.js/naver-copy-module.js와 동일하게 완전히 독립적으로
  *   스스로 초기화한다(app-core.js의 초기화 블록을 건드리지 않음).
  */
@@ -29,8 +29,8 @@ const TopicDetailModule = (() => {
       overlay: document.getElementById("popup-topic-detail-overlay"),
       emptyEl: document.getElementById("topic-detail-empty"),
       bodyEl: document.getElementById("topic-detail-body"),
-      selectedEl: document.getElementById("topic-detail-selected"),
-      summaryEl: document.getElementById("topic-detail-summary"),
+      finalTopicEl: document.getElementById("topic-detail-final-topic"),
+      reasonsEl: document.getElementById("topic-detail-reasons"),
       candidatesEl: document.getElementById("topic-detail-candidates"),
     };
   }
@@ -52,29 +52,126 @@ const TopicDetailModule = (() => {
     return div.innerHTML;
   }
 
+  // selected_topic.md는 지시문 버전에 따라 "## N. 라벨" 형식이거나 라벨만
+  // 나열된 형식일 수 있다. 어느 쪽이든 아래 라벨들을 기준으로 구간을
+  // 나눠서 파싱한다(포맷이 달라도 최대한 값을 뽑아낸다).
+  const KNOWN_LABELS = [
+    "카테고리명",
+    "최종 TOP1 주제",
+    "최종 선정 주제",
+    "선정 이유",
+    "TOP5 중 선택한 순위",
+    "TOP5 중 선택 순위",
+    "자동 대체 여부",
+    "2순위 후보",
+    "제외 후보 요약",
+    "버린 후보 요약",
+    "핵심 키워드",
+    "예상 제목",
+    "공식출처",
+    "이미지 방향",
+    "썸네일 방향",
+    "네이버 태그 방향",
+    "최근 발행 이력 확인 여부",
+    "정치/갈등성 최종 점검",
+  ];
+
+  function escapeRegExp(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function parseLabeledSections(md) {
+    if (!md) return {};
+    const pattern = KNOWN_LABELS.map(escapeRegExp).join("|");
+    // 라벨 앞에 "## 3." 같은 마크다운 헤더 표시나 "-" 목록 기호가 붙어 있어도
+    // 무시하고 라벨 자체만 구분 기준으로 삼는다.
+    const re = new RegExp("(?:^|\\n)[ \\t]*(?:#{1,6}\\s*\\d+[.)]\\s*|[-*]\\s*)?(" + pattern + ")\\s*[:：]?[ \\t]*\\n?", "g");
+    const matches = [...md.matchAll(re)];
+    const result = {};
+    for (let i = 0; i < matches.length; i += 1) {
+      const label = matches[i][1];
+      const start = matches[i].index + matches[i][0].length;
+      const end = i + 1 < matches.length ? matches[i + 1].index : md.length;
+      if (!result[label]) result[label] = md.slice(start, end).trim();
+    }
+    return result;
+  }
+
+  function pickFirst(sections, keys) {
+    for (const key of keys) {
+      if (sections[key] && sections[key].trim()) return sections[key].trim();
+    }
+    return "";
+  }
+
+  function firstLine(text) {
+    const lines = (text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+    return lines[0] || "";
+  }
+
+  // 선정 이유처럼 여러 줄일 수 있는 항목을 짧은 목록으로 정리한다. 너무
+  // 길어지지 않게 상한을 둔다(요약 카드 취지에 맞춤).
+  function toBulletLines(text, maxLines) {
+    const lines = (text || "")
+      .split("\n")
+      .map((l) => l.trim().replace(/^[-*•]\s*/, "").replace(/^\d+[.)]\s*/, ""))
+      .filter(Boolean);
+    return lines.slice(0, maxLines || 6);
+  }
+
+  function parseSelectedTopic(md) {
+    const sections = parseLabeledSections(md);
+    const finalTopic = firstLine(pickFirst(sections, ["최종 TOP1 주제", "최종 선정 주제"]));
+    const reasons = toBulletLines(pickFirst(sections, ["선정 이유"]), 6);
+    return { finalTopic, reasons };
+  }
+
+  // TOP5 후보 개별 파일(top5/0N_candidate.md) 원문에서 후보 제목 한 줄만
+  // 뽑아낸다. 파일명/원문 구조는 화면에 노출하지 않는다.
+  function parseCandidateTitle(candidateMd) {
+    if (!candidateMd) return "";
+    let m = candidateMd.match(/추천\s*제목\s*후보\s*[:：]?\s*(.+)/);
+    if (m && m[1].trim()) return m[1].trim();
+    m = candidateMd.match(/주제명\s*[:：]?\s*(.+)/);
+    if (m && m[1].trim()) return m[1].trim();
+
+    const lines = candidateMd.split("\n").map((l) => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      if (/^#/.test(line)) continue; // 마크다운 헤더 줄은 건너뛴다
+      if (/^(후보\s*순위|순위)\s*[:：]/.test(line)) continue;
+      return line.replace(/^[-*]\s*/, "");
+    }
+    return "";
+  }
+
   function renderDetail(post) {
-    const { selectedEl, summaryEl, candidatesEl } = els();
+    const { finalTopicEl, reasonsEl, candidatesEl } = els();
 
     const selectedTopicMd = (post && post.selectedTopicMd) || "";
-    const top5SummaryMd = (post && post.top5SummaryMd) || "";
     const top5Candidates = (post && post.top5Candidates) || {};
+    const parsed = parseSelectedTopic(selectedTopicMd);
 
-    if (selectedEl) selectedEl.textContent = selectedTopicMd.trim() ? selectedTopicMd : `${EMPTY_LABEL}(selected_topic.md 파일에 없음)`;
-    if (summaryEl) summaryEl.textContent = top5SummaryMd.trim() ? top5SummaryMd : `${EMPTY_LABEL}(top5_summary.md 파일에 없음)`;
+    if (finalTopicEl) {
+      finalTopicEl.textContent = parsed.finalTopic || post.title || EMPTY_LABEL;
+    }
+
+    if (reasonsEl) {
+      if (parsed.reasons.length) {
+        reasonsEl.innerHTML = parsed.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
+      } else {
+        reasonsEl.innerHTML = `<li>${EMPTY_LABEL}</li>`;
+      }
+    }
 
     if (candidatesEl) {
       const nums = Object.keys(top5Candidates).sort();
       if (!nums.length) {
-        candidatesEl.innerHTML = `<p class="notice-text">${EMPTY_LABEL}(top5/0N_candidate.md 파일에 없음)</p>`;
+        candidatesEl.innerHTML = `<li>${EMPTY_LABEL}</li>`;
       } else {
         candidatesEl.innerHTML = nums
           .map((num) => {
-            const text = top5Candidates[num] || "";
-            return `
-              <details class="topic-detail-candidate">
-                <summary>후보 ${escapeHtml(parseInt(num, 10) || num)} (top5/${escapeHtml(num)}_candidate.md)</summary>
-                <pre class="topic-detail-pre">${escapeHtml(text || EMPTY_LABEL)}</pre>
-              </details>`;
+            const title = parseCandidateTitle(top5Candidates[num]);
+            return `<li>${escapeHtml(title || EMPTY_LABEL)}</li>`;
           })
           .join("");
       }
@@ -106,8 +203,8 @@ const TopicDetailModule = (() => {
   function bindEvents() {
     if (bound) return; // 중복 연결 방지
 
-    const { openBtn, closeBtn, overlay, emptyEl, bodyEl, selectedEl, summaryEl, candidatesEl } = els();
-    if (!openBtn || !closeBtn || !overlay || !emptyEl || !bodyEl || !selectedEl || !summaryEl || !candidatesEl) {
+    const { openBtn, closeBtn, overlay, emptyEl, bodyEl, finalTopicEl, reasonsEl, candidatesEl } = els();
+    if (!openBtn || !closeBtn || !overlay || !emptyEl || !bodyEl || !finalTopicEl || !reasonsEl || !candidatesEl) {
       // 표시 대상 DOM이 하나라도 없으면 조용히 종료(예외를 던지지 않음).
       return;
     }

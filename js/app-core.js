@@ -29,7 +29,7 @@
  * 2. 설정창 / 업로드 확인 팝업 / 지시서 관리 / 오류 목록 / v1.4의 8개 신규
  *    모듈은 모두 "선택 기능"이다. 오류가 나도 기본 업로드/저장 흐름은 계속
  *    써야 한다.
- * 3. 신규 모듈 초기화(setOnConfirmSave/setOnDataReset 연결, v1.4 신규
+ * 3. 신규 모듈 초기화(setOnAutoSave/setOnDataReset 연결, v1.4 신규
  *    모듈의 init() 호출 등)는 각각 독립된 safeInit()(try/catch)로 감싼다.
  *    한 모듈 실패가 다른 초기화를 막지 않는다.
  * 4. 신규 모듈 자신도 DOM 요소가 없으면 예외를 던지지 않고 조용히 종료하도록
@@ -255,80 +255,174 @@ function closePreviewPopup() {
 }
 
 /* ----------------------------------------------------------
-   📚 게시판 패널 + 전체 게시판 팝업 (기본 기능: 글 선택)
-   기본 화면(panel--library)에는 최신 글 1개만 표시한다(모바일 배치 안정화).
-   전체 목록은 [전체 게시판] 팝업에서만 보여준다. 정렬(최신순)과 저장 구조는
-   LibraryModule.getFilteredPosts()를 그대로 사용한다.
+   📚 게시판 패널(v1.8.6-fix1 보정): 단독 모듈처럼 — 입력은 업로드 모듈이
+   저장한 글 데이터, 출력은 selectedPostId 하나뿐이다. 네이버/블로그스팟
+   모듈은 GptCoreAPI.getSelectedPost()로 그 결과만 읽어가며, 게시판 자체는
+   네이버 복사/블로그 임시저장/발행 버튼을 갖지 않는다(PART B-1).
+   메인 화면에는 "선택된 글" 요약(카테고리/제목 최대 2줄/요약 최대 2줄)만
+   표시하고, 9개 카테고리 전체 목록은 [전체 게시판 열기] 팝업 안에서만
+   보여준다(내부 스크롤 없이 9개 전부 표시, PART C-4).
    ---------------------------------------------------------- */
-const BOARD_MAIN_VISIBLE_COUNT = 1;
+const BOARD_CATEGORY_ORDER = [
+  "오늘의 핫이슈",
+  "돈 되는 생활정보",
+  "지원금·정책 알림",
+  "보험·병원비 체크",
+  "카드·금융 혜택",
+  "통신·구독 절약",
+  "자동차·교통 정보",
+  "공연·예매 소식",
+  "지역 생활정보",
+];
 
-function buildPostListHtml(posts) {
-  return posts
-    .map(
-      (p) => `
-      <li class="library-item${p.id === selectedPostId ? " library-item--selected" : ""}" data-id="${escapeHtml(p.id)}">
-        <div class="library-item__title">${escapeHtml(p.title)}</div>
-        <div class="library-item__meta">
-          ${formatDate(p.createdAt)}
-          <span class="status-badge ${statusBadgeClass(p.saveStatus)}">${escapeHtml(p.saveStatus)}</span>
-          ${p.category ? `<span class="status-badge status-badge--category">${escapeHtml(p.category)}</span>` : ""}
-        </div>
-      </li>`
-    )
-    .join("");
+// 전체 게시판 팝업에서 아직 [선택하기]로 확정하지 않은 임시 선택 상태.
+// 팝업을 취소/닫으면 selectedPostId에는 영향을 주지 않는다(실수 방지).
+let pendingBoardSelection = null;
+
+function getPostPreviewText(p, maxLen) {
+  const limit = maxLen || 60;
+  let text = (p && p.contentText) || "";
+  if (!text.trim() && p && p.contentHtmlRaw) {
+    try {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = p.contentHtmlRaw;
+      text = tmp.textContent || tmp.innerText || "";
+    } catch (error) {
+      text = "";
+    }
+  }
+  text = text.replace(/\s+/g, " ").trim();
+  return text.length > limit ? text.slice(0, limit) + "…" : text;
 }
 
-function bindPostListClicks(listEl) {
-  listEl.querySelectorAll(".library-item").forEach((li) => {
+// 카테고리별 최신 글 1개 + 카테고리 없는 글(단일 ZIP 업로드 등)을 합쳐
+// 목록 행을 구성한다. 정렬/저장 구조 자체(LibraryModule)는 그대로 쓴다.
+function buildBoardRows(posts) {
+  const byCategory = new Map();
+  const extras = [];
+
+  posts.forEach((p) => {
+    if (p.category && BOARD_CATEGORY_ORDER.indexOf(p.category) !== -1) {
+      if (!byCategory.has(p.category)) byCategory.set(p.category, p); // posts는 최신순 정렬 가정 → 먼저 만난 것이 최신
+    } else {
+      extras.push(p);
+    }
+  });
+
+  const rows = BOARD_CATEGORY_ORDER.map((name) => {
+    const post = byCategory.get(name) || null;
+    return { key: name, label: name, post };
+  });
+  extras.forEach((p) => rows.push({ key: p.id, label: p.title, post: p }));
+
+  return rows;
+}
+
+function renderBoardSelectedInfo(post) {
+  const infoBox = document.getElementById("board-selected-info");
+  const categoryEl = document.getElementById("board-selected-category");
+  const titleEl = document.getElementById("board-selected-title");
+  const summaryEl = document.getElementById("board-selected-summary");
+  if (!infoBox || !categoryEl || !titleEl || !summaryEl) return;
+
+  if (!post) {
+    infoBox.classList.add("hidden");
+    return;
+  }
+  infoBox.classList.remove("hidden");
+  categoryEl.textContent = post.category || "";
+  titleEl.textContent = post.title;
+  summaryEl.textContent = getPostPreviewText(post);
+}
+
+// 전체 게시판 팝업의 목록만 채운다(메인 화면에는 목록을 펼치지 않는다 — C-2).
+function renderBoardFullList(rows) {
+  const listEl = document.getElementById("board-full-list");
+  if (!listEl) return;
+
+  listEl.innerHTML = rows
+    .map((row) => {
+      const selected = !!(row.post && row.post.id === pendingBoardSelection);
+      const dot = selected ? "●" : "○";
+      if (!row.post) {
+        return `<li class="board-select-list__item board-select-list__item--empty"><span>${dot} ${escapeHtml(row.label)}</span></li>`;
+      }
+      return `
+        <li class="board-select-list__item${selected ? " board-select-list__item--selected" : ""}" data-id="${escapeHtml(row.post.id)}">
+          <span>${dot} ${escapeHtml(row.label)}</span>
+        </li>`;
+    })
+    .join("");
+
+  listEl.querySelectorAll(".board-select-list__item[data-id]").forEach((li) => {
     li.addEventListener("click", () => {
-      selectedPostId = li.dataset.id;
-      const post = LibraryModule.getPostById(selectedPostId);
-      renderSavePanel();
-      renderLibraryList();
-      openPreviewPopup(post);
+      pendingBoardSelection = li.dataset.id;
+      renderBoardFullList(rows); // 임시 선택 표시만 갱신(아직 확정 아님)
     });
   });
 }
 
-async function renderLibraryList() {
-  await LibraryModule.loadPosts();
+function openBoardPopup() {
   const posts = LibraryModule.getFilteredPosts();
-  const latestPosts = posts.slice(0, BOARD_MAIN_VISIBLE_COUNT);
-  const listEl = document.getElementById("library-list");
-  const emptyEl = document.getElementById("library-empty");
-
-  if (!latestPosts.length) {
-    listEl.innerHTML = "";
-    emptyEl.classList.remove("hidden");
-    return;
-  }
-  emptyEl.classList.add("hidden");
-  listEl.innerHTML = buildPostListHtml(latestPosts);
-  bindPostListClicks(listEl);
-}
-
-function renderBoardPopupList() {
-  const posts = LibraryModule.getFilteredPosts();
+  const rows = buildBoardRows(posts);
   const listEl = document.getElementById("board-full-list");
   const emptyEl = document.getElementById("board-full-empty");
 
-  if (!posts.length) {
-    listEl.innerHTML = "";
-    emptyEl.classList.remove("hidden");
-    return;
-  }
-  emptyEl.classList.add("hidden");
-  listEl.innerHTML = buildPostListHtml(posts);
-  bindPostListClicks(listEl);
-}
+  pendingBoardSelection = selectedPostId;
 
-function openBoardPopup() {
-  renderBoardPopupList();
+  if (!posts.length) {
+    if (listEl) listEl.innerHTML = "";
+    if (emptyEl) emptyEl.classList.remove("hidden");
+  } else {
+    if (emptyEl) emptyEl.classList.add("hidden");
+    renderBoardFullList(rows);
+  }
+
   document.getElementById("popup-board-overlay").classList.add("popup-overlay--open");
 }
 
 function closeBoardPopup() {
   document.getElementById("popup-board-overlay").classList.remove("popup-overlay--open");
+}
+
+// [선택하기]: 임시 선택을 실제 selectedPostId로 반영한다(메인 게시판 +
+// 네이버/블로그스팟이 이 값을 기준으로 동작한다).
+function confirmBoardSelection() {
+  if (pendingBoardSelection && LibraryModule.getPostById(pendingBoardSelection)) {
+    selectedPostId = pendingBoardSelection;
+    renderSavePanel();
+    renderLibraryList();
+  }
+  closeBoardPopup();
+}
+
+async function renderLibraryList() {
+  await LibraryModule.loadPosts();
+  const posts = LibraryModule.getFilteredPosts();
+  const rows = buildBoardRows(posts);
+
+  const emptyEl = document.getElementById("library-empty");
+  const summaryLine = document.getElementById("board-summary-line");
+
+  if (!posts.length) {
+    if (emptyEl) emptyEl.classList.remove("hidden");
+    if (summaryLine) summaryLine.textContent = "📚 글 목록";
+    renderBoardSelectedInfo(null);
+    return;
+  }
+
+  if (emptyEl) emptyEl.classList.add("hidden");
+  if (summaryLine) {
+    summaryLine.textContent = `📚 글 목록 · ${posts.length}개 등록됨${selectedPostId ? " · 1개 선택됨" : ""}`;
+  }
+
+  // 선택된 글이 없으면(최초 진입 등) 목록에서 post가 있는 첫 행을 자동 선택한다.
+  if (!selectedPostId || !LibraryModule.getPostById(selectedPostId)) {
+    const firstWithPost = rows.find((r) => r.post);
+    selectedPostId = firstWithPost ? firstWithPost.post.id : null;
+  }
+
+  renderBoardSelectedInfo(selectedPostId ? LibraryModule.getPostById(selectedPostId) : null);
 }
 
 /* ----------------------------------------------------------
@@ -454,75 +548,27 @@ async function handleSaveStartClick() {
    업로드 흐름이 게시판 상태를 바꿔야 할 때 공통으로 호출한다. 실제 저장/삭제는
    기존 공개 API(LibraryModule/StorageModule)만 사용한다.
    ---------------------------------------------------------- */
-async function handleUploadConfirmed(post) {
-  // v1.4: 저장을 실제로 시도하기 전, "업로드 확인 완료" 시점을 신규 모듈에 알린다.
+// 업로드 다이어트(v1.8.6): 확인 팝업/저장 완료 팝업 없이 조용히 저장만
+// 한다(단일 ZIP과 카테고리별 전체 묶음 ZIP 양쪽 모두 이 함수 하나로
+// 처리한다 — upload-confirm-module.js가 카테고리 개수만큼 반복 호출한다).
+// 결과 표시는 upload-confirm-module.js의 결과 카드가 전담한다.
+async function autoSavePost(post) {
   notifyLifecycle("upload-confirmed", { post });
-
   try {
     const res = await LibraryModule.savePost(post);
     if (res.success) {
       selectedPostId = post.id;
       await renderLibraryList();
       renderSavePanel();
-      showPopup("✅ 게시판 저장 완료", `<p>"${escapeHtml(post.title)}" 글을 게시판에 저장했습니다.</p>`);
       notifyLifecycle("board-saved", { post });
       return true;
     }
-    showPopup("⚠️ 게시판 저장 실패", `<p>[library-module] 게시판 저장 중 오류가 발생했습니다. 오류 목록에서 자세한 내용을 확인해주세요.</p>`);
     notifyLifecycle("board-save-failed", { post });
     return false;
   } catch (error) {
-    showPopup("⚠️ 게시판 저장 실패", `<p>[library-module] 게시판 저장 중 오류가 발생했습니다. 오류 목록에서 자세한 내용을 확인해주세요.</p>`);
     notifyLifecycle("board-save-failed", { post });
     return false;
   }
-}
-
-// 카테고리별 TOP1 전체 묶음 ZIP 저장(신규): post 배열을 받아 기존
-// LibraryModule.savePost()를 카테고리 개수만큼 반복 호출한다. 저장 로직
-// 자체(LibraryModule/StorageModule)는 전혀 건드리지 않고 그대로 재사용한다.
-// 일부 카테고리 저장이 실패해도 나머지는 계속 저장을 시도한다(전부 실패해야
-// 실패로 본다).
-async function handleUploadConfirmedMany(posts) {
-  const results = []; // { post, success }
-
-  for (const post of posts) {
-    notifyLifecycle("upload-confirmed", { post });
-    try {
-      const res = await LibraryModule.savePost(post);
-      if (res.success) {
-        notifyLifecycle("board-saved", { post });
-        results.push({ post, success: true });
-      } else {
-        notifyLifecycle("board-save-failed", { post });
-        results.push({ post, success: false });
-      }
-    } catch (error) {
-      notifyLifecycle("board-save-failed", { post });
-      results.push({ post, success: false });
-    }
-  }
-
-  const successResults = results.filter((r) => r.success);
-  if (successResults.length) {
-    selectedPostId = successResults[successResults.length - 1].post.id;
-    await renderLibraryList();
-    renderSavePanel();
-  }
-
-  const successRows = successResults.map((r) => `<li>✅ ${escapeHtml(r.post.category || r.post.title)}</li>`).join("");
-  const failRows = results
-    .filter((r) => !r.success)
-    .map((r) => `<li>⚠️ ${escapeHtml(r.post.category || r.post.title)}</li>`)
-    .join("");
-
-  showPopup(
-    successResults.length ? "✅ 카테고리별 게시판 저장 완료" : "⚠️ 게시판 저장 실패",
-    `<p>전체 묶음 ZIP 중 ${results.length}개 카테고리를 처리해 ${successResults.length}개를 게시판에 저장했습니다.</p>
-     <ul class="check-list">${successRows}${failRows}</ul>`
-  );
-
-  return successResults.length > 0;
 }
 
 async function handleDataResetConfirmed() {
@@ -544,13 +590,10 @@ async function handleDataResetConfirmed() {
    없거나, 초기화 중 오류가 났을 때)만 활성화된다. zip-file-input,
    upload-filename, 공용 popup-overlay처럼 index.html 기본 구조에 항상 있는
    요소만 사용하므로, 신규 모듈(js 파일/스크립트 태그/팝업 마크업/전용 CSS)을
-   통째로 지워도 "ZIP 업로드 → 확인 → 게시판에 저장"은 계속 동작한다.
-   실제 저장은 handleUploadConfirmed()를 그대로 재사용해 로직이 중복되지 않는다.
+   통째로 지워도 "ZIP 업로드 → 자동 저장 → 결과 표시"는 계속 동작한다.
+   실제 저장은 autoSavePost()를 그대로 재사용해 로직이 중복되지 않는다.
    ---------------------------------------------------------- */
-let fallbackUploadPost = null;
-
 function resetFallbackUploadState() {
-  fallbackUploadPost = null;
   try {
     UploadModule.reset();
   } catch (error) {
@@ -601,7 +644,7 @@ async function handleZipSelectedFallback(event) {
   }
 
   // 카테고리별 TOP1 전체 묶음 ZIP은 이 대체(fallback) 경로에서는 지원하지
-  // 않는다(9개 확인 목록 UI가 upload-confirm-module.js에만 있음). 정상 ZIP을
+  // 않는다(9개 결과 카드 UI가 upload-confirm-module.js에만 있음). 정상 ZIP을
   // 실패로 잘못 보고하지 않도록 안내만 하고 새로고침을 유도한다.
   if (result.isMasterBundle) {
     showPopup(
@@ -622,46 +665,13 @@ async function handleZipSelectedFallback(event) {
     return;
   }
 
-  fallbackUploadPost = post;
-
-  // 신규 업로드 확인 팝업(체크리스트/미리보기)을 쓸 수 없는 상태이므로, 항상
-  // 존재하는 공용 팝업으로 최소한의 확인만 거친 뒤 저장한다.
+  // 업로드 다이어트(v1.8.6): 확인 팝업 없이 바로 자동 저장한다.
+  const ok = await autoSavePost(post);
+  resetFallbackUploadState();
   showPopup(
-    "📦 업로드 확인",
-    `<p>"${escapeHtml(post.title)}" 글을 게시판에 저장할까요?</p>
-     <div class="popup-actions">
-       <button id="fallback-upload-cancel-btn" class="btn btn--block" type="button">취소</button>
-       <button id="fallback-upload-save-btn" class="btn btn--primary btn--block" type="button">게시판에 저장</button>
-     </div>`
+    ok ? "✅ 업로드 완료" : "⚠️ 업로드 실패",
+    ok ? `<p>"${escapeHtml(post.title)}" 글을 게시판에 저장했습니다.</p>` : `<p>게시판 저장에 실패했습니다.</p>`
   );
-
-  const cancelBtn = document.getElementById("fallback-upload-cancel-btn");
-  const saveBtn = document.getElementById("fallback-upload-save-btn");
-
-  if (cancelBtn) {
-    cancelBtn.addEventListener("click", () => {
-      resetFallbackUploadState();
-      closePopup();
-    });
-  }
-
-  if (saveBtn) {
-    saveBtn.addEventListener("click", async () => {
-      if (!fallbackUploadPost) return;
-      saveBtn.disabled = true;
-      const target = fallbackUploadPost;
-      let ok = false;
-      try {
-        ok = await handleUploadConfirmed(target);
-      } finally {
-        if (ok) {
-          resetFallbackUploadState();
-        } else {
-          saveBtn.disabled = false;
-        }
-      }
-    });
-  }
 }
 
 let fallbackUploadBound = false; // 중복 연결 방지(업로드 확인 모듈과 동시에 켜지지 않도록)
@@ -739,6 +749,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("board-open-btn").addEventListener("click", openBoardPopup);
     document.getElementById("board-close-btn").addEventListener("click", closeBoardPopup);
+    document.getElementById("board-cancel-btn").addEventListener("click", closeBoardPopup);
+    document.getElementById("board-select-confirm-btn").addEventListener("click", confirmBoardSelection);
+
+    document.getElementById("board-preview-btn").addEventListener("click", () => {
+      const post = selectedPostId ? LibraryModule.getPostById(selectedPostId) : null;
+      if (post) openPreviewPopup(post);
+    });
     document.getElementById("preview-close-btn").addEventListener("click", closePreviewPopup);
 
     document.getElementById("save-start-btn").addEventListener("click", openSaveConfirmPopup);
@@ -760,10 +777,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let uploadConfirmActive = false;
   safeInit("upload-confirm-module", () => {
     if (typeof UploadConfirmModule === "undefined") return;
-    UploadConfirmModule.setOnConfirmSave(handleUploadConfirmed);
-    if (typeof UploadConfirmModule.setOnConfirmSaveMany === "function") {
-      UploadConfirmModule.setOnConfirmSaveMany(handleUploadConfirmedMany);
-    }
+    UploadConfirmModule.setOnAutoSave(autoSavePost);
     uploadConfirmActive = typeof UploadConfirmModule.isReady === "function" && UploadConfirmModule.isReady();
   });
 
