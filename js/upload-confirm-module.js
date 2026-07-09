@@ -27,8 +27,10 @@
  */
 
 const UploadConfirmModule = (() => {
-  let pendingPost = null;
-  let onConfirmSave = null; // async (post) => boolean(성공 시 true)
+  let pendingPost = null; // 단일 ZIP 모드
+  let pendingPosts = null; // 카테고리별 TOP1 전체 묶음 ZIP 모드(배열)
+  let onConfirmSave = null; // async (post) => boolean(성공 시 true) — 단일 모드
+  let onConfirmSaveMany = null; // async (posts[]) => boolean(전부 성공 시 true) — 전체 묶음 모드
   let bound = false; // 이벤트 연결 성공 여부(중복 연결 방지 + 상태 조회용)
 
   function escapeHtml(text) {
@@ -61,6 +63,10 @@ const UploadConfirmModule = (() => {
     onConfirmSave = fn;
   }
 
+  function setOnConfirmSaveMany(fn) {
+    onConfirmSaveMany = fn;
+  }
+
   function isReady() {
     return bound;
   }
@@ -72,6 +78,8 @@ const UploadConfirmModule = (() => {
       errorTitle: document.getElementById("upload-confirm-error-title"),
       errorDetail: document.getElementById("upload-confirm-error-detail"),
       body: document.getElementById("upload-confirm-body"),
+      masterList: document.getElementById("upload-confirm-master-list"),
+      singleView: document.getElementById("upload-confirm-single-view"),
       summary: document.getElementById("upload-confirm-summary"),
       checklist: document.getElementById("upload-confirm-checklist"),
       warning: document.getElementById("upload-confirm-warning"),
@@ -180,11 +188,58 @@ const UploadConfirmModule = (() => {
     }
   }
 
+  // 카테고리별 TOP1 전체 묶음 ZIP: 9개(또는 인식된 개수) 카테고리를 나열한다.
+  // 개별 실패(scan 실패)도 그대로 보여주되, 저장은 성공한 카테고리만 진행한다.
+  function renderMasterList(checkStatus) {
+    const { masterList } = els();
+    if (!masterList) return;
+    const results = checkStatus.categoryResults || [];
+    const successCount = results.filter((r) => r.ok).length;
+
+    const rows = results
+      .map((r) => {
+        const stateClass = r.ok ? "check-item__status--ok" : "check-item__status--missing";
+        const stateLabel = r.ok ? "인식됨" : "실패";
+        const titleLine = r.ok
+          ? `<div class="detail-row__value">${escapeHtml(r.title || r.fileName)}</div>`
+          : `<div class="detail-row__value notice-text notice-text--warning">${escapeHtml(r.reason || "인식 실패")}</div>`;
+        return `
+          <li class="check-item">
+            <span>${escapeHtml(r.categoryName)}<br/><span class="detail-row__label">${escapeHtml(r.fileName)}</span></span>
+            <span class="check-item__status ${stateClass}">${stateLabel}</span>
+          </li>
+          ${titleLine}`;
+      })
+      .join("");
+
+    masterList.innerHTML = `
+      <p class="notice-text">전체 묶음 ZIP 안에서 카테고리 ${results.length}개 중 ${successCount}개를 정상 인식했습니다.<br/>인식된 ${successCount}개가 각각 게시판 글 1개로 저장됩니다.</p>
+      <ul class="check-list">${rows}</ul>
+    `;
+  }
+
+  function showMasterConfirmState(checkStatus) {
+    const { errorBox, body, masterList, singleView, saveBtn } = els();
+    if (!errorBox || !body || !masterList || !singleView) return;
+    errorBox.classList.add("hidden");
+    body.classList.remove("hidden");
+    singleView.classList.add("hidden");
+    masterList.classList.remove("hidden");
+    renderMasterList(checkStatus);
+    if (saveBtn) {
+      const successCount = (checkStatus.categoryResults || []).filter((r) => r.ok).length;
+      saveBtn.textContent = `게시판에 ${successCount}개 저장`;
+    }
+  }
+
   function showConfirmState(post, checkStatus) {
-    const { errorBox, body } = els();
+    const { errorBox, body, masterList, singleView, saveBtn } = els();
     if (!errorBox || !body) return;
     errorBox.classList.add("hidden");
     body.classList.remove("hidden");
+    if (masterList) masterList.classList.add("hidden");
+    if (singleView) singleView.classList.remove("hidden");
+    if (saveBtn) saveBtn.textContent = "게시판에 저장";
     renderSummary(post);
     renderChecklist(checkStatus.checklist);
     renderWarning(checkStatus.unresolvedImageRefs);
@@ -210,6 +265,7 @@ const UploadConfirmModule = (() => {
   // 취소 또는 저장 완료 후 임시 업로드 데이터를 폐기한다(게시판 상태는 그대로 유지).
   function discardPending() {
     pendingPost = null;
+    pendingPosts = null;
     try {
       UploadModule.reset();
     } catch (error) {
@@ -259,6 +315,19 @@ const UploadConfirmModule = (() => {
 
     try {
       const checkStatus = UploadModule.getCheckStatus();
+
+      if (result.isMasterBundle) {
+        pendingPosts = UploadModule.buildCategoryPosts();
+        if (!pendingPosts || !pendingPosts.length) {
+          showErrorState(buildFriendlyUploadError("전체 묶음 ZIP에서 게시판에 등록할 카테고리를 하나도 만들지 못했습니다."));
+          openOverlay();
+          return;
+        }
+        showMasterConfirmState(checkStatus);
+        openOverlay();
+        return;
+      }
+
       pendingPost = UploadModule.buildPost();
       if (!pendingPost) {
         showErrorState(buildFriendlyUploadError("업로드 데이터를 구성하지 못했습니다."));
@@ -272,6 +341,7 @@ const UploadConfirmModule = (() => {
       // 오류 상태로 안내하고, 사용자가 파일을 다시 선택해 재시도할 수 있게 한다.
       logSafe("업로드 확인 팝업을 표시하지 못했습니다", error && error.message, null);
       pendingPost = null;
+      pendingPosts = null;
       showErrorState({
         title: "[upload-confirm-module] 업로드 확인 팝업을 표시하지 못했습니다.",
         lines: ["파일을 다시 선택해 시도해주세요.", "문제가 반복되면 오류 목록을 확인해주세요."],
@@ -306,6 +376,20 @@ const UploadConfirmModule = (() => {
       });
 
       saveBtn.addEventListener("click", async () => {
+        if (pendingPosts && pendingPosts.length) {
+          if (typeof onConfirmSaveMany !== "function") return;
+          saveBtn.disabled = true;
+          try {
+            const ok = await onConfirmSaveMany(pendingPosts);
+            if (ok) reset();
+          } catch (error) {
+            logSafe("게시판 일괄 저장 콜백 실행에 실패했습니다", error && error.message, null);
+          } finally {
+            saveBtn.disabled = false;
+          }
+          return;
+        }
+
         if (!pendingPost || typeof onConfirmSave !== "function") return;
         saveBtn.disabled = true;
         try {
@@ -331,6 +415,7 @@ const UploadConfirmModule = (() => {
   return {
     bindEvents,
     setOnConfirmSave,
+    setOnConfirmSaveMany,
     isReady,
     reset,
   };

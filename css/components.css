@@ -230,6 +230,12 @@
   background-color: var(--color-bg-soft);
 }
 
+/* 카테고리별 TOP1 전체 묶음 ZIP에서 등록된 글의 카테고리명 표시(신규) */
+.status-badge--category {
+  color: var(--color-primary);
+  background-color: var(--color-primary-bg, var(--color-bg-soft));
+}
+
 /* ---------- 게시판 목록(클래스명은 기존 구조를 유지하기 위해 library-* 그대로 사용) ---------- */
 .library-list {
   display: flex;
@@ -404,6 +410,43 @@
 
 .naver-image-item__open-btn {
   align-self: flex-start;
+}
+
+/* 카테고리별 TOP1 전체 ZIP 업로드 처리(신규): TOP5/selected_topic 보기 팝업.
+   원문(마크다운/텍스트)을 줄바꿈 유지한 채 읽기 전용으로 보여준다. */
+.topic-detail-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px;
+  margin: 0 0 12px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.topic-detail-candidate {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.topic-detail-candidate summary {
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.topic-detail-candidate .topic-detail-pre {
+  margin: 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 8px 8px;
 }
 
 /* ---------- 상세/미리보기 공통 ---------- */

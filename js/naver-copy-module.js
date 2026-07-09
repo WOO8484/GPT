@@ -148,26 +148,30 @@ const NaverCopyModule = (() => {
     return extractMdSection(post && post.selectedTopicMd, "네이버 주제분류");
   }
 
+  // 신규 작업지침서(카테고리별 TOP1 전체 ZIP 업로드 처리) 10장: "네이버 태그는
+  // naver_tags.txt를 우선 사용한다." naver_tags.txt가 있으면 그것을 먼저 쓰고,
+  // 없을 때만 metadata.naver_tags로 보조한다(이전 라운드와 우선순위 반대).
   function getTags(post) {
+    const rawFile = (post && post.naverTagsTxt) || "";
+    if (rawFile.trim()) {
+      const lines = rawFile.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      return cleanNaverTagList(lines);
+    }
     const meta = getMeta(post);
     if (Array.isArray(meta.naver_tags) && meta.naver_tags.length) {
       return cleanNaverTagList(meta.naver_tags.filter(Boolean));
     }
-    // metadata에 없으면 naver_tags.txt(한 줄에 태그 1개)에서 보조로 추출한다.
-    const raw = (post && post.naverTagsTxt) || "";
-    if (!raw.trim()) return [];
-    const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    return cleanNaverTagList(lines);
+    return [];
   }
 
   // v7.0: 화면에는 항상 정리된(특수문자 제거) 태그만 표시/복사하지만, 원본에
   // 특수문자가 있었는지도 함께 알려준다("네이버 태그: 통과" / "정리됨").
   function getRawTagSource(post) {
+    const raw = (post && post.naverTagsTxt) || "";
+    if (raw.trim()) return raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     const meta = getMeta(post);
     if (Array.isArray(meta.naver_tags) && meta.naver_tags.length) return meta.naver_tags.map(String);
-    const raw = (post && post.naverTagsTxt) || "";
-    if (!raw.trim()) return [];
-    return raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    return [];
   }
 
   function getTagCheckStatus(post) {

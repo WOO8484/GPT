@@ -271,6 +271,7 @@ function buildPostListHtml(posts) {
         <div class="library-item__meta">
           ${formatDate(p.createdAt)}
           <span class="status-badge ${statusBadgeClass(p.saveStatus)}">${escapeHtml(p.saveStatus)}</span>
+          ${p.category ? `<span class="status-badge status-badge--category">${escapeHtml(p.category)}</span>` : ""}
         </div>
       </li>`
     )
@@ -477,6 +478,53 @@ async function handleUploadConfirmed(post) {
   }
 }
 
+// 카테고리별 TOP1 전체 묶음 ZIP 저장(신규): post 배열을 받아 기존
+// LibraryModule.savePost()를 카테고리 개수만큼 반복 호출한다. 저장 로직
+// 자체(LibraryModule/StorageModule)는 전혀 건드리지 않고 그대로 재사용한다.
+// 일부 카테고리 저장이 실패해도 나머지는 계속 저장을 시도한다(전부 실패해야
+// 실패로 본다).
+async function handleUploadConfirmedMany(posts) {
+  const results = []; // { post, success }
+
+  for (const post of posts) {
+    notifyLifecycle("upload-confirmed", { post });
+    try {
+      const res = await LibraryModule.savePost(post);
+      if (res.success) {
+        notifyLifecycle("board-saved", { post });
+        results.push({ post, success: true });
+      } else {
+        notifyLifecycle("board-save-failed", { post });
+        results.push({ post, success: false });
+      }
+    } catch (error) {
+      notifyLifecycle("board-save-failed", { post });
+      results.push({ post, success: false });
+    }
+  }
+
+  const successResults = results.filter((r) => r.success);
+  if (successResults.length) {
+    selectedPostId = successResults[successResults.length - 1].post.id;
+    await renderLibraryList();
+    renderSavePanel();
+  }
+
+  const successRows = successResults.map((r) => `<li>✅ ${escapeHtml(r.post.category || r.post.title)}</li>`).join("");
+  const failRows = results
+    .filter((r) => !r.success)
+    .map((r) => `<li>⚠️ ${escapeHtml(r.post.category || r.post.title)}</li>`)
+    .join("");
+
+  showPopup(
+    successResults.length ? "✅ 카테고리별 게시판 저장 완료" : "⚠️ 게시판 저장 실패",
+    `<p>전체 묶음 ZIP 중 ${results.length}개 카테고리를 처리해 ${successResults.length}개를 게시판에 저장했습니다.</p>
+     <ul class="check-list">${successRows}${failRows}</ul>`
+  );
+
+  return successResults.length > 0;
+}
+
 async function handleDataResetConfirmed() {
   const posts = await StorageModule.getAllPosts();
   for (const post of posts) {
@@ -549,6 +597,17 @@ async function handleZipSelectedFallback(event) {
 
   if (!result.success) {
     showPopup("⚠️ 업로드 실패", buildFriendlyUploadErrorHtml(result.reason));
+    return;
+  }
+
+  // 카테고리별 TOP1 전체 묶음 ZIP은 이 대체(fallback) 경로에서는 지원하지
+  // 않는다(9개 확인 목록 UI가 upload-confirm-module.js에만 있음). 정상 ZIP을
+  // 실패로 잘못 보고하지 않도록 안내만 하고 새로고침을 유도한다.
+  if (result.isMasterBundle) {
+    showPopup(
+      "ℹ️ 새로고침 후 다시 시도해주세요",
+      `<p>카테고리별 TOP1 전체 묶음 ZIP(${result.categoryCount || 0}개 카테고리 인식)을 확인했습니다.</p><p>이 화면에서는 처리할 수 없습니다. 페이지를 새로고침한 뒤 다시 업로드해주세요.</p>`
+    );
     return;
   }
 
@@ -702,6 +761,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   safeInit("upload-confirm-module", () => {
     if (typeof UploadConfirmModule === "undefined") return;
     UploadConfirmModule.setOnConfirmSave(handleUploadConfirmed);
+    if (typeof UploadConfirmModule.setOnConfirmSaveMany === "function") {
+      UploadConfirmModule.setOnConfirmSaveMany(handleUploadConfirmedMany);
+    }
     uploadConfirmActive = typeof UploadConfirmModule.isReady === "function" && UploadConfirmModule.isReady();
   });
 
