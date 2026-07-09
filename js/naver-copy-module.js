@@ -8,9 +8,11 @@
  *   여는 버튼만 두고, 실제 항목 표시/복사는 팝업(#popup-naver-copy-overlay)
  *   안에서 처리한다.
  * - 이미지는 "이미지 목록 팝업"(#popup-naver-image-list-overlay)에서 썸네일 →
- *   본문 이미지 순서로 미리보기를 보여주고, 이미지마다 [이미지 다운로드] 버튼
- *   하나만 둔다(저장 안내 문구/크게보기 버튼 없음, 클릭 시 파일 다운로드를
- *   시도하고 브라우저 정책으로 막히면 새 창 표시로 대체한다).
+ *   본문 이미지 순서로 미리보기를 보여주고, 이미지마다 [이미지 보기] 버튼
+ *   하나만 둔다(파일 다운로드 강제 없음). 클릭하면 이미지 크게 보기 팝업
+ *   (#popup-naver-image-view-overlay)이 열리고, 사용자가 직접 이미지를
+ *   길게 눌러 사진 앱에 저장하도록 안내한다(자동 저장/다운로드 시도 없음 —
+ *   iPhone 네이버 글쓰기의 파일 앱 접근 불안정 문제에 대응).
  *   본문 이미지 개수는 고정하지 않고 post.imageFiles의 role(썸네일/본문 번호)
  *   기준으로 동적으로 표시한다.
  *
@@ -44,6 +46,7 @@ const NaverCopyModule = (() => {
   function els() {
     return {
       statusEl: document.getElementById("naver-copy-status"),
+      badgeEl: document.getElementById("naver-status-badge"),
       openBtn: document.getElementById("naver-copy-open-btn"),
       closeBtn: document.getElementById("naver-copy-close-btn"),
       overlay: document.getElementById("popup-naver-copy-overlay"),
@@ -75,7 +78,7 @@ const NaverCopyModule = (() => {
     };
   }
 
-  // 네이버 복사 체크리스트(신규): 제목/본문/태그/이미지 다운로드 완료 표시를
+  // 네이버 복사 체크리스트(신규): 제목/본문/태그/이미지 보기 완료 표시를
   // 채워 넣는다. 팝업을 새로 열 때마다 renderFields()에서 초기 상태로
   // 되돌린다(선택된 글이 바뀌면 체크 표시도 초기화된다).
   function setChecklistDone(el, label) {
@@ -95,11 +98,11 @@ const NaverCopyModule = (() => {
     resetChecklistItem(checkTitle, "제목 복사");
     resetChecklistItem(checkBody, "본문 복사");
     resetChecklistItem(checkTags, "태그 복사");
-    resetChecklistItem(checkImage, "이미지 다운로드");
+    resetChecklistItem(checkImage, "이미지 보기");
   }
 
-  // 이미지 목록 팝업 전용 DOM(네이버 이미지 팝업 최종 정리). 안내문/저장/크게보기
-  // 없이 "이미지 목록 팝업" + 이미지마다 [이미지 다운로드] 버튼 하나만 사용한다.
+  // 이미지 목록 팝업 전용 DOM. 안내문 + "이미지 목록 팝업" + 이미지마다
+  // [이미지 보기] 버튼 하나만 사용한다(다운로드 강제 없음).
   function imageListEls() {
     return {
       openBtn: document.getElementById("naver-image-list-open-btn"),
@@ -142,7 +145,10 @@ const NaverCopyModule = (() => {
   // 없음"처럼 라벨/값이 태그 뒤에 공백 없이 붙어오는 실기 오류를, 라벨
   // 문구를 구분자로 바꿔 분리한 뒤 플레이스홀더 값을 제거하는 방식으로 고친다.
   const NAVER_TAG_LABEL_RE = /(지역\s*키워드|키워드|태그)\s*[:：]/g;
-  const NAVER_TAG_SPLIT_RE = /[\n,#]+|\s{2,}/g;
+  // v1.8.6-fix2(PART D): 공백 1개도 구분자로 포함한다("공백 기준 분리").
+  // 네이버 태그는 원래 공백 없는 압축 키워드이므로, 태그 사이에 남는
+  // 공백은 항상 구분자로 봐도 안전하다(태그 내부에 의미 있는 공백이 없음).
+  const NAVER_TAG_SPLIT_RE = /[\n,#]+|\s+/g;
   const NAVER_TAG_PUNCT_RE = /[:：;；,，#()（）\[\]{}/\\'"“”‘’]/g;
   const NAVER_TAG_PLACEHOLDER_SET = new Set(["정보없음", "정보 없음", "없음", "null", "undefined", "-", ""]);
   const NAVER_TAG_MAX_COUNT = 10;
@@ -156,7 +162,14 @@ const NaverCopyModule = (() => {
     //    자체는 버린다(태그 뒤에 공백 없이 붙어와도 여기서 분리된다).
     let text = source.replace(NAVER_TAG_LABEL_RE, "\n");
 
-    // 2) 줄바꿈 / 쉼표 / # / 공백 2개 이상을 전부 구분자로 통일한다.
+    // 2) v1.8.6-fix2: 공백을 구분자로 쓰기 전에, 내부에 공백이 있는
+    //    플레이스홀더 문구("정보 없음" 등)부터 통째로 제거한다. 그렇지
+    //    않으면 뒤이은 공백 분리 단계에서 "정보"/"없음"으로 쪼개져
+    //    "정보"만 태그처럼 남는 문제가 생긴다.
+    text = text.replace(/정보\s*없음/g, "\n");
+
+    // 3) 줄바꿈 / 쉼표 / # / 공백 1개 이상을 전부 구분자로 통일한다("공백
+    //    기준 분리" — 네이버 태그는 원래 공백 없는 압축 키워드이므로 안전하다).
     text = text.replace(NAVER_TAG_SPLIT_RE, "\n");
 
     const seen = new Set();
@@ -252,14 +265,40 @@ const NaverCopyModule = (() => {
   }
 
   function renderStatus() {
-    const { statusEl } = els();
-    if (!statusEl) return;
+    const { statusEl, badgeEl } = els();
     const post = getSelectedPost();
-    statusEl.textContent = post ? "현재 상태: 네이버 수동 복사 준비" : "현재 상태: 게시글 선택 필요";
+    if (statusEl) statusEl.textContent = post ? "현재 상태: 네이버 수동 복사 준비" : "현재 상태: 게시글 선택 필요";
+    if (badgeEl) {
+      if (post) {
+        badgeEl.textContent = "🟢 복사 준비";
+        badgeEl.className = "status-badge status-badge--ready";
+      } else {
+        badgeEl.textContent = "🟡 선택 필요";
+        badgeEl.className = "status-badge status-badge--warn";
+      }
+    }
   }
 
   // 팝업을 열 때 현재 선택된 글 기준으로 항목들을 채운다. 글이 없거나
   // metadata 필드가 없어도 "정보 없음"으로만 표시하고 예외를 던지지 않는다.
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text === null || text === undefined ? "" : String(text);
+    return div.innerHTML;
+  }
+
+  // v1.8.6-fix2(PART D-3): 태그를 쉼표로 이어붙인 한 줄 문자열이 아니라
+  // 개별 칩(#태그)으로 표시한다. "화면 표시 시 # 붙여 표시" 규칙도 여기서
+  // 적용한다(내부 저장/복사용 배열 자체에는 #을 붙이지 않는다).
+  function renderTagChips(container, tags) {
+    if (!container) return;
+    if (!tags.length) {
+      container.textContent = EMPTY_LABEL;
+      return;
+    }
+    container.innerHTML = tags.map((tag) => `<span class="naver-tag-chip">#${escapeHtml(tag)}</span>`).join("");
+  }
+
   function renderFields() {
     const {
       fieldBoard, fieldCategory, fieldTags, fieldTagCheck, fieldLocation, fieldTitle, fieldLinks,
@@ -273,13 +312,13 @@ const NaverCopyModule = (() => {
     if (fieldCategory) fieldCategory.textContent = getCategory(post) || EMPTY_LABEL;
 
     const tags = getTags(post);
-    if (fieldTags) fieldTags.textContent = tags.length ? tags.join(", ") : EMPTY_LABEL;
+    renderTagChips(fieldTags, tags);
     if (fieldTagCheck) fieldTagCheck.textContent = getTagCheckStatus(post) || EMPTY_LABEL;
 
     // 태그 정제 결과 미리보기(신규): 복사 전에 원본과 정제 후 결과, 개수를 보여준다.
     const rawPreview = getRawTagPreviewText(post);
     if (tagPreviewBefore) tagPreviewBefore.textContent = rawPreview.trim() ? rawPreview.replace(/\r?\n/g, " / ") : EMPTY_LABEL;
-    if (tagPreviewAfter) tagPreviewAfter.textContent = tags.length ? tags.join(", ") : EMPTY_LABEL;
+    renderTagChips(tagPreviewAfter, tags);
     if (tagPreviewCount) tagPreviewCount.textContent = `${tags.length}개`;
 
     const location = getLocationKeywords(meta);
@@ -366,7 +405,10 @@ const NaverCopyModule = (() => {
         resultEl.textContent = "복사할 태그/지역 키워드가 없습니다(metadata에 없음).";
         return;
       }
-      const lines = [...tags, ...location];
+      // v1.8.6-fix2(PART D-2): 네이버 태그는 화면 표시와 동일하게 "#태그"
+      // 형태로 한 줄에 하나씩 복사한다(지역 키워드는 네이버 태그가 아니므로
+      // # 없이 그대로 이어붙인다).
+      const lines = [...tags.map((tag) => `#${tag}`), ...location];
       copyText(lines.join("\n"), resultEl, "태그/지역", () => setChecklistDone(checkTags, "태그 복사"));
     });
   }
@@ -415,46 +457,26 @@ const NaverCopyModule = (() => {
     });
   }
 
-  // [이미지 다운로드]: 새 창으로 열기만 하던 동작을 실제 파일 다운로드
-  // 시도로 바꾼다. a 태그의 download 속성으로 다운로드를 시도하고, 브라우저
-  // 보안 정책 등으로 막히면 새 창 열기로 대체한다(버튼명은 계속 "이미지
-  // 다운로드"를 유지한다).
-  function downloadImage(dataUrl, fileName, onDone) {
+  // [이미지 보기](v1.8.6-fix2 PART E): 파일 다운로드를 강제하지 않는다. iPhone
+  // 네이버 글쓰기에서 파일 앱 접근이 불안정하다는 실기 피드백에 따라, 이미지를
+  // 크게 보기 팝업으로 보여주고 사용자가 직접 길게 눌러 사진 앱에 저장하도록
+  // 안내만 한다(자동 저장/다운로드 시도 없음).
+  function openImageViewPopup(dataUrl, fileName) {
     if (!dataUrl) return;
-    try {
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = fileName || "image.png";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      if (typeof onDone === "function") onDone();
-      return;
-    } catch (error) {
-      // 아래 fallback(새 창 열기)으로 진행
-    }
-    try {
-      const win = window.open("", "_blank");
-      if (win && win.document) {
-        win.document.title = fileName || "이미지";
-        win.document.body.style.margin = "0";
-        win.document.body.style.background = "#111";
-        const img = win.document.createElement("img");
-        img.src = dataUrl;
-        img.alt = fileName || "이미지";
-        img.style.display = "block";
-        img.style.maxWidth = "100%";
-        img.style.height = "auto";
-        img.style.margin = "0 auto";
-        win.document.body.appendChild(img);
-        if (typeof onDone === "function") onDone();
-        return;
-      }
-    } catch (error) {
-      // 아래 최종 fallback으로 진행
-    }
-    window.open(dataUrl, "_blank");
-    if (typeof onDone === "function") onDone();
+    const overlay = document.getElementById("popup-naver-image-view-overlay");
+    const imgEl = document.getElementById("naver-image-view-img");
+    const titleEl = document.getElementById("naver-image-view-title");
+    if (!overlay || !imgEl) return;
+
+    imgEl.src = dataUrl;
+    imgEl.alt = fileName || "이미지";
+    if (titleEl) titleEl.textContent = fileName || "사진 저장용 이미지";
+    overlay.classList.add("popup-overlay--open");
+  }
+
+  function closeImageViewPopup() {
+    const overlay = document.getElementById("popup-naver-image-view-overlay");
+    if (overlay) overlay.classList.remove("popup-overlay--open");
   }
 
   function renderImageList() {
@@ -488,25 +510,18 @@ const NaverCopyModule = (() => {
       const openImgBtn = document.createElement("button");
       openImgBtn.type = "button";
       openImgBtn.className = "btn btn--ghost btn--compact naver-image-item__open-btn";
-      openImgBtn.textContent = "이미지 다운로드";
-
-      const doneEl = document.createElement("div");
-      doneEl.className = "naver-image-item__done hidden";
-      doneEl.textContent = "다운로드 완료";
+      openImgBtn.textContent = "이미지 보기";
 
       openImgBtn.addEventListener("click", () => {
-        downloadImage(image.dataUrl, image.fileName, () => {
-          doneEl.classList.remove("hidden");
-          const { checkImage } = els();
-          setChecklistDone(checkImage, "이미지 다운로드");
-        });
+        openImageViewPopup(image.dataUrl, image.fileName);
+        const { checkImage } = els();
+        setChecklistDone(checkImage, "이미지 보기");
       });
 
       const info = document.createElement("div");
       info.className = "naver-image-item__info";
       info.appendChild(label);
       info.appendChild(openImgBtn);
-      info.appendChild(doneEl);
 
       item.appendChild(thumb);
       item.appendChild(info);
@@ -576,6 +591,13 @@ const NaverCopyModule = (() => {
 
       imageListOpenBtn.addEventListener("click", openImageListPopup);
       imageListCloseBtn.addEventListener("click", closeImageListPopup);
+
+      // 이미지 크게 보기 팝업 닫기 버튼(헤더 ✕ / 하단 닫기) — 필수 요소 목록에는
+      // 넣지 않는다(있으면 연결하고, 없어도 이미지 목록 팝업 자체는 계속 동작).
+      const imageViewCloseBtn = document.getElementById("naver-image-view-close-btn");
+      const imageViewCloseBtn2 = document.getElementById("naver-image-view-close-btn-2");
+      if (imageViewCloseBtn) imageViewCloseBtn.addEventListener("click", closeImageViewPopup);
+      if (imageViewCloseBtn2) imageViewCloseBtn2.addEventListener("click", closeImageViewPopup);
 
       if (window.GptCoreAPI && typeof GptCoreAPI.registerLifecycleListener === "function") {
         GptCoreAPI.registerLifecycleListener("naver-copy-module", handleLifecycle);

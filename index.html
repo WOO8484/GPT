@@ -23,7 +23,7 @@
       <div id="login-error" class="login-error hidden"></div>
       <button id="login-btn" class="btn btn--primary btn--block" type="button">입장하기</button>
     </div>
-    <div class="login-version">v1.8.6-fix1</div>
+    <div class="login-version">v1.8.6-fix2</div>
   </div>
 
   <!-- 메인 앱: 로그인 성공 전에는 hidden 상태로 유지 -->
@@ -55,8 +55,9 @@
       </section>
 
       <section class="panel panel--library" aria-label="게시판">
-        <div class="panel__header">
+        <div class="panel__header panel__header--row">
           <span id="board-summary-line">📚 글 목록</span>
+          <span id="board-status-badge" class="status-badge status-badge--pending"></span>
         </div>
         <div class="panel__body">
           <!-- 게시판 재구성(v1.8.6-fix1): 메인 화면에는 "선택된 글" 요약만
@@ -84,7 +85,10 @@
       </section>
 
       <section class="panel panel--save" aria-label="블로그스팟">
-        <div class="panel__header">📝 블로그스팟</div>
+        <div class="panel__header panel__header--row">
+          <span>📝 블로그스팟</span>
+          <span id="blogspot-status-badge" class="status-badge status-badge--pending"></span>
+        </div>
         <div class="panel__body">
           <!-- v1.6.2(작업5): js/app-core.js가 더 이상 이 요소의 표시를 토글하지
                않는다. 블로그스팟 영역(#save-target)이 항상 보이고 #post-status-line이
@@ -135,7 +139,10 @@
                  메인 화면이 밀리지 않도록 팝업(#popup-naver-copy-overlay)으로
                  분리했다(메인에는 상태 + 여는 버튼만 고정 노출). -->
             <div id="naver-copy-section" class="naver-copy-section">
-              <div class="naver-copy-section__header">🟢 네이버</div>
+              <div class="naver-copy-section__header naver-copy-section__header--row">
+                <span>🟢 네이버</span>
+                <span id="naver-status-badge" class="status-badge status-badge--pending"></span>
+              </div>
               <div id="naver-copy-status" class="naver-copy-status">현재 상태: 게시글 선택 필요</div>
               <button id="naver-copy-open-btn" class="btn btn--ghost btn--block" type="button">네이버 수동 복사 도구 열기</button>
             </div>
@@ -304,7 +311,7 @@
           <span id="naver-check-title">☐ 제목 복사</span>
           <span id="naver-check-body">☐ 본문 복사</span>
           <span id="naver-check-tags">☐ 태그 복사</span>
-          <span id="naver-check-image">☐ 이미지 다운로드</span>
+          <span id="naver-check-image">☐ 이미지 보기</span>
         </div>
 
         <div class="popup-subheading">복사</div>
@@ -321,21 +328,43 @@
     </div>
   </div>
 
-  <!-- 네이버 이미지 팝업 최종 정리(이미지 관련 UI만 정리): 안내문/크게보기 없이
-       "이미지 목록 팝업" + 이미지마다 [이미지 다운로드] 버튼 하나만 둔다.
+  <!-- 네이버 이미지 준비(v1.8.6-fix2 PART E): 다운로드 강제 대신 "사진 저장용
+       이미지 보기" 방식으로 바꿨다. iPhone 네이버 글쓰기에서 파일 앱 접근이
+       불안정하다는 실기 피드백에 따라, 이미지를 큰 화면으로 보여주고 사용자가
+       직접 길게 눌러 사진 앱에 저장하도록 안내한다(자동 저장 시도 없음).
        naver-copy-module.js가 post.imageFiles(썸네일→본문 이미지 순서)를 기준으로
-       동적으로 목록을 채운다(본문 이미지 개수 고정하지 않음). [이미지 다운로드]는
-       파일 다운로드를 시도하고, 브라우저 정책으로 막히면 새 창 표시로 대체한다.
+       동적으로 목록을 채운다(본문 이미지 개수 고정하지 않음). 이미지 보기
+       버튼을 누르면 크게 보기 팝업(#popup-naver-image-view-overlay)이 열린다.
        중앙 팝업 구조를 그대로 재사용한다(전체 화면 스크롤 구조로 변경 없음). -->
   <div id="popup-naver-image-list-overlay" class="popup-overlay">
     <div class="popup-panel popup-panel--fixed">
       <div class="popup-panel__header">
-        <h2>🖼 이미지 목록</h2>
+        <h2>🖼 사진 저장용 이미지</h2>
         <button id="naver-image-list-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
       </div>
       <div class="popup-panel__scroll popup-panel__scroll--noscroll">
+        <p class="notice-text">아이폰에서는 네이버 글쓰기에서 파일 앱 접근이 제한될 수 있습니다.<br />이미지를 크게 연 뒤 길게 눌러 사진 앱에 저장하세요.<br />그다음 네이버 글쓰기에서 사진 첨부로 선택하세요.</p>
         <div id="naver-image-list-body"></div>
         <div id="naver-image-list-empty" class="notice-text hidden">표시할 이미지가 없습니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 이미지 크게 보기 팝업(v1.8.6-fix2 PART E-4): 다운로드 강제 없이 이미지를
+       화면 너비 안에서 크게 보여주기만 한다(가로 스크롤 없음, 파일 앱 안내
+       없음). 저장은 사용자가 직접 길게 눌러 사진 앱에 저장한다. -->
+  <div id="popup-naver-image-view-overlay" class="popup-overlay">
+    <div class="popup-panel popup-panel--fixed">
+      <div class="popup-panel__header">
+        <h2 id="naver-image-view-title">사진 저장용 이미지</h2>
+        <button id="naver-image-view-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll popup-panel__scroll--noscroll">
+        <img id="naver-image-view-img" class="naver-image-view__img" src="" alt="" />
+        <p class="notice-text">이미지를 길게 눌러 사진 앱에 저장하세요.</p>
+        <div class="popup-actions">
+          <button id="naver-image-view-close-btn-2" class="btn btn--primary btn--block" type="button">닫기</button>
+        </div>
       </div>
     </div>
   </div>
@@ -411,11 +440,6 @@
             <div class="topic-summary-block__label">선정 이유</div>
             <ul id="topic-detail-reasons" class="topic-summary-list"></ul>
           </div>
-
-          <div class="topic-summary-block">
-            <div class="topic-summary-block__label">TOP5 후보</div>
-            <ol id="topic-detail-candidates" class="topic-summary-list topic-summary-list--numbered"></ol>
-          </div>
         </div>
       </div>
     </div>
@@ -488,10 +512,10 @@
 
         <div class="settings-section settings-section--last">
           <div class="popup-subheading">버전 정보 / 개발 메모</div>
-          <div class="detail-row"><span class="detail-row__label">현재 버전</span><span>GPT공작소 v1.8.6-fix1</span></div>
+          <div class="detail-row"><span class="detail-row__label">현재 버전</span><span>GPT공작소 v1.8.6-fix2</span></div>
           <div class="detail-row"><span class="detail-row__label">기준 버전</span><span>GPT공작소 이전 버전</span></div>
           <p class="notice-text">다음 업데이트 후보: 오류 코드 체계 확장, 게시판 정렬/검색 옵션, 저장 전 HTML 정리 옵션, 화면 표시 옵션.</p>
-          <p class="notice-text">개발 메모: 업로드 결과 팝업은 [닫기] 버튼 하나만 있고 9개 카테고리가 스크롤 없이 전부 보입니다. 게시판은 선택된 글 요약 + [전체 게시판 열기]로 구성되며, 팝업에서 [선택하기]를 눌러야 선택이 반영됩니다. 선정자료 팝업은 최종 TOP1/선정 이유/TOP5 후보만 보여주는 요약 카드입니다(원문/파일명 노출 없음). 신규 기능은 모두 선택형 모듈로 분리되어 있습니다. 특정 기능에 문제가 있으면 해당 모듈만 제거해도 기본 업로드/저장 흐름은 계속 사용할 수 있습니다.</p>
+          <p class="notice-text">개발 메모: 게시판 영역을 더 넓혔고, 게시판/블로그스팟/네이버 헤더에 상태 배지(🟦/🟢/✅/🔴/🟡)가 붙었습니다. 선정자료 팝업은 최종 TOP1/선정 이유만 보여줍니다. 네이버 태그는 공백 1개만 있어도 개별 태그로 분리되고 #태그 칩으로 표시됩니다. 네이버 이미지는 다운로드 대신 [이미지 보기] 팝업으로 크게 보여주며 길게 눌러 사진 앱에 저장하도록 안내합니다. 신규 기능은 모두 선택형 모듈로 분리되어 있습니다. 특정 기능에 문제가 있으면 해당 모듈만 제거해도 기본 업로드/저장 흐름은 계속 사용할 수 있습니다.</p>
         </div>
 
       </div>

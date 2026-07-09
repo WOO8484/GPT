@@ -403,10 +403,15 @@ async function renderLibraryList() {
 
   const emptyEl = document.getElementById("library-empty");
   const summaryLine = document.getElementById("board-summary-line");
+  const badgeEl = document.getElementById("board-status-badge");
 
   if (!posts.length) {
     if (emptyEl) emptyEl.classList.remove("hidden");
     if (summaryLine) summaryLine.textContent = "📚 글 목록";
+    if (badgeEl) {
+      badgeEl.textContent = "🟡 등록된 글 없음";
+      badgeEl.className = "status-badge status-badge--warn";
+    }
     renderBoardSelectedInfo(null);
     return;
   }
@@ -422,6 +427,16 @@ async function renderLibraryList() {
     selectedPostId = firstWithPost ? firstWithPost.post.id : null;
   }
 
+  if (badgeEl) {
+    if (selectedPostId) {
+      badgeEl.textContent = "🟦 선택됨";
+      badgeEl.className = "status-badge status-badge--info";
+    } else {
+      badgeEl.textContent = "🟡 선택 필요";
+      badgeEl.className = "status-badge status-badge--warn";
+    }
+  }
+
   renderBoardSelectedInfo(selectedPostId ? LibraryModule.getPostById(selectedPostId) : null);
 }
 
@@ -432,6 +447,29 @@ async function renderLibraryList() {
    실행되며, 그 내부 구현은 기존과 동일하다(수정하지 않음). 이 흐름 전체는
    신규 모듈과 무관하게 항상 연결된다.
    ---------------------------------------------------------- */
+// 블로그스팟 상태 배지(v1.8.6-fix2 PART C): 이미 있는 post.saveStatus 값을
+// 아이콘+색상 배지로만 다시 보여준다(상태 판정 로직 자체는 새로 만들지 않음).
+function renderBlogspotStatusBadge(post) {
+  const badgeEl = document.getElementById("blogspot-status-badge");
+  if (!badgeEl) return;
+
+  if (!post) {
+    badgeEl.textContent = "🟡 선택 필요";
+    badgeEl.className = "status-badge status-badge--warn";
+    return;
+  }
+  if (post.saveStatus === "임시저장완료") {
+    badgeEl.textContent = "✅ 저장 완료";
+    badgeEl.className = "status-badge status-badge--ok";
+  } else if (post.saveStatus === "임시저장실패") {
+    badgeEl.textContent = "🔴 실패";
+    badgeEl.className = "status-badge status-badge--fail";
+  } else {
+    badgeEl.textContent = "🟢 임시저장 준비";
+    badgeEl.className = "status-badge status-badge--ready";
+  }
+}
+
 function renderSavePanel() {
   // v1.6.2(작업3/5): 블로그스팟 영역(제목/현재 상태/저장 버튼/보조 도구)을
   // 더 이상 숨기지 않는다(글 선택 여부와 무관하게 항상 표시). #save-empty는
@@ -443,6 +481,7 @@ function renderSavePanel() {
   // #post-status-line(post-status-module.js)이 "현재 상태: ..." 한 줄로
   // 대신 표시한다. 두 id는 유지하되(6장) 내용은 비워둔다.
   const post = selectedPostId ? LibraryModule.getPostById(selectedPostId) : null;
+  renderBlogspotStatusBadge(post);
   if (!post) {
     notifyLifecycle("post-selected", { post: null });
     return;
@@ -634,12 +673,12 @@ async function handleZipSelectedFallback(event) {
   try {
     result = await UploadModule.setZipFile(file);
   } catch (error) {
-    showPopup("⚠️ 업로드 실패", buildFriendlyUploadErrorHtml(error.message));
+    showPopup("업로드 실패", buildFriendlyUploadErrorHtml(error.message));
     return;
   }
 
   if (!result.success) {
-    showPopup("⚠️ 업로드 실패", buildFriendlyUploadErrorHtml(result.reason));
+    showPopup("업로드 실패", buildFriendlyUploadErrorHtml(result.reason));
     return;
   }
 
@@ -648,7 +687,7 @@ async function handleZipSelectedFallback(event) {
   // 실패로 잘못 보고하지 않도록 안내만 하고 새로고침을 유도한다.
   if (result.isMasterBundle) {
     showPopup(
-      "ℹ️ 새로고침 후 다시 시도해주세요",
+      "새로고침 후 다시 시도해주세요",
       `<p>카테고리별 TOP1 전체 묶음 ZIP(${result.categoryCount || 0}개 카테고리 인식)을 확인했습니다.</p><p>이 화면에서는 처리할 수 없습니다. 페이지를 새로고침한 뒤 다시 업로드해주세요.</p>`
     );
     return;
@@ -661,7 +700,7 @@ async function handleZipSelectedFallback(event) {
     post = null;
   }
   if (!post) {
-    showPopup("⚠️ 업로드 실패", `<p>업로드 데이터를 구성하지 못했습니다.</p>`);
+    showPopup("업로드 실패", `<p>실패한 항목은 저장되지 않았습니다.</p><p>ZIP을 다시 만들어 업로드하세요.</p>`);
     return;
   }
 
@@ -669,8 +708,10 @@ async function handleZipSelectedFallback(event) {
   const ok = await autoSavePost(post);
   resetFallbackUploadState();
   showPopup(
-    ok ? "✅ 업로드 완료" : "⚠️ 업로드 실패",
-    ok ? `<p>"${escapeHtml(post.title)}" 글을 게시판에 저장했습니다.</p>` : `<p>게시판 저장에 실패했습니다.</p>`
+    "업로드 완료",
+    ok
+      ? `<p>전체 1개 · 성공 1개 · 실패 0개</p>`
+      : `<p>전체 1개 · 성공 0개 · 실패 1개</p><p>실패한 항목은 저장되지 않았습니다.<br />ZIP을 다시 만들어 업로드하세요.</p>`
   );
 }
 

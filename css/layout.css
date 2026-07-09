@@ -144,6 +144,14 @@
   color: var(--color-text-soft);
 }
 
+/* v1.8.6-fix2(PART C): 헤더 제목 옆에 상태 배지를 붙이는 레이아웃. */
+.panel__header--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .panel__body {
   flex: 1;
   min-height: 0;
@@ -244,7 +252,7 @@
    되어야 panel__body--scroll의 기존 내부 스크롤이 사용된다. */
 .panel--library {
   flex: 0 0 auto;
-  max-height: 230px;
+  max-height: 290px;
 }
 .panel--save {
   flex: 1 1 0;

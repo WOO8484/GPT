@@ -31,7 +31,6 @@ const TopicDetailModule = (() => {
       bodyEl: document.getElementById("topic-detail-body"),
       finalTopicEl: document.getElementById("topic-detail-final-topic"),
       reasonsEl: document.getElementById("topic-detail-reasons"),
-      candidatesEl: document.getElementById("topic-detail-candidates"),
     };
   }
 
@@ -128,27 +127,10 @@ const TopicDetailModule = (() => {
 
   // TOP5 후보 개별 파일(top5/0N_candidate.md) 원문에서 후보 제목 한 줄만
   // 뽑아낸다. 파일명/원문 구조는 화면에 노출하지 않는다.
-  function parseCandidateTitle(candidateMd) {
-    if (!candidateMd) return "";
-    let m = candidateMd.match(/추천\s*제목\s*후보\s*[:：]?\s*(.+)/);
-    if (m && m[1].trim()) return m[1].trim();
-    m = candidateMd.match(/주제명\s*[:：]?\s*(.+)/);
-    if (m && m[1].trim()) return m[1].trim();
-
-    const lines = candidateMd.split("\n").map((l) => l.trim()).filter(Boolean);
-    for (const line of lines) {
-      if (/^#/.test(line)) continue; // 마크다운 헤더 줄은 건너뛴다
-      if (/^(후보\s*순위|순위)\s*[:：]/.test(line)) continue;
-      return line.replace(/^[-*]\s*/, "");
-    }
-    return "";
-  }
-
   function renderDetail(post) {
-    const { finalTopicEl, reasonsEl, candidatesEl } = els();
+    const { finalTopicEl, reasonsEl } = els();
 
     const selectedTopicMd = (post && post.selectedTopicMd) || "";
-    const top5Candidates = (post && post.top5Candidates) || {};
     const parsed = parseSelectedTopic(selectedTopicMd);
 
     if (finalTopicEl) {
@@ -160,20 +142,6 @@ const TopicDetailModule = (() => {
         reasonsEl.innerHTML = parsed.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
       } else {
         reasonsEl.innerHTML = `<li>${EMPTY_LABEL}</li>`;
-      }
-    }
-
-    if (candidatesEl) {
-      const nums = Object.keys(top5Candidates).sort();
-      if (!nums.length) {
-        candidatesEl.innerHTML = `<li>${EMPTY_LABEL}</li>`;
-      } else {
-        candidatesEl.innerHTML = nums
-          .map((num) => {
-            const title = parseCandidateTitle(top5Candidates[num]);
-            return `<li>${escapeHtml(title || EMPTY_LABEL)}</li>`;
-          })
-          .join("");
       }
     }
   }
@@ -203,8 +171,8 @@ const TopicDetailModule = (() => {
   function bindEvents() {
     if (bound) return; // 중복 연결 방지
 
-    const { openBtn, closeBtn, overlay, emptyEl, bodyEl, finalTopicEl, reasonsEl, candidatesEl } = els();
-    if (!openBtn || !closeBtn || !overlay || !emptyEl || !bodyEl || !finalTopicEl || !reasonsEl || !candidatesEl) {
+    const { openBtn, closeBtn, overlay, emptyEl, bodyEl, finalTopicEl, reasonsEl } = els();
+    if (!openBtn || !closeBtn || !overlay || !emptyEl || !bodyEl || !finalTopicEl || !reasonsEl) {
       // 표시 대상 DOM이 하나라도 없으면 조용히 종료(예외를 던지지 않음).
       return;
     }
