@@ -109,20 +109,17 @@
               </div>
             </div>
 
-            <!-- v1.6.2: 네이버 수동 복사 영역(단독 기능, 이번 작업에서 로직 미수정).
-                 네이버는 자동 저장이 아니며, 선택된 글의 제목/본문/이미지 URL/태그를
-                 클립보드로 복사하는 수동 보조 도구다. js/naver-copy-module.js가
-                 단독으로 관리하고 기존 Blogger 저장 흐름에는 전혀 개입하지 않는다. -->
+            <!-- v1.6.2/v6.9 metadata 표시 보정: 네이버 수동 복사 영역(단독 기능).
+                 네이버는 자동 저장이 아니며, 선택된 글의 제목/본문/게시판/주제분류/
+                 태그/지역 키워드/공식 링크를 확인하고 클립보드로 "수동 복사"만
+                 하는 보조 도구다. js/naver-copy-module.js가 단독으로 관리하고
+                 기존 Blogger 저장 흐름에는 전혀 개입하지 않는다. 항목이 많아져
+                 메인 화면이 밀리지 않도록 팝업(#popup-naver-copy-overlay)으로
+                 분리했다(메인에는 상태 + 여는 버튼만 고정 노출). -->
             <div id="naver-copy-section" class="naver-copy-section">
               <div class="naver-copy-section__header">🟢 네이버</div>
               <div id="naver-copy-status" class="naver-copy-status">현재 상태: 게시글 선택 필요</div>
-              <div class="naver-copy-grid">
-                <button id="naver-copy-title-btn" class="btn btn--ghost btn--compact" type="button">제목 복사</button>
-                <button id="naver-copy-body-btn" class="btn btn--ghost btn--compact" type="button">본문 복사</button>
-                <button id="naver-copy-image-btn" class="btn btn--ghost btn--compact" type="button">이미지 URL 복사</button>
-                <button id="naver-copy-tag-btn" class="btn btn--ghost btn--compact" type="button">태그 복사</button>
-              </div>
-              <div id="naver-copy-result" class="notice-text naver-copy-result"></div>
+              <button id="naver-copy-open-btn" class="btn btn--ghost btn--block" type="button">네이버 수동 복사 도구 열기</button>
             </div>
 
             <ul id="save-progress-list" class="save-progress-list"></ul>
@@ -227,17 +224,57 @@
   <div id="popup-prompt-copy-overlay" class="popup-overlay">
     <div class="popup-panel popup-panel--fixed">
       <div class="popup-panel__header">
-        <h2>📋 블로그 지시서 복사</h2>
+        <h2>📋 블로그자료 생성 지시문 v6.9</h2>
         <button id="prompt-copy-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
       </div>
       <div class="popup-panel__scroll popup-panel__scroll--noscroll">
         <p class="notice-text">현재 사용 중인 블로그 글작성 실행지시서 원문 전체를 복사합니다.<br />복사한 내용을 사용 중인 GPT 등에 붙여넣어 사용하세요.</p>
         <div id="prompt-copy-source" class="notice-text"></div>
-        <button id="prompt-copy-all-btn" class="btn btn--primary btn--block" type="button">전체 복사</button>
+        <button id="prompt-copy-all-btn" class="btn btn--primary btn--block" type="button">지시문 전체 복사</button>
         <!-- v1.6(12장): 복사 완료 문구가 뜨기 전/후 팝업 높이가 변하지 않도록
              결과 영역에 항상 고정된 공간을 예약해둔다(min-height). -->
         <div id="prompt-copy-result" class="notice-text prompt-copy-result"></div>
         <textarea id="prompt-copy-fallback" class="prompt-copy-fallback hidden" readonly rows="6" aria-label="블로그 지시서 원문"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- v6.9 metadata 표시 보정: 네이버 수동 복사 팝업(단독 기능). naver-copy-module.js가
+       전담한다. 네이버는 자동 저장/발행 대상이 아니라 "수동 복사 보조 도구"이므로
+       여기서는 읽기 + 클립보드 복사만 한다(Blogger/R2 저장 로직 미개입).
+       metadata.json에 v6.9 신규 필드(naver_board/naver_topic_category/naver_tags/
+       naver_location_keywords/official_links)가 없어도 "정보 없음"으로만 표시하고
+       기능은 중단되지 않는다. 팝업이 길어질 수 있어 기존 지시문 복사 팝업과 동일한
+       popup-panel--fixed(필요할 때만 내부 스크롤) 방식을 그대로 재사용한다. -->
+  <div id="popup-naver-copy-overlay" class="popup-overlay">
+    <div class="popup-panel popup-panel--fixed">
+      <div class="popup-panel__header">
+        <h2>🟢 네이버 수동 복사</h2>
+        <button id="naver-copy-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll popup-panel__scroll--noscroll">
+        <p class="notice-text">네이버는 자동 저장/발행이 아닌 수동 복사 보조 도구입니다. 아래 항목을 확인한 뒤 필요한 부분만 복사해 네이버 블로그 글쓰기 화면에 붙여넣으세요.</p>
+
+        <div class="naver-field"><span class="naver-field__label">추천 게시판</span><span id="naver-field-board" class="naver-field__value"></span></div>
+        <div class="naver-field"><span class="naver-field__label">네이버 주제분류</span><span id="naver-field-category" class="naver-field__value"></span></div>
+        <div class="naver-field"><span class="naver-field__label">네이버 태그</span><span id="naver-field-tags" class="naver-field__value"></span></div>
+        <div class="naver-field"><span class="naver-field__label">지역 키워드</span><span id="naver-field-location" class="naver-field__value"></span></div>
+        <div class="naver-field"><span class="naver-field__label">제목</span><span id="naver-field-title" class="naver-field__value"></span></div>
+        <div class="naver-field"><span class="naver-field__label">공식 링크</span><span id="naver-field-links" class="naver-field__value"></span></div>
+
+        <div class="popup-subheading">이미지 직접 업로드 안내</div>
+        <p class="notice-text">네이버 블로그는 이미지를 직접 업로드하는 방식으로 사용하세요.<br />ZIP 안의 images 폴더에서 thumbnail.png와 body 이미지를 순서대로 업로드하세요.<br />thumbnail.png는 대표 이미지, body-01~04는 본문 설명 이미지입니다.</p>
+
+        <div class="popup-subheading">복사</div>
+        <div class="naver-copy-grid">
+          <button id="naver-copy-title-btn" class="btn btn--ghost btn--compact" type="button">제목 복사</button>
+          <button id="naver-copy-body-btn" class="btn btn--ghost btn--compact" type="button">본문 복사</button>
+          <button id="naver-copy-board-category-btn" class="btn btn--ghost btn--compact" type="button">게시판/주제분류 복사</button>
+          <button id="naver-copy-tag-location-btn" class="btn btn--ghost btn--compact" type="button">태그/지역 복사</button>
+          <button id="naver-copy-links-btn" class="btn btn--ghost btn--compact" type="button">공식 링크 복사</button>
+          <button id="naver-copy-image-guide-btn" class="btn btn--ghost btn--compact" type="button">이미지 업로드 안내</button>
+        </div>
+        <div id="naver-copy-result" class="notice-text naver-copy-result"></div>
       </div>
     </div>
   </div>

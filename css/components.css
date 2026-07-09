@@ -347,6 +347,28 @@
   min-height: 16px;
 }
 
+/* v6.9 metadata 표시 보정: 네이버 복사 팝업 전용 항목 행(게시판/주제분류/태그/
+   지역 키워드/제목/공식 링크). 다른 화면의 .detail-row(app-core.js 등에서 공유
+   사용 중)와 폭이 달라 별도 클래스로 분리했다(기존 .detail-row는 미수정). */
+.naver-field {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.naver-field__label {
+  flex-shrink: 0;
+  width: 84px;
+  color: var(--color-text-soft);
+}
+
+.naver-field__value {
+  word-break: break-word;
+}
+
 /* ---------- 상세/미리보기 공통 ---------- */
 .detail-row {
   display: flex;
