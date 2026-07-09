@@ -18,7 +18,7 @@
  * 기존 guideline/settings 계열 모듈과 섞지 않기 위해 이벤트 바인딩도
  * 이 파일 안에서 스스로 처리한다(app-core.js의 초기화 블록을 건드리지 않음).
  *
- * v7.0 보정(작업지침서 4-1): "제목만 복사/일부만 복사/빈 값 복사"는 실패로
+ * v7.2 보정(작업지침서 4-1): "제목만 복사/일부만 복사/빈 값 복사"는 실패로
  * 본다. fetch된 기본 지시서 길이가 비정상적으로 짧으면(전체 복사 실패로 간주)
  * 클립보드 복사를 시도하지 않고 바로 수동 복사 팝업(textarea)으로 전환한다.
  *
@@ -28,9 +28,9 @@
  */
 
 const PromptCopyModule = (() => {
-  const PROMPT_URL = "data/blog-writing-prompt-v7.0.txt";
-  const PROMPT_VERSION_LABEL = "v7.0";
-  const MIN_EXPECTED_LENGTH = 3000; // 실제 v7.0 완성본은 3만자 이상이므로, 이보다 훨씬 짧으면 "일부만 복사" 실패로 간주한다.
+  const PROMPT_URL = "data/blog-writing-prompt-v7.2.txt";
+  const PROMPT_VERSION_LABEL = "v7.2";
+  const MIN_EXPECTED_LENGTH = 3000; // 실제 v7.2 완성본은 3만자 이상이므로, 이보다 훨씬 짧으면 "일부만 복사" 실패로 간주한다.
   const LS_KEY_TEXT = "gptWorkshop.blogPrompt.customText";
   const LS_KEY_NAME = "gptWorkshop.blogPrompt.customName";
 
@@ -94,7 +94,7 @@ const PromptCopyModule = (() => {
       return;
     }
 
-    // v7.0(작업지침서 4-1): 기본 지시서인데 내용이 비정상적으로 짧으면(제목만/
+    // v7.2: 기본 지시서인데 내용이 비정상적으로 짧으면(제목만/
     // 일부만 불러온 경우) 클립보드 복사를 시도하지 않고 바로 수동 복사 팝업으로 전환한다.
     const text = resolved.text || "";
     if (resolved.isDefault && text.trim().length < MIN_EXPECTED_LENGTH) {
