@@ -25,7 +25,7 @@ const UploadModule = (() => {
   const IMAGE_EXT_RE = /\.(png|jpe?g|webp)$/i;
   const THUMBNAIL_RE = /^thumbnail\.(png|jpe?g|webp)$/i;
   const BODY_RE = /^body-(\d+)\.(png|jpe?g|webp)$/i;
-  // v7.0 업로드 ZIP 구조 인식 보정(작업지침서 4-4): 아래는 전부 선택 항목이다.
+  // v7.2 업로드 ZIP 구조 인식: 아래는 전부 선택 항목이다.
   // 없어도 기존 필수 파일(metadata.json/content.html) 검증에는 영향을 주지 않는다.
   const TOP5_CANDIDATE_RE = /^0([1-5])_candidate\.md$/i;
   // 카테고리별 TOP1 전체 묶음 ZIP 인식용: 0N_..._TOP1.zip
@@ -52,11 +52,11 @@ const UploadModule = (() => {
   let loadedHtml = null;
   let loadedMarkdown = null;
   let loadedText = null;
-  let loadedSelectedTopicMd = ""; // v7.0: selected_topic.md 원문(선택 항목)
-  let loadedNaverTagsTxt = ""; // v7.0: naver_tags.txt 원문(선택 항목)
-  let loadedTop5SummaryMd = ""; // v7.0: top5/top5_summary.md 원문(선택 항목)
-  let loadedTop5Candidates = {}; // v7.0: { "01": "...md 원문", "02": "...", ... }(선택 항목)
-  let loadedImagePromptsMd = ""; // v7.0: image_prompts.md 원문(선택 항목, 썸네일 시각요소 진단용)
+  let loadedSelectedTopicMd = ""; // v7.2: selected_topic.md 원문(선택 항목)
+  let loadedNaverTagsTxt = ""; // v7.2: naver_tags.txt 원문(선택 항목)
+  let loadedTop5SummaryMd = ""; // v7.2: top5/top5_summary.md 원문(선택 항목)
+  let loadedTop5Candidates = {}; // v7.2: { "01": "...md 원문", "02": "...", ... }(선택 항목)
+  let loadedImagePromptsMd = ""; // v7.2: image_prompts.md 원문(선택 항목, 썸네일 시각요소 진단용)
   let imageFiles = {}; // { baseNameLower: { fileName, dataUrl, mimeType, ext, role } }
   let requiredFilesOk = false;
   let failReason = null;
@@ -86,7 +86,7 @@ const UploadModule = (() => {
     return "extra";
   }
 
-  // v7.0: naver_tags.txt에 금지된 특수문자가 있는지 검사한다(작업지침서 4-7).
+  // v7.2: naver_tags.txt에 금지된 특수문자가 있는지 검사한다.
   // 특수문자 정의: # , ( ) / ! ? " : ; _ 등. 빈 줄은 검사에서 제외한다.
   const NAVER_TAG_FORBIDDEN_RE = /[#,()/!?"':;_]/;
 
@@ -137,7 +137,7 @@ const UploadModule = (() => {
         textEntry = entry;
         return;
       }
-      // v7.0: selected_topic.md / naver_tags.txt / top5/*.md(선택 항목, 없어도 실패 아님)
+      // v7.2: selected_topic.md / naver_tags.txt / top5/*.md(선택 항목, 없어도 실패 아님)
       if (lower === "selected_topic.md" && !selectedTopicEntry) {
         selectedTopicEntry = entry;
         return;
@@ -206,7 +206,7 @@ const UploadModule = (() => {
     const markdown = markdownEntry ? MiniZip.bytesToText(markdownEntry.dataBytes) : "";
     const text = textEntry ? MiniZip.bytesToText(textEntry.dataBytes) : "";
 
-    // v7.0 추가 선택 항목 읽기(작업지침서 4-4/4-6/4-7). 읽기 실패해도 필수 흐름을
+    // v7.2 선택 항목 읽기. 읽기 실패해도 필수 흐름을
     // 막지 않도록 각각 try/catch로 감싸고, 실패 시 빈 값으로만 남긴다.
     let selectedTopicMd = "";
     try {

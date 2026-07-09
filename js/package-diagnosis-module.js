@@ -120,7 +120,7 @@ const PackageDiagnosisModule = (() => {
       items.push({ label: "table / script / style", level: "정상", detail: "위험 요소가 발견되지 않았습니다" });
     }
 
-    // 8. 공식 링크(공식 출처) 여부. official_sources(구) / official_links(v6.9~v7.0) 둘 다 확인한다.
+    // 8. 공식 링크(공식 출처) 여부. official_sources(구) / official_links(신규) 둘 다 확인한다.
     const officialSources = Array.isArray(meta.official_sources) ? meta.official_sources : [];
     const officialLinks = Array.isArray(meta.official_links) ? meta.official_links : [];
     const officialCount = officialSources.length + officialLinks.length;
@@ -130,7 +130,7 @@ const PackageDiagnosisModule = (() => {
         : { label: "공식 출처(official_sources/official_links)", level: "주의", detail: "metadata에 공식 출처가 비어 있습니다" }
     );
 
-    // v7.0 추가 항목(작업지침서 4-4/4-6/4-7/4-9): TOP5/selected_topic.md/naver_tags.txt/
+    // v7.2 추가 항목: TOP5/selected_topic.md/naver_tags.txt/
     // 썸네일 시각요소. post 객체를 읽기 전용으로만 확인한다(파일 형식 요구는
     // 없어도 실패로 처리하지 않는다 — 전부 "주의" 이하로만 표시).
     diagnoseV70Extras(post).forEach((item) => items.push(item));
@@ -142,7 +142,7 @@ const PackageDiagnosisModule = (() => {
     return items;
   }
 
-  // v7.0 추가 진단(작업지침서 4-4/4-6/4-7/4-9). post 객체(post.top5Candidates/
+  // v7.2 추가 진단. post 객체(post.top5Candidates/
   // post.top5SummaryMd/post.selectedTopicMd/post.naverTagsTxt/post.imagePromptsMd)를
   // 읽기 전용으로 확인한다. 전부 선택 항목이라 없어도 "수정 필요"까지는 가지
   // 않고 "주의"로만 표시한다(업로드 자체를 막지 않는다).

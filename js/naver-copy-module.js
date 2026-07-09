@@ -104,7 +104,7 @@ const NaverCopyModule = (() => {
     return (post && post.metadata) || {};
   }
 
-  // v7.0: 네이버 태그 특수문자 금지(작업지침서 4-7). # , ( ) / ! ? " ' : ; _ 등
+  // v7.2: 네이버 태그 특수문자 금지. # , ( ) / ! ? " ' : ; _ 등
   // 금지 문자를 제거하고, 빈 태그/중복 태그도 정리한다.
   const NAVER_TAG_FORBIDDEN_RE = /[#,()/!?"':;_]/g;
 
@@ -124,8 +124,8 @@ const NaverCopyModule = (() => {
     return cleaned;
   }
 
-  // v7.0: selected_topic.md는 "## N. 필드명" 형식 섹션으로 구성된다(작업지침서
-  // 4-5, 지시문 9장). metadata.json에 값이 없을 때만 보조로 추출한다.
+  // v7.2: selected_topic.md는 "## N. 필드명" 형식 섹션으로 구성된다(지시문 9장).
+  // metadata.json에 값이 없을 때만 보조로 추출한다.
   function extractMdSection(md, label) {
     if (!md) return "";
     const re = new RegExp("##\\s*\\d+\\.\\s*" + label + "\\s*\\n+([\\s\\S]*?)(?=\\n##\\s*\\d+\\.|$)", "i");
@@ -164,7 +164,7 @@ const NaverCopyModule = (() => {
     return [];
   }
 
-  // v7.0: 화면에는 항상 정리된(특수문자 제거) 태그만 표시/복사하지만, 원본에
+  // v7.2: 화면에는 항상 정리된(특수문자 제거) 태그만 표시/복사하지만, 원본에
   // 특수문자가 있었는지도 함께 알려준다("네이버 태그: 통과" / "정리됨").
   function getRawTagSource(post) {
     const raw = (post && post.naverTagsTxt) || "";

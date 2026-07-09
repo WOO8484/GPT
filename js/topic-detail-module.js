@@ -1,7 +1,7 @@
 /**
  * topic-detail-module.js (신규, 선택 기능)
  *
- * 역할: 카테고리별 TOP1 전체 묶음 ZIP에서 등록된(또는 단일 ZIP이라도 v7.0
+ * 역할: 카테고리별 TOP1 전체 묶음 ZIP에서 등록된(또는 단일 ZIP이라도 v7.2
  * 선택 항목을 포함한) 게시글의 TOP5 후보 파일(top5/01~05_candidate.md,
  * top5/top5_summary.md)과 selected_topic.md 원문을 읽기 전용으로 보여준다.
  *
