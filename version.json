@@ -1,9 +1,9 @@
 {
   "project": "GPT 공작소",
-  "version": "1.8.4",
-  "displayVersion": "v1.8.4",
+  "version": "1.8.5",
+  "displayVersion": "v1.8.5",
   "releaseDate": "2026-07-09",
-  "description": "[v1.8.4] 이전 버전 잔재 완전 정리. 새 기능 추가가 아니라 화면/README/version.json/지시문에 남아 있던 이전 버전 번호 표기와 옛 이미지 버튼 문구 잔재를 정리한 작업이다. index.html의 기준 버전 표기, README.txt에 누적되어 있던 이전 버전별 상세 블록(버전 번호 없는 요약으로 통합), data/blog-writing-prompt-v7.2.txt 안에 남아 있던 이전 버전 문구를 정리했다. 네이버 태그 정제 로직(naver-copy-module.js)과 이미지 다운로드 버튼 동작은 그대로 유지했다: naver_tags.txt/metadata.naver_tags 어느 쪽에서 와도 \"지역 키워드:\"/\"키워드:\"/\"태그:\" 라벨, 특수문자, \"정보 없음\"/\"없음\"/null/undefined 값을 제거하고 줄바꿈/쉼표/#/공백 2개 이상을 구분자로 통일해 정제된 태그만 한 줄에 하나씩 표시/복사한다. 이미지 목록 팝업의 이미지 버튼은 파일 다운로드를 시도하고(막히면 새 창 표시로 대체) 버튼명을 유지한다. 이전 이력 요약: 블로그자료 생성 지시문을 v7.2로 시스템 적용(data/blog-writing-prompt-v7.2.txt)했고, 카테고리별 TOP1 전체 묶음 ZIP(category_top1_zips/ 안에 0N_카테고리명_TOP1.zip 9개) 업로드 시 개별 ZIP 9개를 자동 인식해 게시판 글 9개로 등록하는 기능과 topic-detail-module.js(TOP5/selected_topic.md 읽기 전용 보기)가 이전 라운드들에서 추가되었다. 로그인/Worker 인증/R2 업로드/Blogger 저장/기존 단일 ZIP 업로드 흐름/게시판 등록 로직/카테고리 구성/블로그 지시문 핵심 구조는 이번에도 전혀 건드리지 않았다.",
+  "description": "[v1.8.5] 통합 고도화 / 성능 개선. Blogger/R2/로그인/카테고리 9개 구조/블로그 지시문 v7.2는 전혀 건드리지 않았다. upload-module.js: 카테고리(또는 단일 ZIP) 검증기를 강화해 metadata.json/content.html/content.md 또는 content.txt/selected_topic.md/naver_tags.txt/thumbnail.png/본문 이미지 존재 여부를 짧은 문구(예: \"content.html 없음\")로 정리하고, 카테고리별 성공/경고/실패 상태와 누락 파일 목록을 반환하도록 보강했다(getCheckStatus에 summary/missingFiles 필드 추가, 기존 필수 검증·저장 대상 판정 로직은 무수정). upload-confirm-module.js: 전체 묶음 ZIP 업로드 결과 요약 패널(전체/성공/경고/실패, 썸네일·네이버 태그·selected_topic 확인 개수)과 카테고리별 상세(상태/누락 파일/TOP1 제목/네이버 태그 개수/이미지 개수)를 표시하도록 강화했다. naver-copy-module.js: 복사 체크리스트(제목/본문/태그/이미지 다운로드 완료 표시), 태그 정제 결과 미리보기(정제 전/정제 후/개수), 이미지 다운로드 완료 표시를 추가했다(네이버 자동 업로드 기능은 만들지 않았고, 수동 복사만 유지). app-core.js: 게시판 카드에 썸네일(loading=lazy)·짧은 본문 미리보기·네이버 태그/이미지 개수를 추가하고, 전체 게시판 팝업 카드에는 미리보기/TOP5 보기/네이버 복사/블로그스팟 임시저장 버튼을 추가했다(전부 기존 진입점 재사용: topic-detail-open-btn/naver-copy-open-btn/save-start-btn을 그대로 클릭하는 방식이라 저장 로직 자체는 무수정이며 저장 전 확인 팝업도 그대로 유지됨). 성능: 캐시된 post 객체를 그대로 재사용해 ZIP을 다시 읽지 않고(기존 아키텍처 그대로), 카드 이미지에 lazy loading을 적용하고 본문 미리보기는 짧게 잘라 렌더링한다. 로그인/Worker 인증/R2 업로드/Blogger 저장/이미지 HTTPS 치환 로직은 이번에도 전혀 수정하지 않았다(diff 동일 확인). 검수/점수/차단 시스템은 추가하지 않았다(정상/주의/수정 필요 3단계 안내만 유지). 이전 버전 이력: 블로그자료 생성 지시문 v7.2 시스템 적용, 카테고리별 TOP1 전체 묶음 ZIP(개별 ZIP 9개 + 전체 ZIP 1개) 업로드, TOP5/selected_topic.md 읽기 전용 보기, 네이버 태그 최종 정제, 이미지 다운로드 버튼, 이전 버전 화면 잔재 정리가 이전 라운드들에서 반영되었다.",
   "storagePriority": [
     "indexedDB",
     "localStorage"

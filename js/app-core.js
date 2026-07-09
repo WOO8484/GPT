@@ -262,30 +262,143 @@ function closePreviewPopup() {
    ---------------------------------------------------------- */
 const BOARD_MAIN_VISIBLE_COUNT = 1;
 
-function buildPostListHtml(posts) {
+// 게시판 카드 보기 정리(신규): post 객체는 이미 upload-module.js가 한 번
+// 파싱해 캐시해 둔 것을 그대로 쓴다(ZIP을 다시 읽지 않는다 — 성능 개선 기준).
+function getPostThumbnailDataUrl(p) {
+  const files = (p && p.imageFiles) || {};
+  const thumb = Object.values(files).find((img) => img.role === "thumbnail");
+  return thumb ? thumb.dataUrl : "";
+}
+
+function getPostPreviewText(p, maxLen) {
+  const limit = maxLen || 70;
+  let text = (p && p.contentText) || "";
+  if (!text.trim() && p && p.contentHtmlRaw) {
+    try {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = p.contentHtmlRaw;
+      text = tmp.textContent || tmp.innerText || "";
+    } catch (error) {
+      text = "";
+    }
+  }
+  text = text.replace(/\s+/g, " ").trim();
+  return text.length > limit ? text.slice(0, limit) + "…" : text;
+}
+
+// 표시용 개수만 계산한다(실제 정제/복사 로직은 naver-copy-module.js가 전담하며
+// 여기서는 카드에 보여줄 대략적인 개수만 필요하다).
+function getPostNaverTagCount(p) {
+  const rawFile = (p && p.naverTagsTxt) || "";
+  if (rawFile.trim()) return rawFile.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).length;
+  const tags = p && p.metadata && Array.isArray(p.metadata.naver_tags) ? p.metadata.naver_tags : [];
+  return tags.filter(Boolean).length;
+}
+
+function buildPostListHtml(posts, richOptions) {
+  const rich = !!(richOptions && richOptions.rich);
+
   return posts
-    .map(
-      (p) => `
-      <li class="library-item${p.id === selectedPostId ? " library-item--selected" : ""}" data-id="${escapeHtml(p.id)}">
-        <div class="library-item__title">${escapeHtml(p.title)}</div>
+    .map((p) => {
+      const thumbUrl = getPostThumbnailDataUrl(p);
+      const thumbHtml = thumbUrl
+        ? `<img class="library-item__thumb" src="${thumbUrl}" alt="" loading="lazy" />`
+        : `<div class="library-item__thumb"></div>`;
+
+      const metaHtml = `
         <div class="library-item__meta">
           ${formatDate(p.createdAt)}
           <span class="status-badge ${statusBadgeClass(p.saveStatus)}">${escapeHtml(p.saveStatus)}</span>
           ${p.category ? `<span class="status-badge status-badge--category">${escapeHtml(p.category)}</span>` : ""}
-        </div>
-      </li>`
-    )
+        </div>`;
+
+      if (!rich) {
+        return `
+          <li class="library-item${p.id === selectedPostId ? " library-item--selected" : ""}" data-id="${escapeHtml(p.id)}">
+            <div class="library-item__row">
+              ${thumbHtml}
+              <div class="library-item__body">
+                <div class="library-item__title">${escapeHtml(p.title)}</div>
+                ${metaHtml}
+              </div>
+            </div>
+          </li>`;
+      }
+
+      const imageCount = Object.keys(p.imageFiles || {}).length;
+      const tagCount = getPostNaverTagCount(p);
+      const previewText = getPostPreviewText(p);
+
+      return `
+        <li class="library-item${p.id === selectedPostId ? " library-item--selected" : ""}" data-id="${escapeHtml(p.id)}">
+          <div class="library-item__row">
+            ${thumbHtml}
+            <div class="library-item__body">
+              <div class="library-item__title">${escapeHtml(p.title)}</div>
+              ${metaHtml}
+              ${previewText ? `<div class="library-item__preview">${escapeHtml(previewText)}</div>` : ""}
+              <div class="library-item__counts">네이버 태그 ${tagCount}개 · 이미지 ${imageCount}개</div>
+            </div>
+          </div>
+          <div class="library-item__actions">
+            <button class="btn btn--ghost btn--compact" type="button" data-card-action="preview" data-id="${escapeHtml(p.id)}">미리보기</button>
+            <button class="btn btn--ghost btn--compact" type="button" data-card-action="topic-detail" data-id="${escapeHtml(p.id)}">TOP5 보기</button>
+            <button class="btn btn--ghost btn--compact" type="button" data-card-action="naver-copy" data-id="${escapeHtml(p.id)}">네이버 복사</button>
+            <button class="btn btn--ghost btn--compact" type="button" data-card-action="blogger-save" data-id="${escapeHtml(p.id)}">블로그스팟 임시저장</button>
+          </div>
+        </li>`;
+    })
     .join("");
+}
+
+// 카드 액션 버튼(신규): 기존 저장/네이버 복사/TOP5 보기 진입점을 그대로
+// "재사용"한다(새 로직을 만들지 않는다). 글을 먼저 선택한 뒤, 이미 있는
+// 버튼(topic-detail-open-btn / naver-copy-open-btn / save-start-btn)을
+// 그대로 클릭해 기존 흐름(권한/확인 팝업 포함)을 그대로 태운다.
+function triggerExistingButton(id) {
+  const btn = document.getElementById(id);
+  if (btn && !btn.disabled) btn.click();
+}
+
+function handleCardAction(action, postId) {
+  selectedPostId = postId;
+  const post = LibraryModule.getPostById(postId);
+  renderSavePanel();
+  renderLibraryList();
+
+  if (action === "preview") {
+    openPreviewPopup(post);
+    return;
+  }
+  // 미리보기 외 동작은 팝업이 겹치지 않도록 게시판 팝업을 먼저 닫는다.
+  closeBoardPopup();
+  if (action === "topic-detail") {
+    triggerExistingButton("topic-detail-open-btn");
+  } else if (action === "naver-copy") {
+    triggerExistingButton("naver-copy-open-btn");
+  } else if (action === "blogger-save") {
+    triggerExistingButton("save-start-btn");
+  }
 }
 
 function bindPostListClicks(listEl) {
   listEl.querySelectorAll(".library-item").forEach((li) => {
-    li.addEventListener("click", () => {
+    li.addEventListener("click", (event) => {
+      // 액션 버튼 클릭은 카드 선택 클릭과 분리해서 처리한다(아래 별도 리스너).
+      if (event.target.closest("[data-card-action]")) return;
       selectedPostId = li.dataset.id;
       const post = LibraryModule.getPostById(selectedPostId);
       renderSavePanel();
       renderLibraryList();
       openPreviewPopup(post);
+    });
+  });
+
+  // 이벤트 위임 1개로 카드 개수와 무관하게 리스너를 최소화한다(성능 개선 기준).
+  listEl.querySelectorAll("[data-card-action]").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      handleCardAction(btn.dataset.cardAction, btn.dataset.id);
     });
   });
 }
@@ -303,7 +416,7 @@ async function renderLibraryList() {
     return;
   }
   emptyEl.classList.add("hidden");
-  listEl.innerHTML = buildPostListHtml(latestPosts);
+  listEl.innerHTML = buildPostListHtml(latestPosts, { rich: false });
   bindPostListClicks(listEl);
 }
 
@@ -318,7 +431,7 @@ function renderBoardPopupList() {
     return;
   }
   emptyEl.classList.add("hidden");
-  listEl.innerHTML = buildPostListHtml(posts);
+  listEl.innerHTML = buildPostListHtml(posts, { rich: true });
   bindPostListClicks(listEl);
 }
 

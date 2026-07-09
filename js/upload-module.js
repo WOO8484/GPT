@@ -384,6 +384,40 @@ const UploadModule = (() => {
     return { success: true, isMasterBundle: false };
   }
 
+  // 업로드 결과 요약/오류 원인 표시 강화용: 실패 사유를 짧고 바로 이해할 수
+  // 있는 문구로 정리한다(원본 reason 문자열도 함께 반환해 필요하면 그대로
+  // 쓸 수 있게 한다).
+  function shortFailureReason(reason) {
+    if (!reason) return "알 수 없는 오류";
+    if (reason.indexOf("metadata.json") !== -1 && reason.indexOf("형식 오류") !== -1) return "metadata.json 형식 오류";
+    if (reason.indexOf("metadata.json") !== -1) return "metadata.json 없음";
+    if (reason.indexOf("content.html") !== -1) return "content.html 없음";
+    if (reason.indexOf("열 수 없습니다") !== -1) return "개별 ZIP 열기 실패";
+    return reason;
+  }
+
+  // 카테고리(또는 단일 ZIP) 안에서 어떤 파일이 빠졌는지 짧은 라벨 목록으로
+  // 정리한다(업로드 ZIP 검증기 강화). 필수(metadata.json/content.html)가
+  // 아니라도 선택 항목이 없으면 "OO 없음"으로 목록에 넣는다.
+  function buildMissingFilesList(scan, imgFiles) {
+    const missing = [];
+    if (!scan.metadata) missing.push("metadata.json 없음");
+    if (!scan.html) missing.push("content.html 없음");
+    if (!(scan.markdown && scan.markdown.trim()) && !(scan.text && scan.text.trim())) {
+      missing.push("content.md/content.txt 없음");
+    }
+    if (!(scan.selectedTopicMd && scan.selectedTopicMd.trim())) missing.push("selected_topic.md 없음");
+    if (!(scan.naverTagsTxt && scan.naverTagsTxt.trim())) missing.push("naver_tags.txt 없음");
+
+    const files = imgFiles || {};
+    const hasThumbnail = Object.values(files).some((img) => img.role === "thumbnail");
+    if (!hasThumbnail) missing.push("thumbnail.png 없음");
+    const bodyCount = Object.values(files).filter((img) => img.role.indexOf("body-") === 0).length;
+    if (bodyCount === 0) missing.push("본문 이미지 없음");
+
+    return missing;
+  }
+
   function buildScanChecklist(scan, imgFiles) {
     const bodyCount = Object.values(imgFiles).filter((img) => img.role.indexOf("body-") === 0).length;
     const hasThumbnail = Object.values(imgFiles).some((img) => img.role === "thumbnail");
@@ -414,21 +448,70 @@ const UploadModule = (() => {
     if (isMasterBundle) {
       // 전체 묶음 ZIP: 카테고리별로 각각의 체크리스트를 돌려준다. 화면(신규 UI)에서
       // 9개를 나열해서 보여줄 수 있게 원자료를 그대로 제공한다.
+      const categoryResults = masterCategoryResults.map((r) => {
+        if (!r.scan.success) {
+          return {
+            num: r.num,
+            categoryName: r.categoryName,
+            fileName: r.fileName,
+            ok: false,
+            status: "실패",
+            reason: shortFailureReason(r.scan.reason),
+            missingFiles: [],
+            title: "",
+            naverTagsCount: 0,
+            imageCount: 0,
+            hasThumbnail: false,
+            hasSelectedTopic: false,
+            checklist: [],
+          };
+        }
+        const imgFiles = r.scan.imageFiles || {};
+        const missingFiles = buildMissingFilesList(r.scan, imgFiles);
+        const naverTagsCheck = checkNaverTagsClean(r.scan.naverTagsTxt);
+        return {
+          num: r.num,
+          categoryName: r.categoryName,
+          fileName: r.fileName,
+          ok: missingFiles.length === 0,
+          status: missingFiles.length === 0 ? "성공" : "경고",
+          reason: null,
+          missingFiles,
+          title: (r.scan.metadata && r.scan.metadata.title) || "",
+          naverTagsCount: naverTagsCheck.checked
+            ? r.scan.naverTagsTxt.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).length
+            : 0,
+          imageCount: Object.keys(imgFiles).length,
+          hasThumbnail: Object.values(imgFiles).some((img) => img.role === "thumbnail"),
+          hasSelectedTopic: !!(r.scan.selectedTopicMd && r.scan.selectedTopicMd.trim()),
+          checklist: buildScanChecklist(r.scan, imgFiles),
+        };
+      });
+
+      // 업로드 결과 요약 패널용 집계(전체/성공/경고·누락/실패 등).
+      const successCount = categoryResults.filter((r) => r.ok).length;
+      const warnCount = categoryResults.filter((r) => r.status === "경고").length;
+      const failCount = categoryResults.filter((r) => r.status === "실패").length;
+      const thumbnailOkCount = categoryResults.filter((r) => r.hasThumbnail).length;
+      const naverTagsOkCount = categoryResults.filter((r) => r.naverTagsCount > 0).length;
+      const selectedTopicOkCount = categoryResults.filter((r) => r.hasSelectedTopic).length;
+
       return {
         isMasterBundle: true,
         requiredFilesOk,
         failReason,
         zipFileName: loadedZipFileName,
         categoryCount: masterCategoryResults.length,
-        categoryResults: masterCategoryResults.map((r) => ({
-          num: r.num,
-          categoryName: r.categoryName,
-          fileName: r.fileName,
-          ok: r.scan.success,
-          reason: r.scan.success ? null : r.scan.reason,
-          title: r.scan.success ? (r.scan.metadata && r.scan.metadata.title) || "" : "",
-          checklist: r.scan.success ? buildScanChecklist(r.scan, r.scan.imageFiles) : [],
-        })),
+        categoryResults,
+        summary: {
+          totalCount: categoryResults.length,
+          successCount,
+          warnCount,
+          failCount,
+          thumbnailOkCount,
+          naverTagsOkCount,
+          selectedTopicOkCount,
+        },
       };
     }
 
@@ -453,9 +536,10 @@ const UploadModule = (() => {
     return {
       isMasterBundle: false,
       requiredFilesOk,
-      failReason,
+      failReason: requiredFilesOk ? null : shortFailureReason(failReason),
       zipFileName: loadedZipFileName,
       checklist,
+      missingFiles: requiredFilesOk ? buildMissingFilesList(scanShape, imageFiles) : [],
       unresolvedImageRefs: unresolved,
       top5CandidateCount: Object.keys(loadedTop5Candidates).length,
       naverTagsCheck: checkNaverTagsClean(loadedNaverTagsTxt),

@@ -190,30 +190,61 @@ const UploadConfirmModule = (() => {
 
   // 카테고리별 TOP1 전체 묶음 ZIP: 9개(또는 인식된 개수) 카테고리를 나열한다.
   // 개별 실패(scan 실패)도 그대로 보여주되, 저장은 성공한 카테고리만 진행한다.
+  // 업로드 결과 요약 패널(신규): 전체/성공/경고/실패 개수와 썸네일·네이버 태그·
+  // selected_topic 확인 개수를 한눈에 보여준 뒤, 카테고리별로 상태/누락 파일/
+  // TOP1 제목/네이버 태그 개수/이미지 개수를 나열한다. 저장은 여전히 "성공"
+  // 또는 "경고"(필수 파일은 있지만 선택 항목 일부 누락) 카테고리만 진행된다.
   function renderMasterList(checkStatus) {
     const { masterList } = els();
     if (!masterList) return;
     const results = checkStatus.categoryResults || [];
-    const successCount = results.filter((r) => r.ok).length;
+    const summary = checkStatus.summary || {};
+
+    const summaryHtml = `
+      <div class="upload-summary-panel">
+        <div class="upload-summary-panel__title">📊 업로드 결과 요약</div>
+        <div class="upload-summary-grid">
+          <div><span class="upload-summary-num">${summary.totalCount || 0}</span><span class="upload-summary-label">전체 카테고리</span></div>
+          <div><span class="upload-summary-num upload-summary-num--ok">${summary.successCount || 0}</span><span class="upload-summary-label">성공</span></div>
+          <div><span class="upload-summary-num upload-summary-num--warn">${summary.warnCount || 0}</span><span class="upload-summary-label">경고(일부 누락)</span></div>
+          <div><span class="upload-summary-num upload-summary-num--fail">${summary.failCount || 0}</span><span class="upload-summary-label">실패</span></div>
+          <div><span class="upload-summary-num">${summary.thumbnailOkCount || 0}</span><span class="upload-summary-label">썸네일 확인</span></div>
+          <div><span class="upload-summary-num">${summary.naverTagsOkCount || 0}</span><span class="upload-summary-label">네이버 태그 확인</span></div>
+          <div><span class="upload-summary-num">${summary.selectedTopicOkCount || 0}</span><span class="upload-summary-label">selected_topic 확인</span></div>
+        </div>
+      </div>`;
+
+    const stateClassOf = (r) => {
+      if (r.status === "성공") return "check-item__status--ok";
+      if (r.status === "경고") return "check-item__status--warn";
+      return "check-item__status--missing";
+    };
 
     const rows = results
       .map((r) => {
-        const stateClass = r.ok ? "check-item__status--ok" : "check-item__status--missing";
-        const stateLabel = r.ok ? "인식됨" : "실패";
-        const titleLine = r.ok
-          ? `<div class="detail-row__value">${escapeHtml(r.title || r.fileName)}</div>`
-          : `<div class="detail-row__value notice-text notice-text--warning">${escapeHtml(r.reason || "인식 실패")}</div>`;
+        const detailLines = [];
+        if (r.ok || r.status === "경고") {
+          detailLines.push(`<div class="detail-row__value">TOP1 제목: ${escapeHtml(r.title || "(제목 없음)")}</div>`);
+          detailLines.push(`<div class="detail-row__value">네이버 태그 ${r.naverTagsCount || 0}개 · 이미지 ${r.imageCount || 0}개</div>`);
+        }
+        if (r.missingFiles && r.missingFiles.length) {
+          detailLines.push(`<div class="detail-row__value notice-text notice-text--warning">누락: ${escapeHtml(r.missingFiles.join(", "))}</div>`);
+        }
+        if (!r.ok && r.status === "실패") {
+          detailLines.push(`<div class="detail-row__value notice-text notice-text--warning">${escapeHtml(r.reason || "인식 실패")}</div>`);
+        }
         return `
           <li class="check-item">
             <span>${escapeHtml(r.categoryName)}<br/><span class="detail-row__label">${escapeHtml(r.fileName)}</span></span>
-            <span class="check-item__status ${stateClass}">${stateLabel}</span>
+            <span class="check-item__status ${stateClassOf(r)}">${escapeHtml(r.status)}</span>
           </li>
-          ${titleLine}`;
+          ${detailLines.join("")}`;
       })
       .join("");
 
     masterList.innerHTML = `
-      <p class="notice-text">전체 묶음 ZIP 안에서 카테고리 ${results.length}개 중 ${successCount}개를 정상 인식했습니다.<br/>인식된 ${successCount}개가 각각 게시판 글 1개로 저장됩니다.</p>
+      ${summaryHtml}
+      <p class="notice-text">인식된 ${summary.successCount || 0}개(성공)와 ${summary.warnCount || 0}개(경고)가 각각 게시판 글 1개로 저장됩니다. 실패한 카테고리는 저장되지 않습니다.</p>
       <ul class="check-list">${rows}</ul>
     `;
   }
@@ -227,8 +258,9 @@ const UploadConfirmModule = (() => {
     masterList.classList.remove("hidden");
     renderMasterList(checkStatus);
     if (saveBtn) {
-      const successCount = (checkStatus.categoryResults || []).filter((r) => r.ok).length;
-      saveBtn.textContent = `게시판에 ${successCount}개 저장`;
+      const results = checkStatus.categoryResults || [];
+      const savableCount = results.filter((r) => r.status === "성공" || r.status === "경고").length;
+      saveBtn.textContent = `게시판에 ${savableCount}개 저장`;
     }
   }
 
