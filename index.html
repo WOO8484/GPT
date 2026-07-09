@@ -262,9 +262,6 @@
         <div class="naver-field"><span class="naver-field__label">제목</span><span id="naver-field-title" class="naver-field__value"></span></div>
         <div class="naver-field"><span class="naver-field__label">공식 링크</span><span id="naver-field-links" class="naver-field__value"></span></div>
 
-        <div class="popup-subheading">이미지 직접 업로드 안내</div>
-        <p class="notice-text">네이버 블로그는 이미지를 직접 업로드하는 방식으로 사용하세요.<br />ZIP 안의 images 폴더에서 thumbnail.png와 body 이미지를 순서대로 업로드하세요.<br />thumbnail.png는 대표 이미지, body-01~04는 본문 설명 이미지입니다.</p>
-
         <div class="popup-subheading">복사</div>
         <div class="naver-copy-grid">
           <button id="naver-copy-title-btn" class="btn btn--ghost btn--compact" type="button">제목 복사</button>
@@ -272,9 +269,28 @@
           <button id="naver-copy-board-category-btn" class="btn btn--ghost btn--compact" type="button">게시판/주제분류 복사</button>
           <button id="naver-copy-tag-location-btn" class="btn btn--ghost btn--compact" type="button">태그/지역 복사</button>
           <button id="naver-copy-links-btn" class="btn btn--ghost btn--compact" type="button">공식 링크 복사</button>
-          <button id="naver-copy-image-guide-btn" class="btn btn--ghost btn--compact" type="button">이미지 업로드 안내</button>
+          <button id="naver-image-list-open-btn" class="btn btn--ghost btn--compact" type="button">이미지 목록</button>
         </div>
         <div id="naver-copy-result" class="notice-text naver-copy-result"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 네이버 이미지 팝업 최종 정리(이미지 관련 UI만 정리): 안내문/저장/크게보기 없이
+       "이미지 목록 팝업" + 이미지마다 [이미지 열기] 버튼 하나만 둔다.
+       naver-copy-module.js가 post.imageFiles(썸네일→본문 이미지 순서)를 기준으로
+       동적으로 목록을 채운다(본문 이미지 개수 고정하지 않음). 이미지 저장/다운로드/
+       사진앱 저장 안내는 만들지 않으며, [이미지 열기]는 이미지를 단독 화면(새 창)으로
+       열기만 한다. 중앙 팝업 구조를 그대로 재사용한다(전체 화면 스크롤 구조로 변경 없음). -->
+  <div id="popup-naver-image-list-overlay" class="popup-overlay">
+    <div class="popup-panel popup-panel--fixed">
+      <div class="popup-panel__header">
+        <h2>🖼 이미지 목록</h2>
+        <button id="naver-image-list-close-btn" class="popup-close-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="popup-panel__scroll popup-panel__scroll--noscroll">
+        <div id="naver-image-list-body"></div>
+        <div id="naver-image-list-empty" class="notice-text hidden">표시할 이미지가 없습니다.</div>
       </div>
     </div>
   </div>

@@ -1,5 +1,5 @@
 /**
- * naver-copy-module.js (v1.6.2 신규 → v6.9 지시문 반영으로 metadata 표시 보정)
+ * naver-copy-module.js (v1.6.2 신규 → v6.9 지시문 반영 → 네이버 이미지 팝업 최종 정리)
  *
  * 역할:
  * - 네이버는 자동 저장/발행 대상이 아니다. 이 모듈은 게시판에서 선택된 글의
@@ -7,6 +7,12 @@
  *   확인하고 클립보드로 "수동 복사"만 한다.
  * - v6.9 반영: 항목이 많아져 메인 화면에는 상태 + 여는 버튼만 두고, 실제 항목
  *   표시/복사는 팝업(#popup-naver-copy-overlay) 안에서 처리한다.
+ * - 네이버 이미지 팝업 최종 정리: "이미지 업로드 안내" 문구/버튼을 없애고,
+ *   대신 "이미지 목록 팝업"(#popup-naver-image-list-overlay)에서 썸네일 →
+ *   본문 이미지 순서로 미리보기를 보여주고, 이미지마다 [이미지 열기] 버튼
+ *   하나만 둔다(저장/다운로드/크게보기 없음, 새 창에서 단독 표시만 한다).
+ *   본문 이미지 개수는 고정하지 않고 post.imageFiles의 role(썸네일/본문 번호)
+ *   기준으로 동적으로 표시한다.
  *
  * 금지 사항 준수(변경 없음):
  * - 네이버 자동 저장/임시저장/발행을 구현하지 않는다.
@@ -54,9 +60,20 @@ const NaverCopyModule = (() => {
       boardCategoryBtn: document.getElementById("naver-copy-board-category-btn"),
       tagLocationBtn: document.getElementById("naver-copy-tag-location-btn"),
       linksBtn: document.getElementById("naver-copy-links-btn"),
-      imageGuideBtn: document.getElementById("naver-copy-image-guide-btn"),
 
       resultEl: document.getElementById("naver-copy-result"),
+    };
+  }
+
+  // 이미지 목록 팝업 전용 DOM(네이버 이미지 팝업 최종 정리). 안내문/저장/크게보기
+  // 없이 "이미지 목록 팝업" + 이미지마다 [이미지 열기] 버튼 하나만 사용한다.
+  function imageListEls() {
+    return {
+      openBtn: document.getElementById("naver-image-list-open-btn"),
+      closeBtn: document.getElementById("naver-image-list-close-btn"),
+      overlay: document.getElementById("popup-naver-image-list-overlay"),
+      bodyEl: document.getElementById("naver-image-list-body"),
+      emptyEl: document.getElementById("naver-image-list-empty"),
     };
   }
 
@@ -240,14 +257,119 @@ const NaverCopyModule = (() => {
     });
   }
 
-  function handleCopyImageGuide() {
-    const { resultEl } = els();
-    const guide = [
-      "네이버 블로그는 이미지를 직접 업로드하는 방식으로 사용하세요.",
-      "ZIP 안의 images 폴더에서 thumbnail.png와 body 이미지를 순서대로 업로드하세요.",
-      "thumbnail.png는 대표 이미지, body-01~04는 본문 설명 이미지입니다.",
-    ].join("\n");
-    copyText(guide, resultEl, "이미지 업로드 안내");
+  // post.imageFiles({ baseNameLower: { fileName, dataUrl, role, ... } })에서
+  // role 기준(썸네일 → 본문 이미지 번호 순)으로 정렬한다. 이는 upload-module.js가
+  // ZIP 내부 파일명 매칭 순서로 이미 분류해둔 값이라 별도 재파싱 없이 그대로
+  // "ZIP 내부 매칭 순서" 기준을 만족한다. thumbnail/body- 외의 이미지(extra)는
+  // 이미지 목록 팝업 대상에서 제외한다(썸네일/본문 설명 이미지만 노출).
+  function getOrderedImages(post) {
+    const files = (post && post.imageFiles) || {};
+    const list = Object.values(files).filter((img) => img && (img.role === "thumbnail" || /^body-\d+$/.test(img.role)));
+
+    list.sort((a, b) => {
+      if (a.role === "thumbnail" && b.role !== "thumbnail") return -1;
+      if (b.role === "thumbnail" && a.role !== "thumbnail") return 1;
+      if (a.role === "thumbnail" && b.role === "thumbnail") return 0;
+      const aNum = parseInt(a.role.slice(5), 10) || 0;
+      const bNum = parseInt(b.role.slice(5), 10) || 0;
+      return aNum - bNum;
+    });
+
+    let bodyIndex = 0;
+    return list.map((img) => {
+      let label;
+      if (img.role === "thumbnail") {
+        label = "썸네일 미리보기";
+      } else {
+        bodyIndex += 1;
+        label = `본문 이미지 ${bodyIndex} 미리보기`;
+      }
+      return { label, dataUrl: img.dataUrl, fileName: img.fileName };
+    });
+  }
+
+  // [이미지 열기]: 저장/다운로드가 아니라 단독 화면(새 창)으로 보여주기만 한다.
+  // 팝업 차단 등으로 새 창을 못 열면 같은 데이터를 새 탭으로 직접 여는 것으로 대체한다.
+  function openImage(dataUrl, fileName) {
+    if (!dataUrl) return;
+    try {
+      const win = window.open("", "_blank");
+      if (win && win.document) {
+        win.document.title = fileName || "이미지";
+        win.document.body.style.margin = "0";
+        win.document.body.style.background = "#111";
+        const img = win.document.createElement("img");
+        img.src = dataUrl;
+        img.alt = fileName || "이미지";
+        img.style.display = "block";
+        img.style.maxWidth = "100%";
+        img.style.height = "auto";
+        img.style.margin = "0 auto";
+        win.document.body.appendChild(img);
+        return;
+      }
+    } catch (error) {
+      // 아래 fallback으로 진행
+    }
+    window.open(dataUrl, "_blank");
+  }
+
+  function renderImageList() {
+    const { bodyEl, emptyEl } = imageListEls();
+    if (!bodyEl) return;
+
+    const post = getSelectedPost();
+    const images = getOrderedImages(post);
+
+    bodyEl.innerHTML = "";
+
+    if (!images.length) {
+      if (emptyEl) emptyEl.classList.remove("hidden");
+      return;
+    }
+    if (emptyEl) emptyEl.classList.add("hidden");
+
+    images.forEach((image) => {
+      const item = document.createElement("div");
+      item.className = "naver-image-item";
+
+      const thumb = document.createElement("img");
+      thumb.className = "naver-image-item__thumb";
+      thumb.src = image.dataUrl;
+      thumb.alt = image.label;
+
+      const label = document.createElement("div");
+      label.className = "naver-image-item__label";
+      label.textContent = image.label;
+
+      const openImgBtn = document.createElement("button");
+      openImgBtn.type = "button";
+      openImgBtn.className = "btn btn--ghost btn--compact naver-image-item__open-btn";
+      openImgBtn.textContent = "이미지 열기";
+      openImgBtn.addEventListener("click", () => openImage(image.dataUrl, image.fileName));
+
+      const info = document.createElement("div");
+      info.className = "naver-image-item__info";
+      info.appendChild(label);
+      info.appendChild(openImgBtn);
+
+      item.appendChild(thumb);
+      item.appendChild(info);
+      bodyEl.appendChild(item);
+    });
+  }
+
+  function openImageListPopup() {
+    const { overlay } = imageListEls();
+    if (!overlay) return;
+    renderImageList();
+    overlay.classList.add("popup-overlay--open");
+  }
+
+  function closeImageListPopup() {
+    const { overlay } = imageListEls();
+    if (!overlay) return;
+    overlay.classList.remove("popup-overlay--open");
   }
 
   function handleLifecycle(eventName) {
@@ -273,13 +395,17 @@ const NaverCopyModule = (() => {
 
     const {
       statusEl, openBtn, closeBtn, overlay,
-      titleBtn, bodyBtn, boardCategoryBtn, tagLocationBtn, linksBtn, imageGuideBtn,
+      titleBtn, bodyBtn, boardCategoryBtn, tagLocationBtn, linksBtn,
       resultEl,
     } = els();
+    const {
+      openBtn: imageListOpenBtn, closeBtn: imageListCloseBtn, overlay: imageListOverlay,
+    } = imageListEls();
 
     // 표시 대상 DOM이 하나라도 없으면 조용히 종료(예외를 던지지 않음).
     if (!statusEl || !openBtn || !closeBtn || !overlay || !titleBtn || !bodyBtn
-      || !boardCategoryBtn || !tagLocationBtn || !linksBtn || !imageGuideBtn || !resultEl) {
+      || !boardCategoryBtn || !tagLocationBtn || !linksBtn || !resultEl
+      || !imageListOpenBtn || !imageListCloseBtn || !imageListOverlay) {
       return;
     }
 
@@ -292,7 +418,9 @@ const NaverCopyModule = (() => {
       boardCategoryBtn.addEventListener("click", handleCopyBoardCategory);
       tagLocationBtn.addEventListener("click", handleCopyTagLocation);
       linksBtn.addEventListener("click", handleCopyLinks);
-      imageGuideBtn.addEventListener("click", handleCopyImageGuide);
+
+      imageListOpenBtn.addEventListener("click", openImageListPopup);
+      imageListCloseBtn.addEventListener("click", closeImageListPopup);
 
       if (window.GptCoreAPI && typeof GptCoreAPI.registerLifecycleListener === "function") {
         GptCoreAPI.registerLifecycleListener("naver-copy-module", handleLifecycle);

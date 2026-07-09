@@ -369,6 +369,43 @@
   word-break: break-word;
 }
 
+/* 네이버 이미지 팝업 최종 정리: 이미지 목록 팝업 항목(썸네일/본문 이미지 공통).
+   저장/크게보기 버튼 없이 미리보기 + [이미지 열기] 하나만 배치한다. */
+.naver-image-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.naver-image-item__thumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background-color: #f2f2f2;
+}
+
+.naver-image-item__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.naver-image-item__label {
+  font-size: 12.5px;
+  color: var(--color-text-soft);
+}
+
+.naver-image-item__open-btn {
+  align-self: flex-start;
+}
+
 /* ---------- 상세/미리보기 공통 ---------- */
 .detail-row {
   display: flex;
