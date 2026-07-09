@@ -57,22 +57,6 @@
   background-color: #f7d7d3;
 }
 
-/* v1.2: 패널 헤더 안에 들어가는 작은 보조 버튼(전체 게시판 등) */
-.panel-header-btn {
-  flex-shrink: 0;
-  min-height: 30px;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-primary-dark);
-  background-color: var(--color-primary-bg);
-}
-
-.panel-header-btn:active {
-  opacity: 0.8;
-}
-
 /* ---------- 입력 ---------- */
 .input-text {
   width: 100%;
@@ -228,63 +212,6 @@
 .status-badge--pending {
   color: var(--color-text-soft);
   background-color: var(--color-bg-soft);
-}
-
-/* 카테고리별 TOP1 전체 묶음 ZIP에서 등록된 글의 카테고리명 표시(신규) */
-.status-badge--category {
-  color: var(--color-primary);
-  background-color: var(--color-primary-bg, var(--color-bg-soft));
-}
-
-/* ---------- 게시판 목록(클래스명은 기존 구조를 유지하기 위해 library-* 그대로 사용) ---------- */
-.library-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.library-item {
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 12px 14px;
-  background-color: var(--color-bg);
-}
-
-.library-item--selected {
-  border-color: var(--color-primary);
-  background-color: var(--color-primary-bg);
-}
-
-.library-item:active {
-  background-color: var(--color-bg-soft);
-}
-
-/* v1.6 레이아웃 실기보정(9-3): 제목이 길 때 1줄로 강제 자르지 않고 최대 2줄까지
-   보여준 뒤 말줄임 처리한다(iOS Safari가 지원하는 -webkit-line-clamp 사용).
-   그 이상 길어져 카드가 max-height를 넘으면 panel__body--scroll의 기존 내부
-   스크롤로 흡수된다(잘림이 아니라 스크롤). */
-.library-item__title {
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--color-text);
-  margin-bottom: 4px;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-
-/* v1.6.2(13장): 날짜/상태 배지가 한 줄 강제(nowrap)+말줄임(ellipsis)으로
-   잘려 보이던 문제를 보정한다. 폭이 좁으면 줄바꿈으로 전체 내용을 다
-   보여주고(잘림 없음), 카드 높이는 내용에 따라 자동으로 늘어난다. */
-.library-item__meta {
-  font-size: 12px;
-  color: var(--color-text-soft);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
 }
 
 .archive-item--empty {
@@ -799,56 +726,17 @@
   margin: 0;
 }
 
-/* ---------- 업로드 결과 요약 패널(전체 묶음 ZIP 업로드 시) ---------- */
-.upload-summary-panel {
-  background-color: var(--color-bg-soft);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin-bottom: 10px;
-}
-
-.upload-summary-panel__title {
-  font-size: 13px;
+/* ---------- 업로드 결과 카드(v1.8.6 업로드 다이어트: 성공/실패만 표시) ---------- */
+.upload-result-summary {
+  font-size: 14px;
   font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.upload-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.upload-summary-grid > div {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   text-align: center;
+  padding: 8px 0;
 }
 
-.upload-summary-num {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.upload-summary-num--ok {
-  color: var(--color-success);
-}
-
-.upload-summary-num--warn {
-  color: var(--color-warn);
-}
-
-.upload-summary-num--fail {
-  color: var(--color-danger);
-}
-
-.upload-summary-label {
-  font-size: 10.5px;
-  color: var(--color-text-soft);
-  margin-top: 2px;
+.upload-result-list {
+  max-height: 260px;
+  overflow-y: auto;
 }
 
 /* ---------- 네이버 복사 체크리스트(제목/본문/태그/이미지 다운로드 완료 표시) ---------- */
@@ -895,53 +783,91 @@
   margin-top: 2px;
 }
 
-/* ---------- 게시판 카드 보기 정리(썸네일/미리보기/개수/버튼) ---------- */
-.library-item__thumb {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  object-fit: cover;
-  flex-shrink: 0;
-  background-color: var(--color-bg-soft);
-  border: 1px solid var(--color-border);
-}
-
-.library-item__row {
+/* ---------- 게시판 재구성(v1.8.6): 고정형 선택 리스트 + 선택 글 정보창 ---------- */
+.board-select-list {
   display: flex;
-  gap: 10px;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 300px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.library-item__body {
-  flex: 1;
-  min-width: 0;
-}
-
-.library-item__preview {
-  font-size: 12px;
-  color: var(--color-text-soft);
-  margin-top: 2px;
+.board-select-list__item {
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--color-text);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.library-item__counts {
+.board-select-list__item[data-id] {
+  cursor: pointer;
+}
+
+.board-select-list__item[data-id]:active {
+  background-color: var(--color-bg-soft);
+}
+
+.board-select-list__item--selected {
+  background-color: var(--color-primary-bg);
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+.board-select-list__item--empty {
+  color: var(--color-text-soft);
+  opacity: 0.6;
+}
+
+.board-selected-info {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.board-selected-info__label {
   font-size: 11px;
   color: var(--color-text-soft);
-  margin-top: 2px;
+  margin-bottom: 2px;
 }
 
-.library-item__actions {
+.board-selected-info__category {
+  font-size: 12px;
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+.board-selected-info__title {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-text);
+  margin: 2px 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.board-selected-info__summary {
+  font-size: 12px;
+  color: var(--color-text-soft);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.board-selected-info__actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   margin-top: 8px;
 }
 
-.library-item__actions .btn {
-  font-size: 11.5px;
-  padding: 5px 8px;
-  min-height: 30px;
-  flex: 1 1 auto;
+.board-selected-info__actions .btn {
+  flex: 1;
+  min-width: 0;
 }

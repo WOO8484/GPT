@@ -144,14 +144,6 @@
   color: var(--color-text-soft);
 }
 
-/* v1.2: 게시판 패널 헤더처럼 제목 옆에 보조 버튼(전체 게시판 등)이 붙는 경우 */
-.panel__header--row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
 .panel__body {
   flex: 1;
   min-height: 0;
@@ -161,8 +153,8 @@
   overflow: hidden;
 }
 
-/* 내부 스크롤 허용 영역(예외): 게시판 목록 내부 / 팝업 내부(미리보기·전체 게시판 등) / 오류 목록 내부 */
-.panel__body--scroll,
+/* 내부 스크롤 허용 영역(예외): 팝업 내부(미리보기 등) / 오류 목록 내부.
+   게시판 목록은 .board-select-list 자체가 필요할 때만 내부 스크롤을 갖는다. */
 .popup-panel__scroll {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
